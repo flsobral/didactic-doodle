@@ -78,6 +78,14 @@ Record unexpected implementation facts here.
   Rationale: Vello and winit may require Rust integration and should not complicate the default C build.
   Date/Author: Initial ExecPlan.
 
+- Decision: Support the pinned TotalCross Skia release as an external, non-vendored dependency.
+  Rationale: The release supplies the headers and platform static libraries needed to prove the CPU vertical slice without adding large generated binaries to the repository. `scripts/fetch-totalcross-skia.sh` downloads it into an ignored cache and `TC_SKIA_ROOT` makes the selection explicit.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Keep the SDL event/frame loop in the SDL backend rather than `tc_app_run`.
+  Rationale: Application and runtime APIs stay callback-oriented; a polling loop is strictly an adapter detail for SDL and can be replaced by native schedulers on callback-driven platforms.
+  Date/Author: 2026-07-13 / Codex.
+
 ## Outcomes & Retrospective
 
 The SDL3 + Skia CPU vertical slice is implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully and opened the demo window; its startup/shutdown log completed cleanly. Public headers passed standalone C11 syntax validation.
