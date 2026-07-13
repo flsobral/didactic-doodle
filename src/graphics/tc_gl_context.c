@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: LGPL-2.1-only
  */
 
-/* OpenGL is deliberately isolated behind TcGraphicsContext. The first GPU
- * implementation lands once the selected Skia package advertises Ganesh GL
- * support; configuration keeps CPU usable on every SDL3 + Skia installation. */
-#include "tc_internal.h"
+/* OpenGL requires a Skia build with Ganesh GL enabled. The pinned macOS
+ * archive does not include it, so CMake rejects TC_GRAPHICS=OPENGL. */
 int tc_gl_context_translation_unit_anchor(void) { return 0; }

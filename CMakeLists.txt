@@ -44,7 +44,7 @@ if(TC_PLATFORM STREQUAL "WEB" AND NOT TC_GRAPHICS STREQUAL "OPENGL")
   message(FATAL_ERROR "TC_PLATFORM=WEB currently requires -DTC_GRAPHICS=OPENGL.")
 endif()
 if(TC_GRAPHICS STREQUAL "OPENGL")
-  message(FATAL_ERROR "TC_GRAPHICS=OPENGL is reserved and its context adapter is not implemented yet. Select -DTC_GRAPHICS=CPU.")
+  message(FATAL_ERROR "TC_GRAPHICS=OPENGL requires a Skia build with the Ganesh GL backend (skia_use_gl=true). The pinned macOS TotalCross archive does not provide it; select CPU or supply a compatible Skia build.")
 endif()
 
 find_package(SDL3 CONFIG QUIET)
@@ -111,9 +111,6 @@ target_compile_definitions(tc_runtime PRIVATE
 
 add_executable(tc_demo examples/demo/demo_main.c examples/demo/demo_scene.c)
 target_link_libraries(tc_demo PRIVATE tc_runtime)
-if(UNIX AND NOT APPLE)
-  target_link_libraries(tc_demo PRIVATE m)
-endif()
 if(UNIX AND NOT APPLE)
   target_link_libraries(tc_demo PRIVATE m)
 endif()

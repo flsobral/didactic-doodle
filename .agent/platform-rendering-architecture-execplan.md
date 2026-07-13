@@ -52,6 +52,9 @@ Record unexpected implementation facts here.
 - Observation: the TotalCross Skia release supplies matching development headers and a macOS arm64 static library, with GPU enabled.
   Evidence: `libskia-macos-arm64.a`, `skia-dev-headers-158dc9d7.zip`, and its build manifest were downloaded from release `skia-158dc9d7-r3`.
 
+- Observation: GPU-enabled does not imply Skia OpenGL support on macOS.
+  Evidence: compiling `GrDirectContext::MakeGL()` against the downloaded macOS headers fails because that method is omitted; its build manifest has no `skia_use_gl=true` setting.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -84,6 +87,10 @@ Record unexpected implementation facts here.
 
 - Decision: Keep the SDL event/frame loop in the SDL backend rather than `tc_app_run`.
   Rationale: Application and runtime APIs stay callback-oriented; a polling loop is strictly an adapter detail for SDL and can be replaced by native schedulers on callback-driven platforms.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Reject the OpenGL selection until a Skia archive built with Ganesh GL is supplied.
+  Rationale: Leaving the option enabled would create an SDL GL context that cannot be rendered by the selected Skia artifact. The configure error states the exact `skia_use_gl=true` requirement.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective
