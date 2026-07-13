@@ -33,14 +33,13 @@ static SkCanvas* native(TcCanvas2D* canvas) { TcSkiaRenderer* r = impl(canvas); 
 static SkImageInfo raster_info(const TcGraphicsContext* context, int width, int height) { return SkImageInfo::Make(width, height, context->pixel_format == TC_CPU_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType, kPremul_SkAlphaType); }
 #if TC_BUILD_GRAPHICS_OPENGL
 static sk_sp<SkSurface> gl_surface(TcSkiaRenderer* state, TcGraphicsContext* context, int width, int height) {
-    GrGLint framebuffer = 0, stencil_bits = 0, sample_count = 0;
+    GrGLint framebuffer = context->framebuffer;
+    GrGLint stencil_bits = context->stencil_bits;
+    GrGLint sample_count = context->sample_count;
     state->gl_context->resetContext();
     sk_sp<const GrGLInterface> gl = GrGLMakeNativeInterface();
-    if (!gl || !gl->fFunctions.fGetIntegerv) return nullptr;
-    gl->fFunctions.fGetIntegerv(0x8CA6, &framebuffer);
-    gl->fFunctions.fGetIntegerv(0x0D57, &stencil_bits);
-    gl->fFunctions.fGetIntegerv(0x80A9, &sample_count);
-    context->framebuffer = framebuffer; context->stencil_bits = stencil_bits; context->sample_count = sample_count;
+    if (!gl || !gl->fFunctions.fBindFramebuffer) return nullptr;
+    gl->fFunctions.fBindFramebuffer(0x8D40, framebuffer);
     GrGLFramebufferInfo framebuffer_info = {(GrGLuint)framebuffer, 0x8058};
     GrBackendRenderTarget target(width, height, sample_count, stencil_bits, framebuffer_info);
     return SkSurface::MakeFromBackendRenderTarget(state->gl_context.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr);

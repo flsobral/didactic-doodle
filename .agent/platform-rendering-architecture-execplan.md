@@ -37,7 +37,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement Android native lifecycle/input/scheduling adapter with CPU and OpenGL ES graphics paths.
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
-- [x] Build the iOS NativeActivity-equivalent UIKit CPU demo bundle for the arm64 simulator.
+- [x] Build the iOS UIKit demo bundle for the arm64 simulator with CPU and OpenGL ES graphics paths.
 - [x] Implement OpenGL graphics context.
 - [x] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
@@ -94,6 +94,9 @@ Record unexpected implementation facts here.
 
 - Observation: the pinned Android Skia archive can render through EGL/OpenGL ES 3 on the API 34 arm64 emulator.
   Evidence: an APK built with `-PtcAndroidGraphics=OPENGL` logged `EGL 1.4 OpenGL ES 3 context created`; emulator logcat reported continuous `EGL_emulation` frame statistics and an `adb screencap` showed the animated generic Skia demo.
+
+- Observation: the iOS simulator Skia archive exports Ganesh OpenGL ES support, and its UIKit drawable uses a non-default framebuffer.
+  Evidence: `nm -gU libskia-ios-simulator-arm64.a | c++filt` exports `GrDirectContext::MakeGL(...)` and `GrGLMakeNativeInterface()`. An arm64 iPhone 16 simulator displayed the animated generic demo through an `EAGLContext`/`CAEAGLLayer` path after Skia was explicitly rebound to the context-owned framebuffer.
 
 ## Decision Log
 
@@ -170,13 +173,17 @@ Record unexpected implementation facts here.
   Rationale: the selected Skia build stores N32 pixels as RGBA. This preserves the generic top-left canvas coordinate system while avoiding a horizontal mirror and color-channel swaps in UIKit.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Offer the iOS simulator's OpenGL ES path through `TC_IOS_GRAPHICS=OPENGL`, while leaving CPU as the default and Metal as the future iOS GPU target.
+  Rationale: the selected archive and simulator validated the legacy EAGL/Ganesh path without exposing native types in the public API. OpenGL ES is deprecated on iOS, so it cannot replace the planned Metal backend.
+  Date/Author: 2026-07-13 / Codex.
+
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.
   Rationale: native CPU surfaces vary by backend. Keeping this implementation detail private prevents platform types from leaking into public APIs and avoids assuming Skia's N32 format matches every destination.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly.
+The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU and an arm64 simulator OpenGL ES path; the latter displayed the animated Skia demo through its `CAEAGLLayer` framebuffer.
 
 Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 

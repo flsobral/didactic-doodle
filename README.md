@@ -10,7 +10,7 @@ A small, C-first application runtime that keeps platform, scheduler, graphics, r
 
 ## Current status
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU and OpenGL graphics contexts, Skia adapters, and generic-canvas demo are implemented. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, mobile backends, GLFW, other renderers, Metal, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
+The public C API, event/frame runtime, SDL3 event adapter, CPU and OpenGL graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU and OpenGL ES 3; iOS UIKit supports CPU and an OpenGL ES simulator path. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, Metal, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
 
 ## Build the CPU demo
 
@@ -87,3 +87,21 @@ cd android
 The resulting signed debug artifact is `android/app/build/outputs/apk/debug/app-debug.apk`. It contains only `arm64-v8a`, matching the published Skia/libpng/zlib-ng archives.
 
 To build the OpenGL ES variant instead, pass `-PtcAndroidGraphics=OPENGL` to the same Gradle command. It creates an EGL/OpenGL ES 3 context and presents the Skia Ganesh surface through the Android native window.
+
+## iOS simulator demo
+
+The UIKit demo is driven by `CADisplayLink` and shares the generic Skia canvas scene. The CPU path is the default; the OpenGL ES path is available for simulator validation, although OpenGL ES is deprecated by Apple and Metal remains the intended iOS GPU backend.
+
+```sh
+cmake -S ios -B build-ios-sim-gl \
+  -DCMAKE_OSX_SYSROOT=iphonesimulator \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=18.5 \
+  -DTC_IOS_GRAPHICS=OPENGL \
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-ios-sim" \
+  -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-ios-sim" \
+  -DTC_ZLIB_NG_ROOT="$PWD/.cache/zlib-ng-ios-sim"
+cmake --build build-ios-sim-gl --parallel
+```
+
+Install and launch `build-ios-sim-gl/TCdemo.app` with `xcrun simctl install` and `xcrun simctl launch` for a booted arm64 simulator.
