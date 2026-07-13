@@ -36,6 +36,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement SDL3 + Skia CPU demo path.
 - [~] Implement Android native backend lifecycle/input/scheduling adapter; graphics integration awaits a GPU-capable Android Skia build.
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
+- [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
 - [ ] Implement OpenGL graphics context.
 - [ ] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
@@ -71,6 +72,9 @@ Record unexpected implementation facts here.
 
 - Observation: the matching TotalCross libpng archive was built against the corresponding zlib-ng prebuilt.
   Evidence: the libpng release describes that dependency and the Android `libz.a` archive is published by `zlib-ng-2.1.6-r2`.
+
+- Observation: Android Gradle Plugin attempted unsupported ABIs by default.
+  Evidence: it tried to link the arm64 Skia archive for `armeabi-v7a`, which failed. Restricting `abiFilters` to `arm64-v8a` produced a signed 6.8 MB debug APK verified with APK Signature Scheme v2.
 
 ## Decision Log
 
@@ -126,9 +130,13 @@ Record unexpected implementation facts here.
   Rationale: libpng was built against that zlib-ng release, so linking the matching pair makes the Android Skia dependency graph explicit and reproducible.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Limit the first APK to `arm64-v8a`.
+  Rationale: all three supplied prebuilt dependencies are arm64-v8a archives. Other Android ABIs must receive their own matching Skia, libpng, and zlib-ng artifacts before being enabled.
+  Date/Author: 2026-07-13 / Codex.
+
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU vertical slice is implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully and opened the demo window; its startup/shutdown log completed cleanly. Public headers passed standalone C11 syntax validation.
+The SDL3 + Skia CPU vertical slice is implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully and opened the demo window; its startup/shutdown log completed cleanly. Public headers passed standalone C11 syntax validation. The Android NativeActivity CPU demo is also packaged as a signed arm64-v8a API 24 debug APK.
 
 OpenGL and Web remain the next execution milestones. Their CMake selections deliberately fail clearly while their adapters are incomplete, avoiding an apparently successful but unusable build.
 

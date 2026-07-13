@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+# Copy values into ~/.gradle/gradle.properties or pass them with -P on Gradle's command line.
+tcSkiaRoot=/absolute/path/to/skia-android
+tcLibpngRoot=/absolute/path/to/libpng-android
+tcZlibNgRoot=/absolute/path/to/zlib-ng-android

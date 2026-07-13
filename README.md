@@ -61,3 +61,15 @@ cmake --build build-android-cpu
 ```
 
 This produces `build-android-cpu/libtc_demo_android.so`. The Gradle/NativeActivity project is under `android/`; APK packaging still requires a local Gradle installation or wrapper.
+
+Build the debug APK with the versioned Gradle Wrapper and the same dependency roots:
+
+```sh
+cd android
+./gradlew assembleDebug \
+  -PtcSkiaRoot="$PWD/../.cache/skia-android" \
+  -PtcLibpngRoot="$PWD/../.cache/libpng-android" \
+  -PtcZlibNgRoot="$PWD/../.cache/zlib-ng-android"
+```
+
+The resulting signed debug artifact is `android/app/build/outputs/apk/debug/app-debug.apk`. It contains only `arm64-v8a`, matching the published Skia/libpng/zlib-ng archives.
