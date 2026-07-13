@@ -69,6 +69,9 @@ Record unexpected implementation facts here.
 - Observation: the Android Skia archive requires companion libpng plus EGL/GLESv2 linkage even for the CPU raster demo.
   Evidence: the first shared-library link reported unresolved PNG and EGL/GLES symbols; linking the matching TotalCross `libpng-android-arm64-v8a` archive, `EGL`, and `GLESv2` produced `libtc_demo_android.so`.
 
+- Observation: the matching TotalCross libpng archive was built against the corresponding zlib-ng prebuilt.
+  Evidence: the libpng release describes that dependency and the Android `libz.a` archive is published by `zlib-ng-2.1.6-r2`.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -117,6 +120,10 @@ Record unexpected implementation facts here.
 
 - Decision: Use a Skia CPU raster buffer and copy it into `ANativeWindow` for the first Android demo.
   Rationale: it proves NativeActivity lifecycle, input, scheduling, the generic canvas API, and the reusable demo before selecting an Android GPU Skia backend.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Link the Android demo to pinned TotalCross libpng and zlib-ng archives rather than an NDK-provided zlib.
+  Rationale: libpng was built against that zlib-ng release, so linking the matching pair makes the Android Skia dependency graph explicit and reproducible.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective

@@ -48,12 +48,15 @@ The Android CPU demo reuses `examples/demo/demo_scene.c` and presents the Skia r
 ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-android" android-arm64-v8a
 curl -L -o /tmp/libpng-android.tar.gz https://github.com/TotalCross/totalcross-depot-tools/releases/download/libpng-1.6.48-r2/libpng-android-arm64-v8a.tar.gz
 mkdir -p .cache/libpng-android && tar -xzf /tmp/libpng-android.tar.gz -C .cache/libpng-android
+curl -L -o /tmp/zlib-ng-android.tar.gz https://github.com/TotalCross/totalcross-depot-tools/releases/download/zlib-ng-2.1.6-r2/zlib-ng-android-arm64-v8a.tar.gz
+mkdir -p .cache/zlib-ng-android && tar -xzf /tmp/zlib-ng-android.tar.gz -C .cache/zlib-ng-android
 
 cmake -S android/app/src/main/cpp -B build-android-cpu \
   -DCMAKE_TOOLCHAIN_FILE="$HOME/Library/Android/sdk/ndk/28.2.13676358/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 \
   -DTC_SKIA_ROOT="$PWD/.cache/skia-android" \
-  -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-android"
+  -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-android" \
+  -DTC_ZLIB_NG_ROOT="$PWD/.cache/zlib-ng-android"
 cmake --build build-android-cpu
 ```
 
