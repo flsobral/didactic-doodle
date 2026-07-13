@@ -34,6 +34,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement CPU graphics context.
 - [x] Implement Skia renderer through a C-compatible adapter.
 - [x] Implement SDL3 + Skia CPU demo path.
+- [~] Implement Android native backend lifecycle/input/scheduling adapter; graphics integration awaits a GPU-capable Android Skia build.
 - [ ] Implement OpenGL graphics context.
 - [ ] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
@@ -54,6 +55,12 @@ Record unexpected implementation facts here.
 
 - Observation: GPU-enabled does not imply Skia OpenGL support on macOS.
   Evidence: compiling `GrDirectContext::MakeGL()` against the downloaded macOS headers fails because that method is omitted; its build manifest has no `skia_use_gl=true` setting.
+
+- Observation: the matching TotalCross Android archive does not declare GPU, OpenGL ES, or Vulkan support.
+  Evidence: its `build_config_manifest-android-arm64-v8a.md` contains no `skia_enable_gpu=true`, `skia_use_gl`, or Vulkan setting. The local environment also has no Android NDK installed.
+
+- Observation: `AChoreographer` is only present from Android API 24.
+  Evidence: Android NDK API level documentation marks its frame-callback API as API 24+, while this runtime must support API 23.
 
 ## Decision Log
 
@@ -91,6 +98,14 @@ Record unexpected implementation facts here.
 
 - Decision: Reject the OpenGL selection until a Skia archive built with Ganesh GL is supplied.
   Rationale: Leaving the option enabled would create an SDL GL context that cannot be rendered by the selected Skia artifact. The configure error states the exact `skia_use_gl=true` requirement.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Implement Android platform lifecycle, pointer translation, and Choreographer scheduling independently from renderer integration.
+  Rationale: These NDK responsibilities are backend-specific and can be completed without leaking Android types into public headers. Android graphics remains unavailable until a compatible NDK and GPU-enabled Skia archive are supplied.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Keep API 23 compatibility by resolving `AChoreographer` dynamically and retaining an explicit frame-tick fallback.
+  Rationale: an API 23 binary must not import API 24 symbols. Newer devices receive vsync-driven callbacks; an Android launcher can drive `tc_android_backend_tick` from its native looper on API 23.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective

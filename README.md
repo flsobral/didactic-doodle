@@ -37,3 +37,5 @@ Alternatively, provide a Skia CMake package and set `CMAKE_PREFIX_PATH` (and `TC
 `TC_PLATFORM` accepts `DESKTOP`, `ANDROID`, `IOS`, and `WEB`; `TC_BACKEND` accepts `SDL`, `ANDROID_NATIVE`, `IOS_NATIVE`, `GLFW`, and `WINIT`; `TC_GRAPHICS` accepts `CPU`, `OPENGL`, `METAL`, and `VULKAN`; and `TC_RENDERER` accepts `SKIA`, `NANOVG`, `BLEND2D`, and `VELLO`.
 
 Only `DESKTOP + SDL + CPU + SKIA` is implemented today. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. OpenGL and the Emscripten demo remain the next milestones.
+
+The private Android-native adapter translates lifecycle and pointer events and is designed for an Android API 23 minimum. It dynamically uses `AChoreographer` only on API 24+; graphics integration remains unavailable until an Android GPU-enabled Skia archive is supplied.
