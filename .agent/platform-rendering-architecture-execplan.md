@@ -37,6 +37,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [~] Implement Android native backend lifecycle/input/scheduling adapter; graphics integration awaits a GPU-capable Android Skia build.
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
+- [x] Build the iOS NativeActivity-equivalent UIKit CPU demo bundle for the arm64 simulator.
 - [ ] Implement OpenGL graphics context.
 - [ ] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
@@ -75,6 +76,9 @@ Record unexpected implementation facts here.
 
 - Observation: Android Gradle Plugin attempted unsupported ABIs by default.
   Evidence: it tried to link the arm64 Skia archive for `armeabi-v7a`, which failed. Restricting `abiFilters` to `arm64-v8a` produced a signed 6.8 MB debug APK verified with APK Signature Scheme v2.
+
+- Observation: the iOS simulator Skia archive has an iOS 18.5 deployment floor.
+  Evidence: linking at iOS 17 emitted version warnings; compiling the UIKit bundle with an 18.5 simulator deployment target succeeded.
 
 ## Decision Log
 
@@ -132,6 +136,10 @@ Record unexpected implementation facts here.
 
 - Decision: Limit the first APK to `arm64-v8a`.
   Rationale: all three supplied prebuilt dependencies are arm64-v8a archives. Other Android ABIs must receive their own matching Skia, libpng, and zlib-ng artifacts before being enabled.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Implement the first iOS demo as a UIKit CPU-raster surface driven by `CADisplayLink`.
+  Rationale: it reuses the generic canvas scene and Skia raster adapter while keeping UIKit/CoreGraphics details in private Objective-C++ sources.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective

@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+cmake_minimum_required(VERSION 3.22)
+project(tc_demo_ios LANGUAGES C CXX OBJC OBJCXX)
+set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
+set(TC_SKIA_ROOT "" CACHE PATH "Unpacked iOS simulator Skia release")
+set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked iOS simulator libpng release")
+set(TC_ZLIB_NG_ROOT "" CACHE PATH "Unpacked iOS simulator zlib-ng release")
+if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" OR NOT EXISTS "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a" OR NOT EXISTS "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
+  message(FATAL_ERROR "Supply matching iOS-simulator-arm64 Skia, libpng, and zlib-ng roots.")
+endif()
+add_library(skia STATIC IMPORTED)
+set_target_properties(skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
+add_library(png STATIC IMPORTED)
+set_target_properties(png PROPERTIES IMPORTED_LOCATION "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a")
+add_library(zlib_ng STATIC IMPORTED)
+set_target_properties(zlib_ng PROPERTIES IMPORTED_LOCATION "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
+add_executable(TCdemo MACOSX_BUNDLE ${TC_ROOT}/examples/demo_ios/demo_ios_main.mm ${TC_ROOT}/examples/demo/demo_scene.c ${TC_ROOT}/src/graphics/tc_ios_cpu_context.mm ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
+target_include_directories(TCdemo PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/examples/demo)
+target_compile_features(TCdemo PRIVATE c_std_11 cxx_std_17)
+set_target_properties(TCdemo PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER com.totalcross.tcruntime MACOSX_BUNDLE_BUNDLE_NAME TCdemo MACOSX_BUNDLE_SHORT_VERSION_STRING 0.1 MACOSX_BUNDLE_BUNDLE_VERSION 1)
+target_link_libraries(TCdemo PRIVATE skia png zlib_ng "-framework UIKit" "-framework Foundation" "-framework CoreFoundation" "-framework QuartzCore" "-framework CoreGraphics" "-framework CoreText" "-framework ImageIO" "-framework Metal" "-framework OpenGLES")
