@@ -83,6 +83,9 @@ Record unexpected implementation facts here.
 - Observation: the iOS Skia raster surface is RGBA with a top-left origin, whereas the CoreGraphics image path needs explicit format and vertical-coordinate conversion.
   Evidence: the first simulator presentation was vertically inverted and red/blue-swizzled; `kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast` plus a saved vertical CGContext flip produced correctly oriented, correctly colored output.
 
+- Observation: SDL's macOS CPU window surface is BGRA while the selected Skia build's native N32 raster format is RGBA.
+  Evidence: the macOS demo reported `SDL_PIXELFORMAT_ARGB8888` (BGRA bytes on little-endian macOS) and showed the same red/blue channel swap previously observed on iOS; creating the Skia raster surface with the SDL surface's explicit pixel format removes the mismatch.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -147,6 +150,10 @@ Record unexpected implementation facts here.
 
 - Decision: Present the iOS Skia CPU buffer as a big-endian, premultiplied-last CoreGraphics image and flip only the drawing context's vertical axis.
   Rationale: the selected Skia build stores N32 pixels as RGBA. This preserves the generic top-left canvas coordinate system while avoiding a horizontal mirror and color-channel swaps in UIKit.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.
+  Rationale: native CPU surfaces vary by backend. Keeping this implementation detail private prevents platform types from leaking into public APIs and avoids assuming Skia's N32 format matches every destination.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective

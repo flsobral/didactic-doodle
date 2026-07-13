@@ -18,13 +18,14 @@ static SkColor4f color(TcColor c) { return {c.r, c.g, c.b, c.a}; }
 static SkPaint paint(TcPaint value) { SkPaint p; p.setColor4f(color(value.color), nullptr); p.setStyle(value.style == TC_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); p.setStrokeWidth(value.stroke_width); p.setAntiAlias(true); return p; }
 static TcSkiaRenderer* impl(TcCanvas2D* canvas) { return canvas ? static_cast<TcSkiaRenderer*>(canvas->implementation) : nullptr; }
 static SkCanvas* native(TcCanvas2D* canvas) { TcSkiaRenderer* r = impl(canvas); return r && r->surface ? r->surface->getCanvas() : nullptr; }
+static SkImageInfo raster_info(const TcGraphicsContext* context, int width, int height) { return SkImageInfo::Make(width, height, context->pixel_format == TC_CPU_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType, kPremul_SkAlphaType); }
 
 extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer) {
     if (!context || !out_renderer || context->api != TC_GRAPHICS_CPU || !context->pixels) return TC_ERROR_INVALID_ARGUMENT;
     TcRenderer2D* renderer = new (std::nothrow) TcRenderer2D{};
     TcSkiaRenderer* state = new (std::nothrow) TcSkiaRenderer{};
     if (!renderer || !state) { delete renderer; delete state; return TC_ERROR_OUT_OF_MEMORY; }
-    SkImageInfo info = SkImageInfo::MakeN32Premul(context->width, context->height);
+    SkImageInfo info = raster_info(context, context->width, context->height);
     state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
     if (!state->surface) { delete renderer; delete state; return TC_ERROR_RENDERER; }
     state->canvas.implementation = state; renderer->context = context; renderer->implementation = state; renderer->canvas = &state->canvas; *out_renderer = renderer;
@@ -35,7 +36,7 @@ extern "C" int tc_renderer_attach(TcRenderer2D* renderer, TcGraphicsContext* con
 extern "C" int tc_renderer_resize(TcRenderer2D* renderer, int width, int height, float scale) {
     (void)scale; if (!renderer || !renderer->context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
     TcGraphicsContext* context = renderer->context; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation);
-    SkImageInfo info = SkImageInfo::MakeN32Premul(width, height); state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
+    SkImageInfo info = raster_info(context, width, height); state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
     return state->surface ? TC_OK : TC_ERROR_RENDERER;
 }
 extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) { return renderer ? renderer->canvas : nullptr; }

@@ -16,7 +16,7 @@ int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_c
     int width = ANativeWindow_getWidth(window), height = ANativeWindow_getHeight(window);
     TcGraphicsContext* context = calloc(1, sizeof(*context)); if (!context) return TC_ERROR_OUT_OF_MEMORY;
     context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
-    context->api = TC_GRAPHICS_CPU; context->window = window; context->width = width; context->height = height; context->pitch = width * 4; context->scale = 1.0f; *out_context = context; return TC_OK;
+    context->api = TC_GRAPHICS_CPU; context->window = window; context->width = width; context->height = height; context->pitch = width * 4; context->scale = 1.0f; context->pixel_format = TC_CPU_PIXEL_FORMAT_RGBA8888; *out_context = context; return TC_OK;
 }
 int tc_android_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
     if (!context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;

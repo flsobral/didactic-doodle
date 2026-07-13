@@ -11,7 +11,7 @@ int tc_ios_cpu_context_create(void* view, int width, int height, float scale, Tc
     TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context));
     if (!context) return TC_ERROR_OUT_OF_MEMORY;
     context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
-    context->api = TC_GRAPHICS_CPU; context->window = view; context->width = width; context->height = height; context->pitch = width * 4; context->scale = scale; *out_context = context; return TC_OK;
+    context->api = TC_GRAPHICS_CPU; context->window = view; context->width = width; context->height = height; context->pitch = width * 4; context->scale = scale; context->pixel_format = TC_CPU_PIXEL_FORMAT_RGBA8888; *out_context = context; return TC_OK;
 }
 int tc_ios_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
     if (!context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
