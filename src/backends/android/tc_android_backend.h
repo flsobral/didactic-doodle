@@ -7,8 +7,9 @@
 #define TC_ANDROID_BACKEND_H
 
 /* This is deliberately private: Android NDK types must not escape public
- * tc_runtime headers. Applications bind their generic TcEvent sink here from
- * the Android launcher glue. */
+ * tc_runtime headers. It requires API level 24 or newer because frames use
+ * AChoreographer directly. Applications bind the generic TcEvent sink here
+ * from the Android launcher glue. */
 #if defined(__ANDROID__)
 #include <android_native_app_glue.h>
 #include "tc_runtime/tc_event.h"

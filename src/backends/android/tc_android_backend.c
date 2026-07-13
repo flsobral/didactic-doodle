@@ -6,27 +6,21 @@
 #include "tc_android_backend.h"
 
 #if defined(__ANDROID__)
+#include <android/choreographer.h>
 #include <android/input.h>
 #include <android/native_window.h>
-#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* AChoreographer was added in API 24. Keep its symbols dynamic so an API 23
- * binary neither imports nor resolves them on an older device. */
-typedef struct AChoreographer AChoreographer;
-typedef void (*TcAndroidFrameProc)(long frame_time_ns, void* user_data);
-typedef AChoreographer* (*TcGetChoreographerProc)(void);
-typedef void (*TcPostFrameProc)(AChoreographer*, TcAndroidFrameProc, void*);
 struct TcFrameScheduler { TcFrameCallback callback; void* user_data; int running; int requested; double last_timestamp; };
-struct TcAndroidNativeBackend { struct android_app* app; TcEventSink sink; void* sink_user_data; struct TcFrameScheduler scheduler; TcGetChoreographerProc get_choreographer; TcPostFrameProc post_frame; int width, height; };
+struct TcAndroidNativeBackend { struct android_app* app; TcEventSink sink; void* sink_user_data; struct TcFrameScheduler scheduler; int width, height; };
 
 static void tc_android_emit(TcAndroidNativeBackend* backend, TcEvent event) { if (backend->sink) backend->sink(backend->sink_user_data, &event); }
 static void tc_android_frame(long frame_time_ns, void* user_data) {
     TcAndroidNativeBackend* backend = user_data;
     if (!backend->scheduler.running) return;
     tc_android_backend_tick(backend, (double)frame_time_ns / 1e9);
-    if (backend->post_frame) backend->post_frame(backend->get_choreographer(), tc_android_frame, backend);
+    AChoreographer_postFrameCallback(AChoreographer_getInstance(), tc_android_frame, backend);
 }
 static int32_t tc_android_input(struct android_app* app, AInputEvent* input) {
     TcAndroidNativeBackend* backend = app->userData;
@@ -61,12 +55,6 @@ int tc_android_backend_attach(struct android_app* app, TcEventSink sink, void* u
     if (!app || !sink || !out_backend) return TC_ERROR_INVALID_ARGUMENT;
     TcAndroidNativeBackend* backend = calloc(1, sizeof(*backend)); if (!backend) return TC_ERROR_OUT_OF_MEMORY;
     backend->app = app; backend->sink = sink; backend->sink_user_data = user_data;
-    void* android_library = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
-    if (android_library) {
-        backend->get_choreographer = (TcGetChoreographerProc)dlsym(android_library, "AChoreographer_getInstance");
-        backend->post_frame = (TcPostFrameProc)dlsym(android_library, "AChoreographer_postFrameCallback");
-        if (!backend->get_choreographer || !backend->post_frame) { backend->get_choreographer = NULL; backend->post_frame = NULL; }
-    }
     app->userData = backend; app->onAppCmd = tc_android_command; app->onInputEvent = tc_android_input; *out_backend = backend;
     return TC_OK;
 }

@@ -38,4 +38,4 @@ Alternatively, provide a Skia CMake package and set `CMAKE_PREFIX_PATH` (and `TC
 
 Only `DESKTOP + SDL + CPU + SKIA` is implemented today. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. OpenGL and the Emscripten demo remain the next milestones.
 
-The private Android-native adapter translates lifecycle and pointer events and is designed for an Android API 23 minimum. It dynamically uses `AChoreographer` only on API 24+; graphics integration remains unavailable until an Android GPU-enabled Skia archive is supplied.
+The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly; graphics integration remains unavailable until an Android GPU-enabled Skia archive is supplied.
