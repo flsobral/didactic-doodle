@@ -80,6 +80,9 @@ Record unexpected implementation facts here.
 - Observation: the iOS simulator Skia archive has an iOS 18.5 deployment floor.
   Evidence: linking at iOS 17 emitted version warnings; compiling the UIKit bundle with an 18.5 simulator deployment target succeeded.
 
+- Observation: the iOS Skia raster surface is RGBA with a top-left origin, whereas the CoreGraphics image path needs explicit format and vertical-coordinate conversion.
+  Evidence: the first simulator presentation was vertically inverted and red/blue-swizzled; `kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast` plus a saved vertical CGContext flip produced correctly oriented, correctly colored output.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -140,6 +143,10 @@ Record unexpected implementation facts here.
 
 - Decision: Implement the first iOS demo as a UIKit CPU-raster surface driven by `CADisplayLink`.
   Rationale: it reuses the generic canvas scene and Skia raster adapter while keeping UIKit/CoreGraphics details in private Objective-C++ sources.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Present the iOS Skia CPU buffer as a big-endian, premultiplied-last CoreGraphics image and flip only the drawing context's vertical axis.
+  Rationale: the selected Skia build stores N32 pixels as RGBA. This preserves the generic top-left canvas coordinate system while avoiding a horizontal mirror and color-channel swaps in UIKit.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective
