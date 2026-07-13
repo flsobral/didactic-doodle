@@ -89,6 +89,9 @@ Record unexpected implementation facts here.
 - Observation: the macOS SDL3 OpenGL path can create a 3.2 core context and drive Skia's Ganesh GL backend from the pinned archive.
   Evidence: configuring with `-DTC_GRAPHICS=OPENGL` built `tc_demo`; its runtime log reported `OpenGL 3.2 core context created` and completed the demo frame loop.
 
+- Observation: `SDL_GetWindowSurface` must not be called for an SDL OpenGL window, including during resize processing.
+  Evidence: the unconditional CPU-surface refresh caused `SDL_GL_SwapWindow` to fail with `The specified window isn't an OpenGL window`, leaving the rendered framebuffer unpresented.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -125,6 +128,10 @@ Record unexpected implementation facts here.
 
 - Decision: Use an SDL OpenGL 3.2 core context and wrap its default framebuffer in a Skia Ganesh `SkSurface`.
   Rationale: the verified macOS archive exports the required Ganesh GL API. Keeping the SDL context and framebuffer metadata private preserves the C-only public runtime surface.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Refresh SDL window surfaces only for the CPU graphics configuration.
+  Rationale: the OpenGL swapchain is owned by the GL context, while the CPU path uses `SDL_Surface`; separating these avoids converting an OpenGL window into the incompatible software-surface path.
   Date/Author: 2026-07-13 / Codex.
   Date/Author: 2026-07-13 / Codex.
 

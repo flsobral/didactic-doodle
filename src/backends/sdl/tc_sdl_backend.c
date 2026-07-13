@@ -46,7 +46,13 @@ int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
 TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend) { return backend ? &backend->window : NULL; }
 TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend) { return backend ? &backend->surface : NULL; }
 TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend) { return backend ? &backend->scheduler : NULL; }
-void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend) { TcSdlBackend* state = tc_sdl(backend); if (state && state->window) backend->surface.value = SDL_GetWindowSurface(state->window); }
+void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend) {
+#if TC_BUILD_GRAPHICS_CPU
+    TcSdlBackend* state = tc_sdl(backend); if (state && state->window) backend->surface.value = SDL_GetWindowSurface(state->window);
+#else
+    (void)backend;
+#endif
+}
 int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
     if (!backend || !sink) return TC_ERROR_INVALID_ARGUMENT;
     SDL_Event native_event;

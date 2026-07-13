@@ -31,7 +31,7 @@ void tc_graphics_context_resize(TcGraphicsContext* context, int width, int heigh
 
 void tc_graphics_context_present(TcGraphicsContext* context) {
     if (!context || context->api != TC_GRAPHICS_OPENGL) return;
-    SDL_GL_SwapWindow((SDL_Window*)context->window);
+    if (!SDL_GL_SwapWindow((SDL_Window*)context->window)) SDL_Log("tc_runtime: OpenGL swap failed: %s", SDL_GetError());
 }
 
 void tc_graphics_context_destroy(TcGraphicsContext* context) {
