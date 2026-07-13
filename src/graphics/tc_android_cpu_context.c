@@ -16,6 +16,12 @@ int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_c
     context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
     context->api = TC_GRAPHICS_CPU; context->window = window; context->width = width; context->height = height; context->pitch = width * 4; context->scale = 1.0f; *out_context = context; return TC_OK;
 }
+int tc_android_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+    if (!context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+    void* pixels = realloc(context->pixels, (size_t)width * (size_t)height * 4); if (!pixels) return TC_ERROR_OUT_OF_MEMORY;
+    context->pixels = pixels; context->width = width; context->height = height; context->pitch = width * 4; context->scale = scale;
+    return TC_OK;
+}
 void tc_android_cpu_present(TcGraphicsContext* context) {
     ANativeWindow_Buffer buffer; if (!context || ANativeWindow_lock(context->window, &buffer, NULL) != 0) return;
     int rows = context->height < buffer.height ? context->height : buffer.height, bytes = context->pitch < buffer.stride * 4 ? context->pitch : buffer.stride * 4;

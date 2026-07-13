@@ -27,6 +27,7 @@ void tc_cpu_context_present(TcGraphicsContext* context);
 void tc_cpu_context_destroy(TcGraphicsContext* context);
 void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend);
 int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_context);
+int tc_android_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale);
 void tc_android_cpu_destroy(TcGraphicsContext* context);
 
 #endif

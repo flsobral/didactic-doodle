@@ -9,7 +9,7 @@
 #include <android_native_app_glue.h>
 
 typedef struct DemoAndroid { DemoScene scene; TcGraphicsContext* graphics; TcRenderer2D* renderer; } DemoAndroid;
-static void on_event(void* data, const TcEvent* event) { DemoAndroid* demo = data; demo_scene_on_event(&demo->scene, event); if (event->type == TC_EVENT_RESIZE) { tc_renderer_resize(demo->renderer, event->data.resize.width, event->data.resize.height, event->data.resize.scale); } }
+static void on_event(void* data, const TcEvent* event) { DemoAndroid* demo = data; demo_scene_on_event(&demo->scene, event); if (event->type == TC_EVENT_RESIZE && demo->renderer) { tc_graphics_context_resize(demo->graphics, event->data.resize.width, event->data.resize.height, event->data.resize.scale); tc_renderer_resize(demo->renderer, event->data.resize.width, event->data.resize.height, event->data.resize.scale); } }
 static void on_frame(void* data, double time, double delta) { (void)time; DemoAndroid* demo = data; demo_scene_on_update(&demo->scene, delta); TcCanvas2D* canvas = tc_renderer_begin_frame(demo->renderer); demo_scene_on_draw(&demo->scene, canvas); tc_renderer_end_frame(demo->renderer); }
 void android_main(struct android_app* app) {
     TcAndroidNativeBackend* backend = NULL; DemoAndroid demo = {0};
