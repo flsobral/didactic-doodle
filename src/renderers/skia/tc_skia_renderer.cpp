@@ -10,23 +10,58 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
+#if TC_BUILD_GRAPHICS_OPENGL
+#include "include/gpu/GrBackendSurface.h"
+#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/gl/GrGLInterface.h"
+#include "include/gpu/gl/GrGLTypes.h"
+#endif
 #include <memory>
 #include <new>
 
-struct TcSkiaRenderer { sk_sp<SkSurface> surface; TcCanvas2D canvas; };
+struct TcSkiaRenderer {
+    sk_sp<SkSurface> surface;
+#if TC_BUILD_GRAPHICS_OPENGL
+    sk_sp<GrDirectContext> gl_context;
+#endif
+    TcCanvas2D canvas;
+};
 static SkColor4f color(TcColor c) { return {c.r, c.g, c.b, c.a}; }
 static SkPaint paint(TcPaint value) { SkPaint p; p.setColor4f(color(value.color), nullptr); p.setStyle(value.style == TC_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); p.setStrokeWidth(value.stroke_width); p.setAntiAlias(true); return p; }
 static TcSkiaRenderer* impl(TcCanvas2D* canvas) { return canvas ? static_cast<TcSkiaRenderer*>(canvas->implementation) : nullptr; }
 static SkCanvas* native(TcCanvas2D* canvas) { TcSkiaRenderer* r = impl(canvas); return r && r->surface ? r->surface->getCanvas() : nullptr; }
 static SkImageInfo raster_info(const TcGraphicsContext* context, int width, int height) { return SkImageInfo::Make(width, height, context->pixel_format == TC_CPU_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType, kPremul_SkAlphaType); }
+#if TC_BUILD_GRAPHICS_OPENGL
+static sk_sp<SkSurface> gl_surface(TcSkiaRenderer* state, TcGraphicsContext* context, int width, int height) {
+    GrGLint framebuffer = 0, stencil_bits = 0, sample_count = 0;
+    state->gl_context->resetContext();
+    sk_sp<const GrGLInterface> gl = GrGLMakeNativeInterface();
+    if (!gl || !gl->fFunctions.fGetIntegerv) return nullptr;
+    gl->fFunctions.fGetIntegerv(0x8CA6, &framebuffer);
+    gl->fFunctions.fGetIntegerv(0x0D57, &stencil_bits);
+    gl->fFunctions.fGetIntegerv(0x80A9, &sample_count);
+    context->framebuffer = framebuffer; context->stencil_bits = stencil_bits; context->sample_count = sample_count;
+    GrGLFramebufferInfo framebuffer_info = {(GrGLuint)framebuffer, 0x8058};
+    GrBackendRenderTarget target(width, height, sample_count, stencil_bits, framebuffer_info);
+    return SkSurface::MakeFromBackendRenderTarget(state->gl_context.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr);
+}
+#endif
 
 extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer) {
-    if (!context || !out_renderer || context->api != TC_GRAPHICS_CPU || !context->pixels) return TC_ERROR_INVALID_ARGUMENT;
+    if (!context || !out_renderer) return TC_ERROR_INVALID_ARGUMENT;
     TcRenderer2D* renderer = new (std::nothrow) TcRenderer2D{};
     TcSkiaRenderer* state = new (std::nothrow) TcSkiaRenderer{};
     if (!renderer || !state) { delete renderer; delete state; return TC_ERROR_OUT_OF_MEMORY; }
-    SkImageInfo info = raster_info(context, context->width, context->height);
-    state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
+    if (context->api == TC_GRAPHICS_CPU && context->pixels) {
+        SkImageInfo info = raster_info(context, context->width, context->height);
+        state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
+    }
+#if TC_BUILD_GRAPHICS_OPENGL
+    else if (context->api == TC_GRAPHICS_OPENGL && context->surface) {
+        state->gl_context = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
+        if (state->gl_context) state->surface = gl_surface(state, context, context->width, context->height);
+    }
+#endif
     if (!state->surface) { delete renderer; delete state; return TC_ERROR_RENDERER; }
     state->canvas.implementation = state; renderer->context = context; renderer->implementation = state; renderer->canvas = &state->canvas; *out_renderer = renderer;
     return TC_OK;
@@ -36,7 +71,11 @@ extern "C" int tc_renderer_attach(TcRenderer2D* renderer, TcGraphicsContext* con
 extern "C" int tc_renderer_resize(TcRenderer2D* renderer, int width, int height, float scale) {
     (void)scale; if (!renderer || !renderer->context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
     TcGraphicsContext* context = renderer->context; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation);
-    SkImageInfo info = raster_info(context, width, height); state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch);
+    if (context->api == TC_GRAPHICS_CPU) { SkImageInfo info = raster_info(context, width, height); state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch); }
+#if TC_BUILD_GRAPHICS_OPENGL
+    else if (context->api == TC_GRAPHICS_OPENGL && state->gl_context) state->surface = gl_surface(state, context, width, height);
+#endif
+    else return TC_ERROR_UNAVAILABLE;
     return state->surface ? TC_OK : TC_ERROR_RENDERER;
 }
 extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) { return renderer ? renderer->canvas : nullptr; }

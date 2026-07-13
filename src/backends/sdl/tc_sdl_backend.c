@@ -31,6 +31,10 @@ int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
     if (!backend || !config) return TC_ERROR_INVALID_ARGUMENT;
     if (!SDL_Init(SDL_INIT_VIDEO)) return TC_ERROR_PLATFORM;
     Uint64 flags = config->resizable ? SDL_WINDOW_RESIZABLE : 0;
+#if TC_BUILD_GRAPHICS_OPENGL
+    flags |= SDL_WINDOW_OPENGL;
+    if (!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) || !SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) || !SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8)) { SDL_Quit(); return TC_ERROR_PLATFORM; }
+#endif
     TcSdlBackend* state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return TC_ERROR_OUT_OF_MEMORY; }
     state->window = SDL_CreateWindow(config->title ? config->title : "tc_runtime", config->width, config->height, flags);
     if (!state->window) { free(state); SDL_Quit(); return TC_ERROR_PLATFORM; }

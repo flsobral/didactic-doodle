@@ -38,8 +38,8 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
 - [x] Build the iOS NativeActivity-equivalent UIKit CPU demo bundle for the arm64 simulator.
-- [ ] Implement OpenGL graphics context.
-- [ ] Implement SDL3 + Skia OpenGL demo path.
+- [x] Implement OpenGL graphics context.
+- [x] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
 - [ ] Add Web/Emscripten demo target.
 - [x] Add GitHub Actions workflow scaffolds for Linux, Windows, macOS, Android, iOS, and Web.
@@ -56,8 +56,8 @@ Record unexpected implementation facts here.
 - Observation: the TotalCross Skia release supplies matching development headers and a macOS arm64 static library, with GPU enabled.
   Evidence: `libskia-macos-arm64.a`, `skia-dev-headers-158dc9d7.zip`, and its build manifest were downloaded from release `skia-158dc9d7-r3`.
 
-- Observation: GPU-enabled does not imply Skia OpenGL support on macOS.
-  Evidence: compiling `GrDirectContext::MakeGL()` against the downloaded macOS headers fails because that method is omitted; its build manifest has no `skia_use_gl=true` setting.
+- Observation: the pinned macOS Skia archive implements Ganesh OpenGL, but its shipped headers require consumers to define `SK_GL` before exposing the API.
+  Evidence: `nm -gU libskia-macos-arm64.a | c++filt` exports `GrDirectContext::MakeGL(...)` and the archive contains `GrGL*` objects; compiling the adapter with `SK_GL=1` exposes and links that API.
 
 - Observation: the matching TotalCross Android archive does not declare GPU, OpenGL ES, or Vulkan support.
   Evidence: its `build_config_manifest-android-arm64-v8a.md` contains no `skia_enable_gpu=true`, `skia_use_gl`, or Vulkan setting. The local environment also has no Android NDK installed.
@@ -85,6 +85,9 @@ Record unexpected implementation facts here.
 
 - Observation: SDL's macOS CPU window surface is BGRA while the selected Skia build's native N32 raster format is RGBA.
   Evidence: the macOS demo reported `SDL_PIXELFORMAT_ARGB8888` (BGRA bytes on little-endian macOS) and showed the same red/blue channel swap previously observed on iOS; creating the Skia raster surface with the SDL surface's explicit pixel format removes the mismatch.
+
+- Observation: the macOS SDL3 OpenGL path can create a 3.2 core context and drive Skia's Ganesh GL backend from the pinned archive.
+  Evidence: configuring with `-DTC_GRAPHICS=OPENGL` built `tc_demo`; its runtime log reported `OpenGL 3.2 core context created` and completed the demo frame loop.
 
 ## Decision Log
 
@@ -120,8 +123,9 @@ Record unexpected implementation facts here.
   Rationale: Application and runtime APIs stay callback-oriented; a polling loop is strictly an adapter detail for SDL and can be replaced by native schedulers on callback-driven platforms.
   Date/Author: 2026-07-13 / Codex.
 
-- Decision: Reject the OpenGL selection until a Skia archive built with Ganesh GL is supplied.
-  Rationale: Leaving the option enabled would create an SDL GL context that cannot be rendered by the selected Skia artifact. The configure error states the exact `skia_use_gl=true` requirement.
+- Decision: Use an SDL OpenGL 3.2 core context and wrap its default framebuffer in a Skia Ganesh `SkSurface`.
+  Rationale: the verified macOS archive exports the required Ganesh GL API. Keeping the SDL context and framebuffer metadata private preserves the C-only public runtime surface.
+  Date/Author: 2026-07-13 / Codex.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Implement Android platform lifecycle, pointer translation, and Choreographer scheduling independently from renderer integration.
@@ -158,9 +162,9 @@ Record unexpected implementation facts here.
 
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU vertical slice is implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully and opened the demo window; its startup/shutdown log completed cleanly. Public headers passed standalone C11 syntax validation. The Android NativeActivity CPU demo is also packaged as a signed arm64-v8a API 24 debug APK.
+The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity CPU demo is also packaged as a signed arm64-v8a API 24 debug APK.
 
-OpenGL and Web remain the next execution milestones. Their CMake selections deliberately fail clearly while their adapters are incomplete, avoiding an apparently successful but unusable build.
+Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 
 ## Context and Orientation
 

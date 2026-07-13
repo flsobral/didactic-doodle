@@ -6,11 +6,11 @@ Created and maintained by [Fabio Sobral](https://github.com/flsobral).
 
 Copyright © 2026 Amalgam Solucoes em TI Ltda.
 
-A small, C-first application runtime that keeps platform, scheduler, graphics, renderer, and canvas APIs independent. The initial implementation target is SDL3 + Skia CPU. Application code, including the demo, never includes SDL or Skia headers.
+A small, C-first application runtime that keeps platform, scheduler, graphics, renderer, and canvas APIs independent. The initial implementation targets are SDL3 + Skia CPU and SDL3 + Skia OpenGL. Application code, including the demo, never includes SDL or Skia headers.
 
 ## Current status
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU graphics context, Skia raster adapter, and generic-canvas demo are implemented. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. OpenGL, Web, mobile backends, GLFW, other renderers, Metal, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
+The public C API, event/frame runtime, SDL3 event adapter, CPU and OpenGL graphics contexts, Skia adapters, and generic-canvas demo are implemented. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, mobile backends, GLFW, other renderers, Metal, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
 
 ## Build the CPU demo
 
@@ -32,11 +32,23 @@ cmake --build build --config Release
 
 Alternatively, provide a Skia CMake package and set `CMAKE_PREFIX_PATH` (and `TC_SKIA_TARGET` if its exported target is not `skia`). This is intentionally a configure-time error rather than a partial build.
 
+## Build the OpenGL demo
+
+The pinned macOS Skia archive contains Ganesh OpenGL symbols. Build the shared demo source with an SDL OpenGL 3.2 core context:
+
+```sh
+cmake -S . -B build-sdl-skia-gl \
+  -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL \
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7"
+cmake --build build-sdl-skia-gl
+./build-sdl-skia-gl/examples/demo/tc_demo
+```
+
 ## Planned configurations
 
 `TC_PLATFORM` accepts `DESKTOP`, `ANDROID`, `IOS`, and `WEB`; `TC_BACKEND` accepts `SDL`, `ANDROID_NATIVE`, `IOS_NATIVE`, `GLFW`, and `WINIT`; `TC_GRAPHICS` accepts `CPU`, `OPENGL`, `METAL`, and `VULKAN`; and `TC_RENDERER` accepts `SKIA`, `NANOVG`, `BLEND2D`, and `VELLO`.
 
-Only `DESKTOP + SDL + CPU + SKIA` is implemented today. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. OpenGL and the Emscripten demo remain the next milestones.
+`DESKTOP + SDL + CPU + SKIA` and `DESKTOP + SDL + OPENGL + SKIA` are implemented. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. The Emscripten demo remains the next milestone.
 
 The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly; graphics integration remains unavailable until an Android GPU-enabled Skia archive is supplied.
 

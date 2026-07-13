@@ -15,7 +15,7 @@ struct TcNativeWindowHandle { void* value; };
 struct TcNativeSurfaceHandle { void* value; };
 struct TcPlatformBackend { struct TcNativeWindowHandle window; struct TcNativeSurfaceHandle surface; struct TcFrameScheduler scheduler; void* implementation; bool initialized; bool redraw_requested; int width, height; };
 typedef enum TcCpuPixelFormat { TC_CPU_PIXEL_FORMAT_RGBA8888, TC_CPU_PIXEL_FORMAT_BGRA8888 } TcCpuPixelFormat;
-struct TcGraphicsContext { TcGraphicsApi api; void* window; void* surface; void* pixels; int width, height, pitch; float scale; TcCpuPixelFormat pixel_format; };
+struct TcGraphicsContext { TcGraphicsApi api; void* window; void* surface; void* pixels; int width, height, pitch; int framebuffer, stencil_bits, sample_count; float scale; TcCpuPixelFormat pixel_format; };
 struct TcRenderer2D { TcGraphicsContext* context; void* implementation; TcCanvas2D* canvas; };
 struct TcCanvas2D { void* implementation; };
 struct TcApp { TcAppCallbacks callbacks; void* user_data; TcPlatformBackend* backend; TcRenderer2D* renderer; bool running; bool shutdown_called; };

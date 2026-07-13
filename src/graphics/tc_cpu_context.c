@@ -43,6 +43,7 @@ int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, 
     if (api != TC_GRAPHICS_CPU) return TC_ERROR_UNAVAILABLE;
     return tc_cpu_context_create(window, surface, out_context);
 }
+
 void tc_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
     if (!context) return;
     SDL_Surface* surface = SDL_GetWindowSurface((SDL_Window*)context->window);

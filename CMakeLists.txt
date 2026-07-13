@@ -52,10 +52,6 @@ endif()
 if(TC_PLATFORM STREQUAL "WEB" AND NOT TC_GRAPHICS STREQUAL "OPENGL")
   message(FATAL_ERROR "TC_PLATFORM=WEB currently requires -DTC_GRAPHICS=OPENGL.")
 endif()
-if(TC_GRAPHICS STREQUAL "OPENGL")
-  message(FATAL_ERROR "TC_GRAPHICS=OPENGL requires a Skia build with the Ganesh GL backend (skia_use_gl=true). The pinned macOS TotalCross archive does not provide it; select CPU or supply a compatible Skia build.")
-endif()
-
 find_package(SDL3 CONFIG QUIET)
 if(NOT TARGET SDL3::SDL3)
   message(FATAL_ERROR "SDL3 is required by TC_BACKEND=SDL. Install SDL3 or set CMAKE_PREFIX_PATH to its CMake package.")
@@ -102,13 +98,18 @@ else()
   set(TC_SKIA_LINK_TARGET ${TC_SKIA_TARGET})
 endif()
 
-add_library(tc_runtime
+set(TC_RUNTIME_SOURCES
   src/runtime/tc_app.c
   src/runtime/tc_scheduler.c
   src/runtime/tc_event_queue.c
-  src/graphics/tc_cpu_context.c
   src/backends/sdl/tc_sdl_backend.c
   src/renderers/skia/tc_skia_renderer.cpp)
+if(TC_GRAPHICS STREQUAL "CPU")
+  list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_cpu_context.c)
+elseif(TC_GRAPHICS STREQUAL "OPENGL")
+  list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_gl_context.c)
+endif()
+add_library(tc_runtime ${TC_RUNTIME_SOURCES})
 target_include_directories(tc_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(tc_runtime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(tc_runtime PUBLIC c_std_11)
@@ -117,9 +118,20 @@ target_link_libraries(tc_runtime PRIVATE SDL3::SDL3 ${TC_SKIA_LINK_TARGET})
 target_compile_definitions(tc_runtime PRIVATE
   TC_BUILD_GRAPHICS_CPU=$<STREQUAL:${TC_GRAPHICS},CPU>
   TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_GRAPHICS},OPENGL>)
+if(TC_GRAPHICS STREQUAL "OPENGL")
+  target_compile_definitions(tc_runtime PRIVATE SK_GL=1)
+  if(APPLE)
+    find_library(OPENGL_FRAMEWORK OpenGL REQUIRED)
+    target_link_libraries(tc_runtime PRIVATE ${OPENGL_FRAMEWORK})
+  else()
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(tc_runtime PRIVATE OpenGL::GL)
+  endif()
+endif()
 
 add_executable(tc_demo examples/demo/demo_main.c examples/demo/demo_scene.c)
 target_link_libraries(tc_demo PRIVATE tc_runtime)
+target_compile_definitions(tc_demo PRIVATE TC_DEMO_GRAPHICS_OPENGL=$<STREQUAL:${TC_GRAPHICS},OPENGL>)
 if(UNIX AND NOT APPLE)
   target_link_libraries(tc_demo PRIVATE m)
 endif()
