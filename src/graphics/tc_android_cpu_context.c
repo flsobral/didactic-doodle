@@ -6,11 +6,13 @@
 #include "tc_internal.h"
 #if defined(__ANDROID__)
 #include <android/native_window.h>
+#include <android/window.h>
 #include <stdlib.h>
 #include <string.h>
 
 int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_context) {
     ANativeWindow* window = native_window; if (!window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+    if (ANativeWindow_setBuffersGeometry(window, 0, 0, WINDOW_FORMAT_RGBA_8888) != 0) return TC_ERROR_PLATFORM;
     int width = ANativeWindow_getWidth(window), height = ANativeWindow_getHeight(window);
     TcGraphicsContext* context = calloc(1, sizeof(*context)); if (!context) return TC_ERROR_OUT_OF_MEMORY;
     context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
