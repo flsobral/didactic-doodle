@@ -1,0 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.totalcross.tcruntime'
+    compileSdk 35
+    defaultConfig { applicationId 'com.totalcross.tcruntime'; minSdk 24; targetSdk 35; versionCode 1; versionName '0.1' }
+    externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt' } }
+}

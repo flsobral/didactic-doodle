@@ -35,6 +35,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement Skia renderer through a C-compatible adapter.
 - [x] Implement SDL3 + Skia CPU demo path.
 - [~] Implement Android native backend lifecycle/input/scheduling adapter; graphics integration awaits a GPU-capable Android Skia build.
+- [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [ ] Implement OpenGL graphics context.
 - [ ] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
@@ -64,6 +65,9 @@ Record unexpected implementation facts here.
 
 - Observation: the local Android SDK includes NDK 28.2.13676358 and can cross-compile the native adapter for arm64 API 24.
   Evidence: `aarch64-linux-android24-clang` produced an AArch64 ELF object from `src/backends/android/tc_android_backend.c` with warnings treated as errors.
+
+- Observation: the Android Skia archive requires companion libpng plus EGL/GLESv2 linkage even for the CPU raster demo.
+  Evidence: the first shared-library link reported unresolved PNG and EGL/GLES symbols; linking the matching TotalCross `libpng-android-arm64-v8a` archive, `EGL`, and `GLESv2` produced `libtc_demo_android.so`.
 
 ## Decision Log
 
@@ -109,6 +113,10 @@ Record unexpected implementation facts here.
 
 - Decision: Require Android API 24 and call `AChoreographer` directly.
   Rationale: API 24 is now the supported baseline, allowing a simple direct vsync scheduler without dynamic symbol resolution or an API 23 fallback.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Use a Skia CPU raster buffer and copy it into `ANativeWindow` for the first Android demo.
+  Rationale: it proves NativeActivity lifecycle, input, scheduling, the generic canvas API, and the reusable demo before selecting an Android GPU Skia backend.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective

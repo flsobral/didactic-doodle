@@ -1,0 +1,6 @@
+<!--
+  SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+  SPDX-License-Identifier: LGPL-2.1-only
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:label="tc demo"><activity android:name="android.app.NativeActivity" android:screenOrientation="unspecified" android:configChanges="orientation|screenSize" android:exported="true"><meta-data android:name="android.app.lib_name" android:value="tc_demo_android"/><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>

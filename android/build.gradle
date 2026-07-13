@@ -1,0 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}

@@ -4,7 +4,11 @@
  */
 
 #include "tc_internal.h"
+#include <SDL3/SDL.h>
 #include <stdlib.h>
+
+typedef struct TcSdlBackend { SDL_Window* window; } TcSdlBackend;
+static TcSdlBackend* tc_sdl(TcPlatformBackend* backend) { return backend ? backend->implementation : NULL; }
 
 static TcPointerButton tc_sdl_button(Uint8 button) {
     if (button == SDL_BUTTON_LEFT) return TC_POINTER_BUTTON_LEFT;
@@ -27,8 +31,10 @@ int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
     if (!backend || !config) return TC_ERROR_INVALID_ARGUMENT;
     if (!SDL_Init(SDL_INIT_VIDEO)) return TC_ERROR_PLATFORM;
     Uint64 flags = config->resizable ? SDL_WINDOW_RESIZABLE : 0;
-    backend->window.window = SDL_CreateWindow(config->title ? config->title : "tc_runtime", config->width, config->height, flags);
-    if (!backend->window.window) { SDL_Quit(); return TC_ERROR_PLATFORM; }
+    TcSdlBackend* state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return TC_ERROR_OUT_OF_MEMORY; }
+    state->window = SDL_CreateWindow(config->title ? config->title : "tc_runtime", config->width, config->height, flags);
+    if (!state->window) { free(state); SDL_Quit(); return TC_ERROR_PLATFORM; }
+    backend->implementation = state; backend->window.value = state->window;
     backend->width = config->width; backend->height = config->height; backend->initialized = true;
     backend->scheduler.running = true; backend->scheduler.requested = true;
     return TC_OK;
@@ -36,7 +42,7 @@ int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
 TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend) { return backend ? &backend->window : NULL; }
 TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend) { return backend ? &backend->surface : NULL; }
 TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend) { return backend ? &backend->scheduler : NULL; }
-void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend) { if (backend && backend->window.window) backend->surface.surface = SDL_GetWindowSurface(backend->window.window); }
+void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend) { TcSdlBackend* state = tc_sdl(backend); if (state && state->window) backend->surface.value = SDL_GetWindowSurface(state->window); }
 int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
     if (!backend || !sink) return TC_ERROR_INVALID_ARGUMENT;
     SDL_Event native_event;
@@ -79,5 +85,5 @@ int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data
     return TC_OK;
 }
 void tc_backend_request_redraw(TcPlatformBackend* backend) { if (backend) backend->redraw_requested = true; }
-void tc_backend_shutdown(TcPlatformBackend* backend) { if (!backend || !backend->initialized) return; SDL_DestroyWindow(backend->window.window); backend->window.window = NULL; backend->initialized = false; SDL_Quit(); }
+void tc_backend_shutdown(TcPlatformBackend* backend) { TcSdlBackend* state = tc_sdl(backend); if (!backend || !backend->initialized) return; SDL_DestroyWindow(state->window); free(state); backend->implementation = NULL; backend->window.value = NULL; backend->initialized = false; SDL_Quit(); }
 void tc_backend_destroy(TcPlatformBackend* backend) { if (!backend) return; tc_backend_shutdown(backend); free(backend); }

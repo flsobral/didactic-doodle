@@ -4,16 +4,19 @@
  */
 
 #include "tc_internal.h"
+#include <SDL3/SDL.h>
 #include <stdlib.h>
 
 int tc_cpu_context_create(TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
-    if (!window || !window->window || !surface || !out_context) return TC_ERROR_INVALID_ARGUMENT;
-    surface->surface = SDL_GetWindowSurface(window->window);
-    if (!surface->surface) return TC_ERROR_PLATFORM;
+    SDL_Window* sdl_window = window ? window->value : NULL;
+    if (!sdl_window || !surface || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+    surface->value = SDL_GetWindowSurface(sdl_window);
+    SDL_Surface* sdl_surface = surface->value;
+    if (!sdl_surface) return TC_ERROR_PLATFORM;
     TcGraphicsContext* context = calloc(1, sizeof(*context));
     if (!context) return TC_ERROR_OUT_OF_MEMORY;
-    context->api = TC_GRAPHICS_CPU; context->window = window->window; context->surface = surface->surface;
-    context->pixels = surface->surface->pixels; context->width = surface->surface->w; context->height = surface->surface->h; context->pitch = surface->surface->pitch; context->scale = 1.0f;
+    context->api = TC_GRAPHICS_CPU; context->window = sdl_window; context->surface = sdl_surface;
+    context->pixels = sdl_surface->pixels; context->width = sdl_surface->w; context->height = sdl_surface->h; context->pitch = sdl_surface->pitch; context->scale = 1.0f;
     *out_context = context;
     return TC_OK;
 }
@@ -24,12 +27,13 @@ int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, 
 }
 void tc_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
     if (!context) return;
-    context->surface = SDL_GetWindowSurface(context->window);
+    context->surface = SDL_GetWindowSurface((SDL_Window*)context->window);
     if (!context->surface) return;
-    context->pixels = context->surface->pixels; context->width = width; context->height = height; context->pitch = context->surface->pitch; context->scale = scale;
+    SDL_Surface* surface = context->surface;
+    context->pixels = surface->pixels; context->width = width; context->height = height; context->pitch = surface->pitch; context->scale = scale;
 }
 void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) { if (context) tc_cpu_context_resize(context, width, height, scale); }
-void tc_cpu_context_present(TcGraphicsContext* context) { if (context && context->window) SDL_UpdateWindowSurface(context->window); }
+void tc_cpu_context_present(TcGraphicsContext* context) { if (context && context->window) SDL_UpdateWindowSurface((SDL_Window*)context->window); }
 void tc_graphics_context_present(TcGraphicsContext* context) { if (context) tc_cpu_context_present(context); }
 void tc_cpu_context_destroy(TcGraphicsContext* context) { free(context); }
 void tc_graphics_context_destroy(TcGraphicsContext* context) { if (context) tc_cpu_context_destroy(context); }

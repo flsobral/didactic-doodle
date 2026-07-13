@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+cmake_minimum_required(VERSION 3.22)
+project(tc_demo_android LANGUAGES C CXX)
+set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../..")
+set(TC_SKIA_ROOT "" CACHE PATH "Unpacked TotalCross Android Skia release")
+set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked TotalCross Android libpng release")
+if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-android-arm64-v8a.a")
+  message(FATAL_ERROR "Set TC_SKIA_ROOT to the directory created by scripts/fetch-totalcross-skia.sh ... android-arm64-v8a")
+endif()
+if(NOT EXISTS "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/lib/libpng16.a")
+  message(FATAL_ERROR "Set TC_LIBPNG_ROOT to the unpacked TotalCross libpng-android-arm64-v8a release required by the selected Skia archive")
+endif()
+add_library(skia STATIC IMPORTED)
+set_target_properties(skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_ROOT}/libskia-android-arm64-v8a.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
+add_library(png STATIC IMPORTED)
+set_target_properties(png PROPERTIES IMPORTED_LOCATION "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/lib/libpng16.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/include")
+add_library(tc_demo_android SHARED
+  ${TC_ROOT}/examples/demo_android/demo_android_main.c ${TC_ROOT}/examples/demo/demo_scene.c
+  ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
+  ${TC_ROOT}/src/backends/android/tc_android_backend.c ${TC_ROOT}/src/graphics/tc_android_cpu_context.c ${TC_ROOT}/src/graphics/tc_android_graphics.c
+  ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
+target_include_directories(tc_demo_android PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/src/backends/android ${TC_ROOT}/examples/demo "${ANDROID_NDK}/sources/android/native_app_glue")
+target_compile_features(tc_demo_android PRIVATE c_std_11 cxx_std_17)
+target_link_libraries(tc_demo_android PRIVATE skia png android log z EGL GLESv2)
