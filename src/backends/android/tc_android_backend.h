@@ -19,6 +19,8 @@ typedef struct TcAndroidNativeBackend TcAndroidNativeBackend;
 int tc_android_backend_attach(struct android_app* app, TcEventSink sink, void* user_data, TcAndroidNativeBackend** out_backend);
 void tc_android_backend_detach(TcAndroidNativeBackend* backend);
 TcFrameScheduler* tc_android_backend_scheduler(TcAndroidNativeBackend* backend);
+int tc_android_backend_start(TcAndroidNativeBackend* backend, TcFrameCallback callback, void* user_data);
+void tc_android_backend_stop(TcAndroidNativeBackend* backend);
 void tc_android_backend_tick(TcAndroidNativeBackend* backend, double timestamp_seconds);
 #endif
 #endif

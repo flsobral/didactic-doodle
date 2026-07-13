@@ -60,6 +60,13 @@ int tc_android_backend_attach(struct android_app* app, TcEventSink sink, void* u
 }
 void tc_android_backend_detach(TcAndroidNativeBackend* backend) { if (!backend) return; if (backend->app && backend->app->userData == backend) backend->app->userData = NULL; free(backend); }
 TcFrameScheduler* tc_android_backend_scheduler(TcAndroidNativeBackend* backend) { return backend ? (TcFrameScheduler*)&backend->scheduler : NULL; }
+int tc_android_backend_start(TcAndroidNativeBackend* backend, TcFrameCallback callback, void* user_data) {
+    if (!backend || !callback) return TC_ERROR_INVALID_ARGUMENT;
+    backend->scheduler.callback = callback; backend->scheduler.user_data = user_data; backend->scheduler.running = 1; backend->scheduler.last_timestamp = 0.0;
+    AChoreographer_postFrameCallback(AChoreographer_getInstance(), tc_android_frame, backend);
+    return TC_OK;
+}
+void tc_android_backend_stop(TcAndroidNativeBackend* backend) { if (backend) backend->scheduler.running = 0; }
 void tc_android_backend_tick(TcAndroidNativeBackend* backend, double timestamp_seconds) {
     if (!backend || !backend->scheduler.running || !backend->scheduler.callback) return;
     double previous = backend->scheduler.last_timestamp;

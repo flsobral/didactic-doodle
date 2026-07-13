@@ -62,6 +62,9 @@ Record unexpected implementation facts here.
 - Observation: `AChoreographer` is only present from Android API 24.
   Evidence: Android NDK API level documentation marks its frame-callback API as API 24+; the Android minimum was raised accordingly.
 
+- Observation: the local Android SDK includes NDK 28.2.13676358 and can cross-compile the native adapter for arm64 API 24.
+  Evidence: `aarch64-linux-android24-clang` produced an AArch64 ELF object from `src/backends/android/tc_android_backend.c` with warnings treated as errors.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
