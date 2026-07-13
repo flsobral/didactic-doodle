@@ -50,7 +50,7 @@ cmake --build build-sdl-skia-gl
 
 `DESKTOP + SDL + CPU + SKIA` and `DESKTOP + SDL + OPENGL + SKIA` are implemented. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. The Emscripten demo remains the next milestone.
 
-The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly; graphics integration remains unavailable until an Android GPU-enabled Skia archive is supplied.
+The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly. The default APK uses the CPU raster path; the same shared demo can be built with EGL/OpenGL ES 3 and Skia Ganesh when the selected Skia archive exports GL support.
 
 ## Android CPU native library
 
@@ -85,3 +85,5 @@ cd android
 ```
 
 The resulting signed debug artifact is `android/app/build/outputs/apk/debug/app-debug.apk`. It contains only `arm64-v8a`, matching the published Skia/libpng/zlib-ng archives.
+
+To build the OpenGL ES variant instead, pass `-PtcAndroidGraphics=OPENGL` to the same Gradle command. It creates an EGL/OpenGL ES 3 context and presents the Skia Ganesh surface through the Android native window.

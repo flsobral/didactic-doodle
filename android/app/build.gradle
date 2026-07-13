@@ -17,7 +17,8 @@ android {
                 arguments.addAll([
                     "-DTC_SKIA_ROOT=${providers.gradleProperty('tcSkiaRoot').orElse('').get()}",
                     "-DTC_LIBPNG_ROOT=${providers.gradleProperty('tcLibpngRoot').orElse('').get()}",
-                    "-DTC_ZLIB_NG_ROOT=${providers.gradleProperty('tcZlibNgRoot').orElse('').get()}"
+                    "-DTC_ZLIB_NG_ROOT=${providers.gradleProperty('tcZlibNgRoot').orElse('').get()}",
+                    "-DTC_ANDROID_GRAPHICS=${providers.gradleProperty('tcAndroidGraphics').orElse('CPU').get()}"
                 ])
             }
         }

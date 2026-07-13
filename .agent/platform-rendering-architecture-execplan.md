@@ -34,7 +34,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement CPU graphics context.
 - [x] Implement Skia renderer through a C-compatible adapter.
 - [x] Implement SDL3 + Skia CPU demo path.
-- [~] Implement Android native backend lifecycle/input/scheduling adapter; graphics integration awaits a GPU-capable Android Skia build.
+- [x] Implement Android native lifecycle/input/scheduling adapter with CPU and OpenGL ES graphics paths.
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
 - [x] Build the iOS NativeActivity-equivalent UIKit CPU demo bundle for the arm64 simulator.
@@ -59,8 +59,8 @@ Record unexpected implementation facts here.
 - Observation: the pinned macOS Skia archive implements Ganesh OpenGL, but its shipped headers require consumers to define `SK_GL` before exposing the API.
   Evidence: `nm -gU libskia-macos-arm64.a | c++filt` exports `GrDirectContext::MakeGL(...)` and the archive contains `GrGL*` objects; compiling the adapter with `SK_GL=1` exposes and links that API.
 
-- Observation: the matching TotalCross Android archive does not declare GPU, OpenGL ES, or Vulkan support.
-  Evidence: its `build_config_manifest-android-arm64-v8a.md` contains no `skia_enable_gpu=true`, `skia_use_gl`, or Vulkan setting. The local environment also has no Android NDK installed.
+- Observation: the matching TotalCross Android archive includes Ganesh OpenGL ES support.
+  Evidence: the release manifest was not retained in the unpacked archive, but `nm` shows exported `GrDirectContext::MakeGL(...)`, `GrGLMakeNativeInterface()`, and `GrGL*` objects. The Android NDK is installed locally and built the EGL/OpenGL ES 3 adapter.
 
 - Observation: `AChoreographer` is only present from Android API 24.
   Evidence: Android NDK API level documentation marks its frame-callback API as API 24+; the Android minimum was raised accordingly.
@@ -91,6 +91,9 @@ Record unexpected implementation facts here.
 
 - Observation: `SDL_GetWindowSurface` must not be called for an SDL OpenGL window, including during resize processing.
   Evidence: the unconditional CPU-surface refresh caused `SDL_GL_SwapWindow` to fail with `The specified window isn't an OpenGL window`, leaving the rendered framebuffer unpresented.
+
+- Observation: the pinned Android Skia archive can render through EGL/OpenGL ES 3 on the API 34 arm64 emulator.
+  Evidence: an APK built with `-PtcAndroidGraphics=OPENGL` logged `EGL 1.4 OpenGL ES 3 context created`; emulator logcat reported continuous `EGL_emulation` frame statistics and an `adb screencap` showed the animated generic Skia demo.
 
 ## Decision Log
 
@@ -136,7 +139,11 @@ Record unexpected implementation facts here.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Implement Android platform lifecycle, pointer translation, and Choreographer scheduling independently from renderer integration.
-  Rationale: These NDK responsibilities are backend-specific and can be completed without leaking Android types into public headers. Android graphics remains unavailable until a compatible NDK and GPU-enabled Skia archive are supplied.
+  Rationale: These NDK responsibilities are backend-specific and can be completed without leaking Android types into public headers. The CPU path was completed first; the compatible archive subsequently enabled an EGL/OpenGL ES 3 renderer integration.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Select Android CPU or OpenGL ES rendering at CMake/Gradle build time through `TC_ANDROID_GRAPHICS` / `tcAndroidGraphics`.
+  Rationale: the NativeActivity, Choreographer adapter, and generic demo source remain identical while CPU continues to offer a dependable fallback and EGL/Ganesh GL is available where the packaged Skia archive supports it.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Require Android API 24 and call `AChoreographer` directly.
@@ -144,7 +151,7 @@ Record unexpected implementation facts here.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Use a Skia CPU raster buffer and copy it into `ANativeWindow` for the first Android demo.
-  Rationale: it proves NativeActivity lifecycle, input, scheduling, the generic canvas API, and the reusable demo before selecting an Android GPU Skia backend.
+  Rationale: it proved NativeActivity lifecycle, input, scheduling, the generic canvas API, and the reusable demo before the EGL/OpenGL ES 3 backend was added; it remains the default fallback configuration.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Link the Android demo to pinned TotalCross libpng and zlib-ng archives rather than an NDK-provided zlib.
@@ -169,7 +176,7 @@ Record unexpected implementation facts here.
 
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity CPU demo is also packaged as a signed arm64-v8a API 24 debug APK.
+The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly.
 
 Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 

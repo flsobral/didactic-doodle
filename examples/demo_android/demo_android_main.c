@@ -15,9 +15,15 @@ void android_main(struct android_app* app) {
     TcAndroidNativeBackend* backend = NULL; DemoAndroid demo = {0};
     if (tc_android_backend_attach(app, on_event, &demo, &backend) != TC_OK) return;
     while (!app->window && !app->destroyRequested) { int events; struct android_poll_source* source; if (ALooper_pollOnce(-1, NULL, &events, (void**)&source) >= 0 && source) source->process(app, source); }
-    if (app->destroyRequested || tc_android_cpu_context_create(app->window, &demo.graphics) != TC_OK || tc_renderer_create(TC_RENDERER_SKIA, demo.graphics, &demo.renderer) != TC_OK) goto cleanup;
+#if TC_ANDROID_GRAPHICS_OPENGL
+    const TcGraphicsApi graphics_api = TC_GRAPHICS_OPENGL;
+#else
+    const TcGraphicsApi graphics_api = TC_GRAPHICS_CPU;
+#endif
+    TcNativeWindowHandle window = {app->window}; TcNativeSurfaceHandle surface = {0};
+    if (app->destroyRequested || tc_graphics_context_create(graphics_api, &window, &surface, &demo.graphics) != TC_OK || tc_renderer_create(TC_RENDERER_SKIA, demo.graphics, &demo.renderer) != TC_OK) goto cleanup;
     demo_scene_init(&demo.scene, demo.graphics->width, demo.graphics->height); tc_android_backend_start(backend, on_frame, &demo);
     while (!app->destroyRequested) { int events; struct android_poll_source* source; while (ALooper_pollOnce(0, NULL, &events, (void**)&source) >= 0 && source) source->process(app, source); }
 cleanup:
-    tc_android_backend_stop(backend); tc_renderer_destroy(demo.renderer); tc_android_cpu_destroy(demo.graphics); tc_android_backend_detach(backend);
+    tc_android_backend_stop(backend); tc_renderer_destroy(demo.renderer); tc_graphics_context_destroy(demo.graphics); tc_android_backend_detach(backend);
 }
