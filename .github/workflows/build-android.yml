@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: build-android
+on: [push, pull_request]
+jobs:
+  stubs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record stub status
+        run: test -f src/backends/android/tc_android_backend.c

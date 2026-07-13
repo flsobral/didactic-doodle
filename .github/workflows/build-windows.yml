@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: build-windows
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL3
+        shell: pwsh
+        run: vcpkg install sdl3:x64-windows
+      - name: Fetch pinned Skia
+        shell: pwsh
+        run: bash ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7" windows-x64
+      - name: Configure and build
+        shell: pwsh
+        run: cmake -S . -B build -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=CPU -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"; cmake --build build --config Release
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: windows-build-logs, path: build/CMakeFiles }

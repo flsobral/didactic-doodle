@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: build-web
+on: [push, pull_request]
+jobs:
+  stubs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record web scaffold status
+        run: test -f examples/demo_web/index.html

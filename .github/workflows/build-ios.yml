@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: build-ios
+on: [push, pull_request]
+jobs:
+  stubs:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record stub status
+        run: test -f src/backends/ios/tc_ios_backend.c

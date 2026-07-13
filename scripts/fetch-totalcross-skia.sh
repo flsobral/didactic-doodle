@@ -11,12 +11,14 @@ platform=${2:-macos-arm64}
 release=https://github.com/TotalCross/totalcross-depot-tools/releases/download/skia-158dc9d7-r3
 
 case "$platform" in
-  macos-arm64|linux-x86_64|linux-aarch64|linux-armv7l|android-arm64-v8a) ;;
+  macos-arm64|linux-x86_64|linux-aarch64|linux-armv7l|android-arm64-v8a|windows-x64|windows-arm64) ;;
   *) echo "Unsupported Skia artifact: $platform" >&2; exit 2 ;;
 esac
 
 mkdir -p "$destination"
 curl -L --fail --retry 3 -o "$destination/skia-dev-headers.zip" "$release/skia-dev-headers-158dc9d7.zip"
-curl -L --fail --retry 3 -o "$destination/libskia-$platform.a" "$release/libskia-$platform.a"
+extension=a
+if [[ "$platform" == windows-* ]]; then extension=lib; fi
+curl -L --fail --retry 3 -o "$destination/libskia-$platform.$extension" "$release/libskia-$platform.$extension"
 unzip -qo "$destination/skia-dev-headers.zip" -d "$destination/headers"
 echo "Skia ready at $destination"
