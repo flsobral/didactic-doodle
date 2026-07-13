@@ -21,6 +21,7 @@ struct TcCanvas2D { void* implementation; };
 struct TcApp { TcAppCallbacks callbacks; void* user_data; TcPlatformBackend* backend; TcRenderer2D* renderer; bool running; bool shutdown_called; };
 
 int tc_sdl_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend);
+int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data);
 int tc_cpu_context_create(TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context);
 void tc_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale);
 void tc_cpu_context_present(TcGraphicsContext* context);

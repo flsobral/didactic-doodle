@@ -64,6 +64,20 @@ int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* u
     }
     return TC_OK;
 }
+int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
+    if (!backend || !sink || !backend->scheduler.callback) return TC_ERROR_INVALID_ARGUMENT;
+    double previous = (double)SDL_GetTicks() / 1000.0;
+    while (backend->scheduler.running) {
+        tc_backend_pump_events(backend, sink, user_data);
+        double now = (double)SDL_GetTicks() / 1000.0;
+        double delta = now - previous;
+        if (delta < (1.0 / 60.0)) { SDL_Delay(1); continue; }
+        previous = now;
+        backend->scheduler.requested = false;
+        backend->scheduler.callback(backend->scheduler.user_data, now, delta);
+    }
+    return TC_OK;
+}
 void tc_backend_request_redraw(TcPlatformBackend* backend) { if (backend) backend->redraw_requested = true; }
 void tc_backend_shutdown(TcPlatformBackend* backend) { if (!backend || !backend->initialized) return; SDL_DestroyWindow(backend->window.window); backend->window.window = NULL; backend->initialized = false; SDL_Quit(); }
 void tc_backend_destroy(TcPlatformBackend* backend) { if (!backend) return; tc_backend_shutdown(backend); free(backend); }

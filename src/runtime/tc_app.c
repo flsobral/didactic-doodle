@@ -5,9 +5,6 @@
 
 #include "tc_internal.h"
 #include <stdlib.h>
-#include <time.h>
-
-static double tc_now_seconds(void) { return (double)SDL_GetTicks() / 1000.0; }
 
 int tc_app_create(const TcAppConfig* config, TcApp** out_app) {
     if (!config || !out_app || !config->backend || !config->renderer || !config->callbacks.on_draw) return TC_ERROR_INVALID_ARGUMENT;
@@ -21,7 +18,7 @@ int tc_app_create(const TcAppConfig* config, TcApp** out_app) {
 
 void tc_app_dispatch_event(TcApp* app, const TcEvent* event) {
     if (!app || !event) return;
-    if (event->type == TC_EVENT_QUIT) app->running = false;
+    if (event->type == TC_EVENT_QUIT) { app->running = false; tc_scheduler_stop(tc_backend_get_scheduler(app->backend)); }
     if (event->type == TC_EVENT_RESIZE) {
         tc_graphics_context_resize(app->renderer->context, event->data.resize.width, event->data.resize.height, event->data.resize.scale);
         tc_renderer_resize(app->renderer, event->data.resize.width, event->data.resize.height, event->data.resize.scale);
@@ -47,21 +44,12 @@ int tc_app_run(TcApp* app) {
     TcFrameScheduler* scheduler = tc_backend_get_scheduler(app->backend);
     if (!scheduler) return TC_ERROR_PLATFORM;
     if (tc_scheduler_start(scheduler, tc_app_frame_callback, app) != TC_OK) return TC_ERROR_PLATFORM;
-    double previous = tc_now_seconds();
-    while (app->running) {
-        tc_backend_pump_events(app->backend, tc_app_event_sink, app);
-        double now = tc_now_seconds();
-        double delta = now - previous;
-        if (delta < (1.0 / 60.0)) { SDL_Delay(1); continue; }
-        previous = now;
-        scheduler->requested = false;
-        scheduler->callback(scheduler->user_data, now, delta);
-    }
+    int result = tc_backend_run(app->backend, tc_app_event_sink, app);
     tc_scheduler_stop(scheduler);
-    return TC_OK;
+    return result;
 }
 
-void tc_app_request_quit(TcApp* app) { if (app) app->running = false; }
+void tc_app_request_quit(TcApp* app) { if (app) { app->running = false; tc_scheduler_stop(tc_backend_get_scheduler(app->backend)); } }
 void tc_app_destroy(TcApp* app) {
     if (!app) return;
     if (!app->shutdown_called && app->callbacks.on_shutdown) app->callbacks.on_shutdown(app->user_data);
