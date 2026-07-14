@@ -1,4 +1,4 @@
-# tc_runtime
+# Magic Doodle Board
 
 ## Maintainer
 
@@ -12,134 +12,655 @@ This project is licensed under LGPL-2.1-only; see [LICENSE](LICENSE). See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the required SPDX headers and local
 validation command.
 
-A small, C-first application runtime that keeps platform, scheduler, graphics, renderer, and canvas APIs independent. The initial implementation targets are SDL3 + Skia CPU and SDL3 + Skia OpenGL. Application code, including the demo, never includes SDL or Skia headers.
+Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applications. It separates native application hosting, graphics context management, and Canvas 2D rendering into three independently built layers with stable public C APIs.
 
-## Current status
+The name is both a product metaphor and an architectural map:
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU, OpenGL ES 3, and Vulkan; iOS UIKit supports CPU, OpenGL ES, and Metal; and the web demo uses Emscripten, WebGL 2, and the wasm32 Skia archive. The default desktop build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. GLFW, other renderers, winit, and Vello are intentional stubs and CMake explains when one is selected.
+- **Board** is the surface on which an application exists: windows, views, events, lifecycle, and frame timing.
+- **Magic** is the machinery that turns a native surface into a usable CPU or GPU frame.
+- **Doodle** is the drawing API and the renderer that turns Canvas commands into pixels.
 
-## Build the CPU demo
+The framework does not expose SDL, GLFW, Emscripten, Android, UIKit, Metal, OpenGL, Vulkan, Skia, C++, or Rust types through its portable public headers.
 
-Install SDL3 and supply a Skia build. A pinned TotalCross release is supported directly and can be fetched without adding binaries to the repository:
+## Architecture
 
-```sh
-brew install sdl3 # macOS
-./scripts/fetch-totalcross-skia.sh
+The runtime stack has exactly three public layers:
+
+```text
+Application
+    |
+    | Board callbacks and events
+    v
++-------------------------------+
+| Board                         |
+| app host, window/view, input, |
+| lifecycle, scheduler, surface |
++-------------------------------+
+    |
+    | Board public surface API
+    v
++-------------------------------+
+| Magic                         |
+| device/context, frame target, |
+| synchronization, presentation |
++-------------------------------+
+    |
+    | Magic public frame API
+    v
++-------------------------------+
+| Doodle                        |
+| Canvas 2D and renderer        |
+| Skia / Blend2D / NanoVG/Vello |
++-------------------------------+
 ```
 
-Then configure and build:
+The dependency direction is strict:
 
-```sh
-cmake -S . -B build -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=CPU \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
-cmake --build build --config Release
-./build/examples/demo/tc_demo
+```text
+Board
+  ^
+  |
+Magic
+  ^
+  |
+Doodle
 ```
 
-Alternatively, provide a Skia CMake package and set `CMAKE_PREFIX_PATH` (and `TC_SKIA_TARGET` if its exported target is not `skia`). This is intentionally a configure-time error rather than a partial build.
+Board does not depend on Magic or Doodle. Magic may consume only Board's installed public API. Doodle may consume only Magic's installed public API and does not depend directly on Board. The root CMake project only composes selected implementations; it is not a fourth runtime layer.
 
-## Build the OpenGL demo
+## Execution model
 
-The pinned macOS Skia archive contains Ganesh OpenGL symbols. Build the shared demo source with an SDL OpenGL 3.2 core context:
+Magic Doodle Board is event-driven and frame-driven. Application code never owns a blocking platform loop.
 
-```sh
-cmake -S . -B build-sdl-skia-gl \
-  -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
-cmake --build build-sdl-skia-gl
-./build-sdl-skia-gl/examples/demo/tc_demo
+```text
+native Board backend
+    -> converts input/lifecycle changes into BoardEvent
+    -> dispatches the application event callback
+
+native frame source
+    -> Board frame callback(timestamp, delta)
+    -> application update
+    -> magic_context_begin_frame()
+    -> doodle_renderer_begin_frame()
+    -> application draws through DoodleCanvas
+    -> doodle_renderer_end_frame()
+    -> magic_context_end_frame()
+    -> present
 ```
 
-## Build the Metal demo (macOS)
+Frame sources remain platform-native:
 
-The r4 macOS archive includes Ganesh Metal support. The same demo uses SDL's private `CAMetalLayer` and acquires a Skia surface per frame:
+- Web uses the browser animation-frame callback.
+- Android uses `AChoreographer` directly.
+- iOS uses `CADisplayLink`.
+- SDL3, GLFW, and winit adapt their native event and frame mechanisms to the same Board callback contract.
+- Headless mode supports manual or deterministic virtual-time frames for tests and server-side rendering.
 
-```sh
-cmake -S . -B build-sdl-skia-metal \
-  -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=METAL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
-cmake --build build-sdl-skia-metal
-./build-sdl-skia-metal/examples/demo/tc_demo
+A representative composition looks like this:
+
+```c
+static void app_on_frame(void *user_data,
+                         uint64_t timestamp_ns,
+                         double delta_seconds) {
+    AppState *app = user_data;
+    MagicFrame *frame = NULL;
+    DoodleCanvas *canvas = NULL;
+
+    app_update(app, delta_seconds);
+
+    if (magic_context_begin_frame(app->magic, &frame) != MAGIC_OK) {
+        return;
+    }
+
+    if (doodle_renderer_begin_frame(app->doodle, frame, &canvas) == DOODLE_OK) {
+        app_draw(app, canvas);
+        doodle_renderer_end_frame(app->doodle, canvas);
+    }
+
+    magic_context_end_frame(app->magic, frame);
+}
 ```
 
-## Planned configurations
+Board never calls Doodle directly, and Doodle never presents a frame directly. The application composes the three public APIs.
 
-`TC_PLATFORM` accepts `DESKTOP`, `ANDROID`, `IOS`, and `WEB`; `TC_BACKEND` accepts `SDL`, `ANDROID_NATIVE`, `IOS_NATIVE`, `GLFW`, and `WINIT`; `TC_GRAPHICS` accepts `CPU`, `OPENGL`, `METAL`, and `VULKAN`; and `TC_RENDERER` accepts `SKIA`, `NANOVG`, `BLEND2D`, and `VELLO`.
+## Layer 1: Board
 
-`DESKTOP + SDL + CPU + SKIA`, `DESKTOP + SDL + OPENGL + SKIA`, macOS `DESKTOP + SDL + METAL + SKIA`, and `WEB + SDL + OPENGL + SKIA` are implemented. The web selection uses a private Emscripten event/animation-frame adapter while preserving the same public backend API and shared demo source. Other unsupported selections fail clearly at CMake configuration time.
+Board owns platform and host integration.
 
-## Web demo
+### Responsibilities
 
-The web demo uses WebGL 2 and Emscripten's `requestAnimationFrame` scheduler. It needs the wasm32 r4 Skia archive and Emscripten **2.0.6**, the version used to produce that archive. Newer SDKs are not binary-compatible with this static archive.
+- application startup, shutdown, pause, resume, focus, and visibility;
+- logical windows and embeddable native views;
+- native surface creation and destruction;
+- size, scale, orientation, monitor, and safe-area information;
+- keyboard, text input, mouse, touch, pen, and gamepad events;
+- IME, clipboard, cursor, drag and drop, and accessibility hooks where supported;
+- event queues and callback dispatch;
+- frame scheduling and `request_frame`;
+- UI-thread dispatch;
+- native host services and native-view overlay slots;
+- a versioned native-surface capability API consumed by Magic.
 
-```sh
-./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-wasm32-r4" wasm32
-git clone https://github.com/emscripten-core/emsdk.git .cache/emsdk
-.cache/emsdk/emsdk install 2.0.6
-.cache/emsdk/emsdk activate 2.0.6
-source .cache/emsdk/emsdk_env.sh
+### Board backends
 
-emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release \
-  -DTC_PLATFORM=WEB -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4"
-cmake --build build-web
-python3 -m http.server --directory build-web/examples/demo 8000
+```text
+SDL3
+GLFW
+Web
+winit
+Android native
+IOS native
+Headless
 ```
 
-Open `http://localhost:8000/tc_demo.html`. The generated HTML, JavaScript, and WebAssembly files remain together in `build-web/examples/demo/`.
+SDL3 is the default desktop backend. Android and iOS backends are native and embeddable. Web is implemented as a browser host rather than as a hidden substitution for another backend. Headless is a first-class backend for deterministic tests and offscreen workloads.
 
-The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly. The default APK uses the CPU raster path; the same shared demo can be built with EGL/OpenGL ES 3 and Skia Ganesh when the selected Skia archive exports GL support.
+### Public API shape
 
-## Android native library
+```c
+typedef struct BoardApp BoardApp;
+typedef struct BoardWindow BoardWindow;
+typedef struct BoardFrameScheduler BoardFrameScheduler;
+typedef struct BoardNativeSurface BoardNativeSurface;
 
-The Android CPU demo reuses `examples/demo/demo_scene.c` and presents the Skia raster buffer through `ANativeWindow`. It targets `arm64-v8a` with API 24 as the minimum. Fetch the required external archives, then build the native library:
+typedef struct BoardAppCallbacks {
+    void (*on_start)(void *user_data);
+    void (*on_event)(void *user_data, const BoardEvent *event);
+    void (*on_update)(void *user_data, double delta_seconds);
+    void (*on_frame)(void *user_data,
+                     uint64_t timestamp_ns,
+                     double delta_seconds);
+    void (*on_shutdown)(void *user_data);
+} BoardAppCallbacks;
 
-```sh
-./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-android" android-arm64-v8a
-curl -L -o /tmp/libpng-android.tar.gz https://github.com/TotalCross/totalcross-depot-tools/releases/download/libpng-1.6.48-r2/libpng-android-arm64-v8a.tar.gz
-mkdir -p .cache/libpng-android && tar -xzf /tmp/libpng-android.tar.gz -C .cache/libpng-android
-curl -L -o /tmp/zlib-ng-android.tar.gz https://github.com/TotalCross/totalcross-depot-tools/releases/download/zlib-ng-2.1.6-r2/zlib-ng-android-arm64-v8a.tar.gz
-mkdir -p .cache/zlib-ng-android && tar -xzf /tmp/zlib-ng-android.tar.gz -C .cache/zlib-ng-android
-
-cmake -S android/app/src/main/cpp -B build-android-cpu \
-  -DCMAKE_TOOLCHAIN_FILE="$HOME/Library/Android/sdk/ndk/28.2.13676358/build/cmake/android.toolchain.cmake" \
-  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-android" \
-  -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-android" \
-  -DTC_ZLIB_NG_ROOT="$PWD/.cache/zlib-ng-android"
-cmake --build build-android-cpu
+BoardResult board_app_create(const BoardAppConfig *config,
+                             const BoardAppCallbacks *callbacks,
+                             void *user_data,
+                             BoardApp **out_app);
+void board_app_destroy(BoardApp *app);
+void board_app_request_frame(BoardApp *app);
 ```
 
-This produces `build-android-cpu/libtc_demo_android.so`. The Gradle/NativeActivity project is under `android/`; APK packaging still requires a local Gradle installation or wrapper.
+The Board frame callback does not receive a Canvas. This keeps Board independent from Doodle.
 
-Build the debug APK with the versioned Gradle Wrapper and the same dependency roots:
+### Native surface capability contract
 
-```sh
-cd android
-./gradlew assembleDebug \
-  -PtcSkiaRoot="$PWD/../.cache/skia-android" \
-  -PtcLibpngRoot="$PWD/../.cache/libpng-android" \
-  -PtcZlibNgRoot="$PWD/../.cache/zlib-ng-android"
+Magic needs more than a raw pointer to support SDL-created OpenGL contexts, Vulkan surfaces, Metal layers, Web canvases, and CPU presentation. Board therefore exposes a versioned capability query instead of leaking platform types.
+
+Conceptually:
+
+```c
+typedef enum BoardSurfaceInterfaceId {
+    BOARD_SURFACE_INTERFACE_CPU,
+    BOARD_SURFACE_INTERFACE_OPENGL,
+    BOARD_SURFACE_INTERFACE_VULKAN,
+    BOARD_SURFACE_INTERFACE_METAL,
+    BOARD_SURFACE_INTERFACE_WEB
+} BoardSurfaceInterfaceId;
+
+BoardResult board_surface_query_interface(
+    BoardNativeSurface *surface,
+    BoardSurfaceInterfaceId interface_id,
+    uint32_t abi_version,
+    void *out_interface,
+    size_t out_interface_size);
 ```
 
-The resulting signed debug artifact is `android/app/build/outputs/apk/debug/app-debug.apk`. It contains only `arm64-v8a`, matching the published Skia/libpng/zlib-ng archives.
+Each returned interface is a C struct that begins with `struct_size` and `abi_version` and contains only primitive values, opaque pointers or integer handles, and callbacks. Magic performs backend-specific casts only in private implementation files.
 
-Pass `-PtcAndroidGraphics=OPENGL` to build the EGL/OpenGL ES 3 variant. Pass `-PtcAndroidGraphics=VULKAN` to use the native Android Vulkan swapchain and Skia Ganesh Vulkan renderer. The Vulkan path requires the r4 Android Skia archive and runs on Android API 24 or newer.
+## Layer 2: Magic
 
-## iOS simulator demo
+Magic owns graphics context and frame presentation.
 
-The UIKit demo is driven by `CADisplayLink` and shares the generic Skia canvas scene. CPU is the default; OpenGL ES remains available for compatibility, while Metal is the native GPU path.
+### Responsibilities
 
-```sh
-cmake -S ios -B build-ios-sim-metal \
-  -DCMAKE_OSX_SYSROOT=iphonesimulator \
-  -DCMAKE_OSX_ARCHITECTURES=arm64 \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=18.5 \
-  -DTC_IOS_GRAPHICS=METAL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-ios-sim-r4" \
-  -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-ios-sim" \
-  -DTC_ZLIB_NG_ROOT="$PWD/.cache/zlib-ng-ios-sim"
-cmake --build build-ios-sim-metal --parallel
+- selecting CPU, OpenGL/OpenGL ES, Metal, Vulkan, or Web;
+- creating and destroying devices and contexts;
+- creating the graphics surface or swapchain from a Board surface capability;
+- acquiring and ending frames;
+- exposing renderer-compatible frame targets through versioned public interop structs;
+- resize, sample count, color format, color space, and vsync;
+- synchronization and resource-lifetime fences;
+- device-loss detection and recovery;
+- CPU buffers and upload/presentation where applicable.
+
+### Magic backends
+
+```text
+CPU
+OpenGL / OpenGL ES
+Metal
+Vulkan
+Web
 ```
 
-Install and launch `build-ios-sim-metal/TCdemo.app` with `xcrun simctl install` and `xcrun simctl launch` for a booted arm64 simulator. Set `TC_IOS_GRAPHICS=CPU` or `OPENGL` to select the alternate paths.
+`MAGIC_BACKEND_WEB` is a browser graphics provider. Its initial implementation may use WebGL 2, while preserving a public API that can later support WebGPU without exposing Emscripten or browser types.
+
+### Public API shape
+
+```c
+typedef struct MagicContext MagicContext;
+typedef struct MagicFrame MagicFrame;
+
+typedef enum MagicBackend {
+    MAGIC_BACKEND_AUTO,
+    MAGIC_BACKEND_CPU,
+    MAGIC_BACKEND_OPENGL,
+    MAGIC_BACKEND_METAL,
+    MAGIC_BACKEND_VULKAN,
+    MAGIC_BACKEND_WEB
+} MagicBackend;
+
+typedef struct MagicConfig {
+    uint32_t struct_size;
+    MagicBackend backend;
+    bool vsync;
+    uint32_t sample_count;
+} MagicConfig;
+
+MagicResult magic_context_create(BoardNativeSurface *surface,
+                                 const MagicConfig *config,
+                                 MagicContext **out_context);
+void magic_context_destroy(MagicContext *context);
+MagicResult magic_context_resize(MagicContext *context,
+                                 uint32_t width,
+                                 uint32_t height,
+                                 float scale);
+MagicResult magic_context_begin_frame(MagicContext *context,
+                                      MagicFrame **out_frame);
+MagicResult magic_context_end_frame(MagicContext *context,
+                                    MagicFrame *frame);
+```
+
+Magic exposes renderer interop through versioned queries:
+
+```c
+typedef enum MagicInteropId {
+    MAGIC_INTEROP_CPU_TARGET,
+    MAGIC_INTEROP_OPENGL_TARGET,
+    MAGIC_INTEROP_METAL_TARGET,
+    MAGIC_INTEROP_VULKAN_TARGET,
+    MAGIC_INTEROP_WEB_TARGET
+} MagicInteropId;
+
+MagicResult magic_frame_query_interop(const MagicFrame *frame,
+                                      MagicInteropId interop_id,
+                                      uint32_t abi_version,
+                                      void *out_interop,
+                                      size_t out_interop_size);
+```
+
+The interop tables contain no native graphics declarations. A private renderer adapter may reinterpret opaque handles after including its own backend headers.
+
+## Layer 3: Doodle
+
+Doodle owns the portable 2D drawing API and its renderer implementations.
+
+### Responsibilities
+
+- Canvas state, save and restore;
+- clear, rectangles, rounded rectangles, lines, circles, and paths;
+- transforms, clipping, layers, and blend modes;
+- paints, strokes, gradients, shaders, and filters;
+- images and image sampling;
+- fonts, text measurement, shaping integration, and text drawing;
+- renderer creation, resize, frame binding, flush, and teardown;
+- feature reporting and compatibility checks.
+
+### Doodle renderers
+
+```text
+Skia
+Blend2D
+NanoVG
+Vello
+```
+
+Renderer adapters are Doodle submodules, not a fourth architectural layer.
+
+- Skia is the first complete renderer and may use CPU raster, OpenGL/OpenGL ES, Metal, Vulkan, or Web targets supplied by Magic.
+- Blend2D initially targets Magic CPU frames.
+- NanoVG initially targets Magic OpenGL/OpenGL ES frames.
+- Vello remains a clearly reported stub until a stable C adapter and compatible Magic interop path are implemented.
+
+### Public API shape
+
+```c
+typedef struct DoodleRenderer DoodleRenderer;
+typedef struct DoodleCanvas DoodleCanvas;
+typedef struct DoodlePaint DoodlePaint;
+typedef struct DoodlePath DoodlePath;
+typedef struct DoodleImage DoodleImage;
+typedef struct DoodleFont DoodleFont;
+
+typedef enum DoodleRendererBackend {
+    DOODLE_RENDERER_SKIA,
+    DOODLE_RENDERER_BLEND2D,
+    DOODLE_RENDERER_NANOVG,
+    DOODLE_RENDERER_VELLO
+} DoodleRendererBackend;
+
+DoodleResult doodle_renderer_create(MagicContext *magic,
+                                    const DoodleRendererConfig *config,
+                                    DoodleRenderer **out_renderer);
+void doodle_renderer_destroy(DoodleRenderer *renderer);
+DoodleResult doodle_renderer_begin_frame(DoodleRenderer *renderer,
+                                         MagicFrame *frame,
+                                         DoodleCanvas **out_canvas);
+DoodleResult doodle_renderer_end_frame(DoodleRenderer *renderer,
+                                       DoodleCanvas *canvas);
+
+void doodle_canvas_clear(DoodleCanvas *canvas, DoodleColor color);
+void doodle_canvas_save(DoodleCanvas *canvas);
+void doodle_canvas_restore(DoodleCanvas *canvas);
+void doodle_canvas_translate(DoodleCanvas *canvas, float x, float y);
+void doodle_canvas_scale(DoodleCanvas *canvas, float x, float y);
+void doodle_canvas_rotate(DoodleCanvas *canvas, float radians);
+void doodle_canvas_clip_rect(DoodleCanvas *canvas, DoodleRect rect);
+void doodle_canvas_draw_rect(DoodleCanvas *canvas,
+                             DoodleRect rect,
+                             const DoodlePaint *paint);
+```
+
+## Mobile integration
+
+Board supports three mobile hosting modes without adding platform concepts to Magic or Doodle.
+
+### Fullscreen owned
+
+A convenience activity or view controller hosts one Board view that fills the screen. Board still uses the same embeddable view internally.
+
+### Embedded
+
+The native application creates and positions a Board view inside any layout region.
+
+Android concept:
+
+```java
+import org.magicdoodle.board.BoardView;
+
+BoardView boardView = new BoardView(context);
+boardView.setApplication(applicationHandle);
+container.addView(boardView);
+```
+
+iOS concept:
+
+```swift
+import MagicDoodleBoard
+
+let boardView = BoardView(frame: .zero)
+boardView.applicationHandle = applicationHandle
+view.addSubview(boardView)
+```
+
+The core C API never owns an `Activity`, `Fragment`, `UIViewController`, or navigation controller. Optional wrappers are convenience adapters only.
+
+### Hybrid overlay
+
+A Board host view contains both the rendering surface and a native overlay container:
+
+```text
+Board host view
+├── rendering surface
+└── native overlay container
+    ├── text control
+    ├── map view
+    ├── camera preview
+    └── web view
+```
+
+A `BoardNativeViewSlot` controls native view position, size, visibility, rectangular clipping, and a documented above-or-below-surface z-order. Arbitrary Doodle filters, perspective transforms, and path clipping do not apply to native controls.
+
+## Target repository structure
+
+```text
+magic-doodle-board/
+├── CMakeLists.txt
+├── AGENTS.md
+├── README.md
+├── LICENSE
+├── cmake/
+│   ├── MagicDoodleBoardOptions.cmake
+│   ├── MagicDoodleBoardCompatibility.cmake
+│   └── package/
+│
+├── board/
+│   ├── CMakeLists.txt
+│   ├── include/board/
+│   │   ├── board_app.h
+│   │   ├── board_backend.h
+│   │   ├── board_event.h
+│   │   ├── board_host.h
+│   │   ├── board_native_view.h
+│   │   ├── board_scheduler.h
+│   │   ├── board_surface.h
+│   │   ├── board_types.h
+│   │   └── board_version.h
+│   ├── src/
+│   │   ├── board_app.c
+│   │   ├── board_event_queue.c
+│   │   ├── board_scheduler.c
+│   │   └── board_surface.c
+│   ├── backends/
+│   │   ├── sdl3/
+│   │   ├── glfw/
+│   │   ├── web/
+│   │   ├── winit/
+│   │   ├── android/
+│   │   ├── ios/
+│   │   └── headless/
+│   └── tests/
+│
+├── magic/
+│   ├── CMakeLists.txt
+│   ├── include/magic/
+│   │   ├── magic_backend.h
+│   │   ├── magic_context.h
+│   │   ├── magic_frame.h
+│   │   ├── magic_interop.h
+│   │   ├── magic_types.h
+│   │   └── magic_version.h
+│   ├── src/
+│   │   ├── magic_context.c
+│   │   ├── magic_frame.c
+│   │   └── magic_registry.c
+│   ├── backends/
+│   │   ├── cpu/
+│   │   ├── opengl/
+│   │   ├── metal/
+│   │   ├── vulkan/
+│   │   └── web/
+│   └── tests/
+│
+├── doodle/
+│   ├── CMakeLists.txt
+│   ├── include/doodle/
+│   │   ├── doodle_canvas.h
+│   │   ├── doodle_color.h
+│   │   ├── doodle_font.h
+│   │   ├── doodle_image.h
+│   │   ├── doodle_paint.h
+│   │   ├── doodle_path.h
+│   │   ├── doodle_renderer.h
+│   │   ├── doodle_types.h
+│   │   └── doodle_version.h
+│   ├── src/
+│   │   ├── doodle_canvas.c
+│   │   ├── doodle_registry.c
+│   │   └── doodle_resources.c
+│   ├── renderers/
+│   │   ├── skia/
+│   │   ├── blend2d/
+│   │   ├── nanovg/
+│   │   └── vello/
+│   └── tests/
+│
+├── examples/
+│   ├── common/
+│   ├── desktop/
+│   ├── android/
+│   ├── ios/
+│   ├── web/
+│   └── headless/
+│
+├── tests/
+│   ├── public_headers/
+│   ├── architecture/
+│   ├── configuration/
+│   └── integration/
+│
+└── plans/
+    └── convert-to-magic-doodle-board.md
+```
+
+## Build model
+
+Each layer can be configured, built, installed, and consumed separately.
+
+### Build Board independently
+
+```sh
+cmake -S board -B build/board \
+  -DBOARD_BACKEND=HEADLESS \
+  -DBOARD_BUILD_TESTS=ON
+cmake --build build/board --parallel
+ctest --test-dir build/board --output-on-failure
+cmake --install build/board --prefix build/install
+```
+
+### Build Magic against installed Board
+
+```sh
+cmake -S magic -B build/magic \
+  -DCMAKE_PREFIX_PATH="$PWD/build/install" \
+  -DMAGIC_BACKEND=CPU \
+  -DMAGIC_BUILD_TESTS=ON
+cmake --build build/magic --parallel
+ctest --test-dir build/magic --output-on-failure
+cmake --install build/magic --prefix build/install
+```
+
+### Build Doodle against installed Magic
+
+```sh
+cmake -S doodle -B build/doodle \
+  -DCMAKE_PREFIX_PATH="$PWD/build/install" \
+  -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_BUILD_TESTS=ON
+cmake --build build/doodle --parallel
+ctest --test-dir build/doodle --output-on-failure
+cmake --install build/doodle --prefix build/install
+```
+
+### Build the composed framework
+
+```sh
+cmake -S . -B build \
+  -DBOARD_BACKEND=SDL3 \
+  -DMAGIC_BACKEND=OPENGL \
+  -DDOODLE_RENDERER=SKIA \
+  -DMDB_BUILD_EXAMPLES=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+Canonical CMake selections are:
+
+```text
+BOARD_BACKEND=SDL3|GLFW|WEB|WINIT|ANDROID_NATIVE|IOS_NATIVE|HEADLESS
+MAGIC_BACKEND=CPU|OPENGL|METAL|VULKAN|WEB
+DOODLE_RENDERER=SKIA|BLEND2D|NANOVG|VELLO
+```
+
+The root configuration validates the combination before generating build files. Unsupported combinations produce an error that names the unavailable pair or missing implementation.
+
+## Initial compatibility matrix
+
+The first complete migration preserves these known paths:
+
+```text
+Board SDL3          + Magic CPU      + Doodle Skia
+Board SDL3          + Magic OpenGL   + Doodle Skia
+Board SDL3 on macOS + Magic Metal    + Doodle Skia
+Board Android       + Magic CPU      + Doodle Skia
+Board Android       + Magic OpenGL ES+ Doodle Skia
+Board Android       + Magic Vulkan   + Doodle Skia
+Board iOS           + Magic CPU      + Doodle Skia
+Board iOS           + Magic OpenGL ES+ Doodle Skia
+Board iOS           + Magic Metal    + Doodle Skia
+Board Web           + Magic Web      + Doodle Skia
+Board Headless      + Magic CPU      + Doodle Skia
+```
+
+GLFW, winit, Blend2D, NanoVG, and Vello remain explicit stubs until implemented. Selecting a stub fails clearly at configure time.
+
+## Dependencies
+
+Large rendering dependencies remain external and are not vendored.
+
+- Skia is consumed through a pinned external package.
+- The current wasm32 Skia artifact is ABI-compatible with Emscripten 2.0.6; the Web build must keep that toolchain pin until the artifact is rebuilt with a newer Emscripten release.
+- Android Skia packages may require matching external libpng and zlib-ng artifacts.
+- Renderer-specific dependencies are private to their Doodle adapter and must not leak through installed headers.
+
+## Public ABI rules
+
+All public structs intended for cross-library exchange begin with size and version metadata where future extension is expected:
+
+```c
+typedef struct ExampleInterop {
+    uint32_t struct_size;
+    uint32_t abi_version;
+    /* versioned fields follow */
+} ExampleInterop;
+```
+
+Additional rules:
+
+- use fixed-width integer types for ABI-visible numeric fields;
+- use opaque structs for owned objects;
+- document ownership of every pointer and callback;
+- provide explicit create/destroy or retain/release pairs;
+- do not pass C++ exceptions across the C boundary;
+- translate backend failures into layer-specific result enums;
+- keep symbols hidden by default and export only the documented C API;
+- compile public-header smoke tests as C11 and C++17 or newer.
+
+## Migration from the current layout
+
+The current `tc_` runtime is split by ownership:
+
+```text
+TcApp, TcPlatformBackend, TcFrameScheduler, TcEvent
+    -> BoardApp, BoardBackend, BoardFrameScheduler, BoardEvent
+
+TcGraphicsContext and graphics frame/surface operations
+    -> MagicContext, MagicFrame, Magic interop APIs
+
+TcRenderer2D, TcCanvas2D, paints, paths, images, fonts
+    -> DoodleRenderer, DoodleCanvas, and Doodle resources
+```
+
+File and function prefixes follow the same ownership rule:
+
+```text
+tc_app.h              -> board_app.h
+tc_event.h            -> board_event.h
+tc_scheduler.h        -> board_scheduler.h
+tc_backend.h          -> board_backend.h
+tc_graphics.h         -> magic_context.h and magic_frame.h
+tc_renderer.h         -> doodle_renderer.h
+tc_canvas.h           -> doodle_canvas.h
+
+tc_app_*              -> board_app_*
+tc_graphics_*         -> magic_context_* or magic_frame_*
+tc_renderer_*         -> doodle_renderer_*
+tc_canvas_*           -> doodle_canvas_*
+```
+
+The detailed, incremental conversion is specified in [`plans/convert-to-magic-doodle-board.md`](plans/convert-to-magic-doodle-board.md).
+
+## Project status
+
+The architecture in this README is the target contract for the conversion from the current `didactic-doodle` layout. Skia is the only renderer expected to be complete at the start of the migration. Stub selections must remain honest and fail clearly until their implementation and tests exist.
