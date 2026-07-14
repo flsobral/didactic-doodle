@@ -18,7 +18,7 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 
 The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia** and
-**Board SDL3 + Magic CPU + Doodle Skia on macOS**. Board exposes either a
+**Board SDL3 + Magic CPU/OpenGL + Doodle Skia on macOS**. Board exposes either a
 deterministic headless CPU surface or an SDL3 window surface; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
 Skia provider binds Canvas operations exclusively through `MagicCpuInterop`.
@@ -49,6 +49,9 @@ cmake -S . -B build/desktop-cpu \
 cmake --build build/desktop-cpu --parallel
 build/desktop-cpu/examples/desktop/magic_doodle_board_demo
 ```
+
+For the OpenGL variant, change the build directory and pass
+`-DMAGIC_BACKEND=OPENGL`; `--frames 3` runs a finite three-frame smoke test.
 
 The name is both a product metaphor and an architectural map:
 

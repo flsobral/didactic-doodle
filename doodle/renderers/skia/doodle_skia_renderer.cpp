@@ -7,20 +7,29 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
+#include "include/gpu/GrBackendSurface.h"
+#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/gl/GrGLInterface.h"
+#include "include/gpu/gl/GrGLTypes.h"
 #include <memory>
 #include <new>
 
 struct DoodleCanvas { SkCanvas *native; };
-struct DoodleSkiaState { sk_sp<SkSurface> surface; DoodleCanvas canvas; };
+struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl; DoodleCanvas canvas; };
 static SkColor4f skia_color(DoodleColor color) { return { color.r, color.g, color.b, color.a }; }
 static SkPaint skia_paint(DoodlePaint paint) { SkPaint result; result.setColor4f(skia_color(paint.color), nullptr); result.setStyle(paint.style == DOODLE_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); result.setStrokeWidth(paint.stroke_width); result.setAntiAlias(true); return result; }
 static DoodleResult skia_create(MagicContext *, const DoodleRendererConfig *, void **out_state) { DoodleSkiaState *state = new (std::nothrow) DoodleSkiaState{}; if (!state) return DOODLE_ERROR_OUT_OF_MEMORY; *out_state = state; return DOODLE_OK; }
 static void skia_destroy(void *state) { delete static_cast<DoodleSkiaState *>(state); }
 static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **out_canvas) {
-  MagicCpuInterop pixels{}; DoodleSkiaState *state = static_cast<DoodleSkiaState *>(value);
-  if (!state || magic_frame_query_interop(frame, MAGIC_INTEROP_CPU, MAGIC_ABI_VERSION, &pixels, sizeof(pixels)) != MAGIC_OK) return DOODLE_ERROR_UNAVAILABLE;
-  SkColorType format = pixels.format == MAGIC_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
-  state->surface = SkSurface::MakeRasterDirect(SkImageInfo::Make((int)pixels.width, (int)pixels.height, format, kPremul_SkAlphaType), pixels.pixels, pixels.stride);
+  MagicCpuInterop pixels{}; MagicOpenGLInterop opengl{}; DoodleSkiaState *state = static_cast<DoodleSkiaState *>(value);
+  if (!state) return DOODLE_ERROR_INVALID_ARGUMENT;
+  if (magic_frame_query_interop(frame, MAGIC_INTEROP_CPU, MAGIC_ABI_VERSION, &pixels, sizeof(pixels)) == MAGIC_OK) {
+    SkColorType format = pixels.format == MAGIC_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
+    state->surface = SkSurface::MakeRasterDirect(SkImageInfo::Make((int)pixels.width, (int)pixels.height, format, kPremul_SkAlphaType), pixels.pixels, pixels.stride);
+  } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_OPENGL, MAGIC_ABI_VERSION, &opengl, sizeof(opengl)) == MAGIC_OK) {
+    if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
+    if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)opengl.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)opengl.width, (int)opengl.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
+  } else return DOODLE_ERROR_UNAVAILABLE;
   if (!state->surface) return DOODLE_ERROR_RENDERER;
   state->canvas.native = state->surface->getCanvas(); *out_canvas = &state->canvas; return DOODLE_OK;
 }
