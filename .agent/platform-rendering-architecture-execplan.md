@@ -111,6 +111,9 @@ Record unexpected implementation facts here.
 - Observation: presenting a `CAMetalDrawable` directly can race the Skia command buffer and leave the macOS Metal window black.
   Evidence: Skia's own Metal window context enqueues `presentDrawable:` in a new command buffer on the same queue after Skia flushes, rather than calling the drawable's immediate `present` method.
 
+- Observation: the r4 macOS archive enables both Ganesh OpenGL and Metal, even when the application selects only Metal.
+  Evidence: its published macOS arm64 build manifest sets both `skia_use_gl=true` and `skia_use_metal=true`; those backend macros alter public Ganesh value-type layouts and therefore must be defined together by consumers.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.

@@ -135,8 +135,11 @@ if(TC_GRAPHICS STREQUAL "OPENGL")
     target_link_libraries(tc_runtime PRIVATE OpenGL::GL)
   endif()
 endif()
-if((APPLE AND TC_SKIA_ROOT) OR TC_GRAPHICS STREQUAL "METAL")
-  # r4's Apple archives include Metal types in public Ganesh value types.
+if(APPLE AND TC_SKIA_ROOT)
+  # r4's macOS archive has both Ganesh GL and Metal enabled. These macros affect
+  # public GPU value-type layouts and must match the linked archive, not selection.
+  target_compile_definitions(tc_runtime PRIVATE SK_GL=1 SK_METAL=1)
+elseif(TC_GRAPHICS STREQUAL "METAL")
   target_compile_definitions(tc_runtime PRIVATE SK_METAL=1)
 endif()
 
