@@ -10,7 +10,7 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
-#if TC_BUILD_GRAPHICS_OPENGL || TC_BUILD_GRAPHICS_METAL
+#if TC_BUILD_GRAPHICS_OPENGL || TC_BUILD_GRAPHICS_METAL || TC_BUILD_GRAPHICS_VULKAN
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
 #endif
@@ -20,6 +20,11 @@
 #endif
 #if TC_BUILD_GRAPHICS_METAL
 #include "include/gpu/mtl/GrMtlTypes.h"
+#endif
+#if TC_BUILD_GRAPHICS_VULKAN
+extern "C" void* tc_android_vk_context_get_skia_context(TcGraphicsContext*);
+extern "C" void* tc_android_vk_begin_frame(TcGraphicsContext*);
+extern "C" int tc_android_vk_end_frame(TcGraphicsContext*, void*);
 #endif
 #include <memory>
 #include <new>
@@ -31,6 +36,9 @@ struct TcSkiaRenderer {
 #endif
 #if TC_BUILD_GRAPHICS_METAL
     sk_sp<GrDirectContext> metal_context;
+#endif
+#if TC_BUILD_GRAPHICS_VULKAN
+    sk_sp<GrDirectContext> vulkan_context;
 #endif
     TcCanvas2D canvas;
 };
@@ -64,7 +72,6 @@ static sk_sp<SkSurface> metal_surface(TcSkiaRenderer* state, TcGraphicsContext* 
     return SkSurface::MakeFromCAMetalLayer(state->metal_context.get(), tc_metal_context_get_layer(context), kTopLeft_GrSurfaceOrigin, 1, kBGRA_8888_SkColorType, nullptr, nullptr, drawable_slot);
 }
 #endif
-
 extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer) {
     if (!context || !out_renderer) return TC_ERROR_INVALID_ARGUMENT;
     TcRenderer2D* renderer = new (std::nothrow) TcRenderer2D{};
@@ -89,9 +96,17 @@ extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D*
         }
     }
 #endif
+#if TC_BUILD_GRAPHICS_VULKAN
+    else if (context->api == TC_GRAPHICS_VULKAN && context->surface) {
+        if (void* native_context = tc_android_vk_context_get_skia_context(context)) state->vulkan_context = sk_ref_sp(static_cast<GrDirectContext*>(native_context));
+    }
+#endif
     if (!state->surface
 #if TC_BUILD_GRAPHICS_METAL
         && !(context->api == TC_GRAPHICS_METAL && state->metal_context)
+#endif
+#if TC_BUILD_GRAPHICS_VULKAN
+        && !(context->api == TC_GRAPHICS_VULKAN && state->vulkan_context)
 #endif
     ) { delete renderer; delete state; return TC_ERROR_RENDERER; }
     state->canvas.implementation = state; renderer->context = context; renderer->implementation = state; renderer->canvas = &state->canvas; *out_renderer = renderer;
@@ -109,10 +124,16 @@ extern "C" int tc_renderer_resize(TcRenderer2D* renderer, int width, int height,
 #if TC_BUILD_GRAPHICS_METAL
     else if (context->api == TC_GRAPHICS_METAL && state->metal_context) state->surface.reset();
 #endif
+#if TC_BUILD_GRAPHICS_VULKAN
+    else if (context->api == TC_GRAPHICS_VULKAN && state->vulkan_context) state->surface.reset();
+#endif
     else return TC_ERROR_UNAVAILABLE;
     return state->surface
 #if TC_BUILD_GRAPHICS_METAL
         || (context->api == TC_GRAPHICS_METAL && state->metal_context)
+#endif
+#if TC_BUILD_GRAPHICS_VULKAN
+        || (context->api == TC_GRAPHICS_VULKAN && state->vulkan_context)
 #endif
         ? TC_OK : TC_ERROR_RENDERER;
 }
@@ -122,9 +143,16 @@ extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) {
 #if TC_BUILD_GRAPHICS_METAL
     if (renderer->context && renderer->context->api == TC_GRAPHICS_METAL && state && state->metal_context) state->surface = metal_surface(state, renderer->context);
 #endif
+#if TC_BUILD_GRAPHICS_VULKAN
+    if (renderer->context && renderer->context->api == TC_GRAPHICS_VULKAN && state && state->vulkan_context) state->surface = sk_ref_sp(static_cast<SkSurface*>(tc_android_vk_begin_frame(renderer->context)));
+#endif
     return state && state->surface ? renderer->canvas : nullptr;
 }
-extern "C" int tc_renderer_end_frame(TcRenderer2D* renderer) { if (!renderer) return TC_ERROR_INVALID_ARGUMENT; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation); if (!state || !state->surface) return TC_ERROR_RENDERER; state->surface->flushAndSubmit(); tc_graphics_context_present(renderer->context); return TC_OK; }
+extern "C" int tc_renderer_end_frame(TcRenderer2D* renderer) { if (!renderer) return TC_ERROR_INVALID_ARGUMENT; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation); if (!state || !state->surface) return TC_ERROR_RENDERER;
+#if TC_BUILD_GRAPHICS_VULKAN
+    if (renderer->context && renderer->context->api == TC_GRAPHICS_VULKAN) return tc_android_vk_end_frame(renderer->context, state->surface.get());
+#endif
+    state->surface->flushAndSubmit(); tc_graphics_context_present(renderer->context); return TC_OK; }
 extern "C" void tc_renderer_destroy(TcRenderer2D* renderer) { if (!renderer) return; delete static_cast<TcSkiaRenderer*>(renderer->implementation); delete renderer; }
 
 extern "C" void tc_canvas_save(TcCanvas2D* c) { if (auto* n = native(c)) n->save(); }

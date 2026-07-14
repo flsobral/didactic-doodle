@@ -7,10 +7,10 @@ set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../..")
 set(TC_SKIA_ROOT "" CACHE PATH "Unpacked TotalCross Android Skia release")
 set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked TotalCross Android libpng release")
 set(TC_ZLIB_NG_ROOT "" CACHE PATH "Unpacked TotalCross Android zlib-ng release")
-set(TC_ANDROID_GRAPHICS "CPU" CACHE STRING "Android graphics API: CPU or OPENGL")
-set_property(CACHE TC_ANDROID_GRAPHICS PROPERTY STRINGS CPU OPENGL)
-if(NOT TC_ANDROID_GRAPHICS STREQUAL "CPU" AND NOT TC_ANDROID_GRAPHICS STREQUAL "OPENGL")
-  message(FATAL_ERROR "TC_ANDROID_GRAPHICS must be CPU or OPENGL")
+set(TC_ANDROID_GRAPHICS "CPU" CACHE STRING "Android graphics API: CPU, OPENGL, or VULKAN")
+set_property(CACHE TC_ANDROID_GRAPHICS PROPERTY STRINGS CPU OPENGL VULKAN)
+if(NOT TC_ANDROID_GRAPHICS STREQUAL "CPU" AND NOT TC_ANDROID_GRAPHICS STREQUAL "OPENGL" AND NOT TC_ANDROID_GRAPHICS STREQUAL "VULKAN")
+  message(FATAL_ERROR "TC_ANDROID_GRAPHICS must be CPU, OPENGL, or VULKAN")
 endif()
 if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-android-arm64-v8a.a")
   message(FATAL_ERROR "Set TC_SKIA_ROOT to the directory created by scripts/fetch-totalcross-skia.sh ... android-arm64-v8a")
@@ -34,12 +34,17 @@ set(TC_DEMO_ANDROID_SOURCES
   ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
 if(TC_ANDROID_GRAPHICS STREQUAL "OPENGL")
   list(APPEND TC_DEMO_ANDROID_SOURCES ${TC_ROOT}/src/graphics/tc_android_gl_context.c)
+elseif(TC_ANDROID_GRAPHICS STREQUAL "VULKAN")
+  list(APPEND TC_DEMO_ANDROID_SOURCES ${TC_ROOT}/src/graphics/tc_android_vulkan_context.cpp)
 endif()
 add_library(tc_demo_android SHARED ${TC_DEMO_ANDROID_SOURCES})
 target_include_directories(tc_demo_android PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/src/backends/android ${TC_ROOT}/examples/demo "${ANDROID_NDK}/sources/android/native_app_glue")
 target_compile_features(tc_demo_android PRIVATE c_std_11 cxx_std_17)
-target_compile_definitions(tc_demo_android PRIVATE TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL> TC_ANDROID_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL> SK_VULKAN=1)
-if(TC_ANDROID_GRAPHICS STREQUAL "OPENGL")
-  target_compile_definitions(tc_demo_android PRIVATE SK_GL=1)
-endif()
-target_link_libraries(tc_demo_android PRIVATE skia png zlib_ng android log EGL GLESv2)
+target_compile_definitions(tc_demo_android PRIVATE
+  TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL>
+  TC_BUILD_GRAPHICS_VULKAN=$<STREQUAL:${TC_ANDROID_GRAPHICS},VULKAN>
+  TC_ANDROID_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL>
+  TC_ANDROID_GRAPHICS_VULKAN=$<STREQUAL:${TC_ANDROID_GRAPHICS},VULKAN>
+  SK_GL=1
+  SK_VULKAN=1)
+target_link_libraries(tc_demo_android PRIVATE skia png zlib_ng android log EGL GLESv2 vulkan)

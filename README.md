@@ -10,7 +10,7 @@ A small, C-first application runtime that keeps platform, scheduler, graphics, r
 
 ## Current status
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU and OpenGL ES 3; iOS UIKit supports CPU and an OpenGL ES simulator path. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
+The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU, OpenGL ES 3, and Vulkan; iOS UIKit supports CPU, OpenGL ES, and Metal. The default desktop build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, winit, and Vello are intentional stubs and CMake explains when one is selected.
 
 ## Build the CPU demo
 
@@ -64,7 +64,7 @@ cmake --build build-sdl-skia-metal
 
 The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly. The default APK uses the CPU raster path; the same shared demo can be built with EGL/OpenGL ES 3 and Skia Ganesh when the selected Skia archive exports GL support.
 
-## Android CPU native library
+## Android native library
 
 The Android CPU demo reuses `examples/demo/demo_scene.c` and presents the Skia raster buffer through `ANativeWindow`. It targets `arm64-v8a` with API 24 as the minimum. Fetch the required external archives, then build the native library:
 
@@ -98,7 +98,7 @@ cd android
 
 The resulting signed debug artifact is `android/app/build/outputs/apk/debug/app-debug.apk`. It contains only `arm64-v8a`, matching the published Skia/libpng/zlib-ng archives.
 
-To build the OpenGL ES variant instead, pass `-PtcAndroidGraphics=OPENGL` to the same Gradle command. It creates an EGL/OpenGL ES 3 context and presents the Skia Ganesh surface through the Android native window.
+Pass `-PtcAndroidGraphics=OPENGL` to build the EGL/OpenGL ES 3 variant. Pass `-PtcAndroidGraphics=VULKAN` to use the native Android Vulkan swapchain and Skia Ganesh Vulkan renderer. The Vulkan path requires the r4 Android Skia archive and runs on Android API 24 or newer.
 
 ## iOS simulator demo
 

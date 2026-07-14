@@ -34,7 +34,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement CPU graphics context.
 - [x] Implement Skia renderer through a C-compatible adapter.
 - [x] Implement SDL3 + Skia CPU demo path.
-- [x] Implement Android native lifecycle/input/scheduling adapter with CPU and OpenGL ES graphics paths.
+- [x] Implement Android native lifecycle/input/scheduling adapter with CPU, OpenGL ES, and Vulkan graphics paths.
 - [x] Implement Android NativeActivity CPU demo library using the shared generic canvas demo source.
 - [x] Package and sign an arm64-v8a Android API 24 debug APK using the Gradle Wrapper.
 - [x] Build the iOS UIKit demo bundle for the arm64 simulator with CPU, OpenGL ES, and Metal graphics paths.
@@ -122,6 +122,15 @@ Record unexpected implementation facts here.
 
 - Observation: the r4 iOS simulator archive enables both Ganesh OpenGL ES and Metal.
   Evidence: its published arm64 simulator manifest sets `skia_use_gl=true`, `skia_gl_standard="gles"`, and `skia_use_metal=true`, so both public feature macros must be visible to every iOS consumer.
+
+- Observation: the r4 Android arm64 archive enables both Ganesh OpenGL ES and Vulkan.
+  Evidence: its published manifest sets `skia_use_gl=true`, `skia_gl_standard="gles"`, and `skia_use_vulkan=true`. The Vulkan adapter must therefore define both `SK_GL` and `SK_VULKAN`; otherwise the public `GrBackendRenderTarget` layout does not match the linked archive.
+
+- Observation: the Android Vulkan loader does not export `vkGetPhysicalDeviceFeatures2` at the API 24 link level.
+  Evidence: linking a direct call failed against the API 24 NDK Vulkan library; loading it with `vkGetInstanceProcAddr` produced a valid `VkPhysicalDeviceFeatures2` for the Skia Ganesh backend context.
+
+- Observation: the native Android Vulkan path displays the generic Skia demo on the arm64 API 34 emulator.
+  Evidence: an APK built with `-PtcAndroidGraphics=VULKAN` created the Android `VkSurfaceKHR`, swapchain, and Ganesh Vulkan context; an `adb screencap` showed the background, text, primitives, and animated rotated rectangle.
 
 - Observation: the UIKit Metal path presents the generic Skia demo correctly on the arm64 iPhone 16 simulator.
   Evidence: the r4 Metal bundle installed and launched through `simctl`; a simulator screenshot showed the background, primitives, text, and animated shape without orientation or color-channel errors.
@@ -237,9 +246,13 @@ Record unexpected implementation facts here.
   Rationale: native CPU surfaces vary by backend. Keeping this implementation detail private prevents platform types from leaking into public APIs and avoids assuming Skia's N32 format matches every destination.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Implement Android Vulkan as a private `ANativeWindow` swapchain with a shared Skia Ganesh `GrDirectContext`.
+  Rationale: the graphics context owns Vulkan instance/device/surface/swapchain creation and per-frame acquire, Skia semaphore synchronization, submit, and present. The renderer only receives a private Skia surface, so public headers and the shared demo remain backend-neutral.
+  Date/Author: 2026-07-13 / Codex.
+
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU, an arm64 simulator OpenGL ES path, and a native Metal path using the same per-frame Skia surface and presentation flow; the Metal path displayed the animated generic demo on an iPhone 16 simulator.
+The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports CPU, EGL/OpenGL ES 3, and Vulkan Skia paths; the arm64 API 34 emulator displayed both GPU variants correctly. The iOS UIKit demo supports CPU, an arm64 simulator OpenGL ES path, and a native Metal path using the same per-frame Skia surface and presentation flow; the Metal path displayed the animated generic demo on an iPhone 16 simulator.
 
 Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 
