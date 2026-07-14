@@ -20,7 +20,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core.
 - [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; add the headless backend.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API.
+- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for the Headless path; GPU and platform-specific implementations remain to be moved.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views.
@@ -104,6 +104,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: The provider can make raster-direct Skia surfaces from `MagicCpuInterop` without accessing Magic private state. GPU Skia paths remain deferred until their corresponding Magic interop is implemented.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Extract Magic CPU into a backend-private provider before moving the GPU context implementations.
+  Rationale: This replaces the monolithic Magic context state with a backend operation table and verifies the Board-to-Magic boundary on the deterministic path. Each GPU migration can now add its provider without exposing backend state to Doodle.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
@@ -111,6 +115,8 @@ implements a versioned headless CPU surface and deterministic coalescing frame
 scheduler. `magic_core` consumes only Board's installed surface API and exposes
 versioned CPU frame interop. `doodle_core` consumes only Magic's public API;
 `doodle_renderer_skia` creates raster-direct Skia surfaces from that interop.
+The CPU implementation now resides in `magic/backends/cpu/`; the generic
+context dispatcher retains no Board surface details.
 All three packages install and are consumable in dependency order. Existing
 monolithic sources, GPU Skia paths, desktop/mobile/web backends, shared demos,
 and legacy-name removal remain outstanding; this work deliberately does not
