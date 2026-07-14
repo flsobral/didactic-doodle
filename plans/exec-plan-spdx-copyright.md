@@ -48,8 +48,8 @@ A contributor must be able to clone the repository, run one documented validatio
 - [x] (2026-07-14) Validate commit metadata and topology; record the old-to-new mapping in `docs/history/spdx-copyright-rewrite-2026-07-14.md`.
 - [x] (2026-07-14) Document contributor rules in `CONTRIBUTING.md` and maintainer attribution in `README.md`.
 - [x] (2026-07-14) Add `.github/workflows/copyright.yml` for pull requests and pushes.
-- [ ] Run the focused repository build and final diff review.
-- [ ] Record final results in `Outcomes & Retrospective`.
+- [x] (2026-07-14) Run validator tests, current-tree validation, historical introduction validation, metadata/topology checks, and the desktop CMake build.
+- [x] (2026-07-14) Review the final diff and record results in `Outcomes & Retrospective`.
 
 ## Surprises & Discoveries
 
@@ -83,6 +83,12 @@ Do not silently normalize exceptions. Document each important exception and the 
   Evidence: the first disposable rewrite passed at its root but the tip lacked
   headers. The final rewrite normalizes each historical snapshot, preserving
   headers from introduction through the tip.
+
+- Observation: `CMakeLists.txt` accepts `#` comments, not C-style block
+  comments.
+  Evidence: configuring the first rewrite failed with `Expected a command
+  name, got unquoted argument with text "/*"`. The final rewrite uses hash
+  SPDX comments for all CMake files and the desktop build then succeeds.
 
 - Observation: The original history is linear and has no tags or merge commits.
   Evidence: both the original and rewritten histories have 29 commits and zero
@@ -168,7 +174,29 @@ Summarize:
 - location of the old-to-new commit mapping;
 - impact on tags, signatures, forks, and open pull requests.
 
-Implementation is in progress. The final validation and diff review remain.
+Completed on the local `spdx-history` branch.
+
+- Inspected 70 tracked files in the original tip. Of 59 applicable historical
+  first-party source/build files, all received the canonical headers. The
+  Gradle wrapper, its binary JAR, documentation, and other non-source files
+  were excluded; third-party wrapper notices remain untouched.
+- Added the full LGPL 2.1 license text, `AUTHORS.md`, default
+  `.github/CODEOWNERS`, README maintainer attribution, contributor guidance,
+  a dependency-free validator, 12 fixture tests, and a dedicated CI workflow.
+- The local command is `python3 scripts/check_copyright.py`; it reports
+  `Copyright validation passed: 62 applicable files checked.` at the final
+  tip, including the validator and workflow themselves.
+- `python3 scripts/test_check_copyright.py` passed all 12 tests. The focused
+  SDL3 + Skia CPU CMake configure and build completed successfully in
+  `build-spdx`.
+- The original 29 commits were rewritten to the local `spdx-history` branch.
+  `refs/backup/pre-spdx-main` retains the original tip. The original history
+  has no merge commits or tags; the rewrite preserves its linear topology and
+  author/committer names, emails, timestamps, and subjects. The commit map is
+  `docs/history/spdx-copyright-rewrite-2026-07-14.md`.
+- No rewritten history was pushed. Any existing clones, forks, open pull
+  requests, or signatures would require separate coordination before a
+  force-push or publication of `spdx-history`.
 
 ## Context and Orientation
 
