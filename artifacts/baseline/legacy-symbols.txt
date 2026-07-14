@@ -1,0 +1,1253 @@
+./src/graphics/tc_android_gl_context.c:6:#include "tc_internal.h"
+./src/graphics/tc_android_gl_context.c:13:typedef struct TcAndroidGlContext { EGLDisplay display; EGLSurface surface; EGLContext context; EGLConfig config; } TcAndroidGlContext;
+./src/graphics/tc_android_gl_context.c:15:static int tc_android_gl_create_surface(TcGraphicsContext* context) {
+./src/graphics/tc_android_gl_context.c:16:    TcAndroidGlContext* gl = context->surface;
+./src/graphics/tc_android_gl_context.c:19:    if (gl->surface == EGL_NO_SURFACE || !eglMakeCurrent(gl->display, gl->surface, gl->surface, gl->context)) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_gl_context.c:21:    if (!eglQuerySurface(gl->display, gl->surface, EGL_WIDTH, &width) || !eglQuerySurface(gl->display, gl->surface, EGL_HEIGHT, &height)) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_gl_context.c:23:    return TC_OK;
+./src/graphics/tc_android_gl_context.c:26:int tc_android_gl_context_create(void* native_window, TcGraphicsContext** out_context) {
+./src/graphics/tc_android_gl_context.c:27:    if (!native_window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_gl_context.c:28:    TcGraphicsContext* context = calloc(1, sizeof(*context)); TcAndroidGlContext* gl = calloc(1, sizeof(*gl));
+./src/graphics/tc_android_gl_context.c:29:    if (!context || !gl) { free(context); free(gl); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_android_gl_context.c:37:    context->api = TC_GRAPHICS_OPENGL; context->window = native_window; context->surface = gl;
+./src/graphics/tc_android_gl_context.c:38:    if (tc_android_gl_create_surface(context) != TC_OK) goto failure;
+./src/graphics/tc_android_gl_context.c:40:    __android_log_print(ANDROID_LOG_INFO, "tc_runtime", "EGL %d.%d OpenGL ES 3 context created", major, minor);
+./src/graphics/tc_android_gl_context.c:41:    return TC_OK;
+./src/graphics/tc_android_gl_context.c:44:    free(gl); free(context); return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_gl_context.c:47:int tc_android_gl_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_android_gl_context.c:49:    if (!context || context->api != TC_GRAPHICS_OPENGL) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_gl_context.c:50:    TcAndroidGlContext* gl = context->surface;
+./src/graphics/tc_android_gl_context.c:52:    return tc_android_gl_create_surface(context);
+./src/graphics/tc_android_gl_context.c:55:void tc_android_gl_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_android_gl_context.c:56:    if (!context || context->api != TC_GRAPHICS_OPENGL) return;
+./src/graphics/tc_android_gl_context.c:57:    TcAndroidGlContext* gl = context->surface;
+./src/graphics/tc_android_gl_context.c:58:    if (!eglSwapBuffers(gl->display, gl->surface)) __android_log_print(ANDROID_LOG_ERROR, "tc_runtime", "eglSwapBuffers failed: 0x%x", eglGetError());
+./src/graphics/tc_android_gl_context.c:61:void tc_android_gl_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_android_gl_context.c:63:    TcAndroidGlContext* gl = context->surface;
+./src/graphics/tc_android_graphics.c:6:#include "tc_internal.h"
+./src/graphics/tc_android_graphics.c:8:void tc_android_cpu_present(TcGraphicsContext* context);
+./src/graphics/tc_android_graphics.c:9:void tc_android_cpu_destroy(TcGraphicsContext* context);
+./src/graphics/tc_android_graphics.c:10:#if TC_ANDROID_GRAPHICS_OPENGL
+./src/graphics/tc_android_graphics.c:11:int tc_android_gl_context_create(void* native_window, TcGraphicsContext** out_context);
+./src/graphics/tc_android_graphics.c:12:int tc_android_gl_context_resize(TcGraphicsContext* context, int width, int height, float scale);
+./src/graphics/tc_android_graphics.c:13:void tc_android_gl_context_present(TcGraphicsContext* context);
+./src/graphics/tc_android_graphics.c:14:void tc_android_gl_context_destroy(TcGraphicsContext* context);
+./src/graphics/tc_android_graphics.c:16:#if TC_ANDROID_GRAPHICS_VULKAN
+./src/graphics/tc_android_graphics.c:17:int tc_android_vk_context_create(void* native_window, TcGraphicsContext** out_context);
+./src/graphics/tc_android_graphics.c:18:int tc_android_vk_context_resize(TcGraphicsContext* context, int width, int height, float scale);
+./src/graphics/tc_android_graphics.c:19:void tc_android_vk_context_destroy(TcGraphicsContext* context);
+./src/graphics/tc_android_graphics.c:21:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_android_graphics.c:23:    if (!window) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_graphics.c:24:    if (api == TC_GRAPHICS_CPU) return tc_android_cpu_context_create(window->value, out_context);
+./src/graphics/tc_android_graphics.c:25:#if TC_ANDROID_GRAPHICS_OPENGL
+./src/graphics/tc_android_graphics.c:26:    if (api == TC_GRAPHICS_OPENGL) return tc_android_gl_context_create(window->value, out_context);
+./src/graphics/tc_android_graphics.c:28:#if TC_ANDROID_GRAPHICS_VULKAN
+./src/graphics/tc_android_graphics.c:29:    if (api == TC_GRAPHICS_VULKAN) return tc_android_vk_context_create(window->value, out_context);
+./src/graphics/tc_android_graphics.c:31:    return TC_ERROR_UNAVAILABLE;
+./src/graphics/tc_android_graphics.c:33:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_android_graphics.c:35:    if (context->api == TC_GRAPHICS_CPU) tc_android_cpu_context_resize(context, width, height, scale);
+./src/graphics/tc_android_graphics.c:36:#if TC_ANDROID_GRAPHICS_OPENGL
+./src/graphics/tc_android_graphics.c:37:    else if (context->api == TC_GRAPHICS_OPENGL) tc_android_gl_context_resize(context, width, height, scale);
+./src/graphics/tc_android_graphics.c:39:#if TC_ANDROID_GRAPHICS_VULKAN
+./src/graphics/tc_android_graphics.c:40:    else if (context->api == TC_GRAPHICS_VULKAN) tc_android_vk_context_resize(context, width, height, scale);
+./src/graphics/tc_android_graphics.c:43:void tc_graphics_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_android_graphics.c:45:    if (context->api == TC_GRAPHICS_CPU) tc_android_cpu_present(context);
+./src/graphics/tc_android_graphics.c:46:#if TC_ANDROID_GRAPHICS_OPENGL
+./src/graphics/tc_android_graphics.c:47:    else if (context->api == TC_GRAPHICS_OPENGL) tc_android_gl_context_present(context);
+./src/graphics/tc_android_graphics.c:50:void tc_graphics_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_android_graphics.c:52:    if (context->api == TC_GRAPHICS_CPU) tc_android_cpu_destroy(context);
+./src/graphics/tc_android_graphics.c:53:#if TC_ANDROID_GRAPHICS_OPENGL
+./src/graphics/tc_android_graphics.c:54:    else if (context->api == TC_GRAPHICS_OPENGL) tc_android_gl_context_destroy(context);
+./src/graphics/tc_android_graphics.c:56:#if TC_ANDROID_GRAPHICS_VULKAN
+./src/graphics/tc_android_graphics.c:57:    else if (context->api == TC_GRAPHICS_VULKAN) tc_android_vk_context_destroy(context);
+./src/graphics/tc_web_gl_context.c:6:#include "tc_internal.h"
+./src/graphics/tc_web_gl_context.c:14:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_web_gl_context.c:17:    if (api != TC_GRAPHICS_OPENGL || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_web_gl_context.c:25:    if (handle <= 0 || emscripten_webgl_make_context_current(handle) != EMSCRIPTEN_RESULT_SUCCESS) return TC_ERROR_PLATFORM;
+./src/graphics/tc_web_gl_context.c:28:    TcGraphicsContext* context = calloc(1, sizeof(*context));
+./src/graphics/tc_web_gl_context.c:29:    if (!context) { emscripten_webgl_destroy_context(handle); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_web_gl_context.c:30:    context->api = TC_GRAPHICS_OPENGL;
+./src/graphics/tc_web_gl_context.c:36:    return TC_OK;
+./src/graphics/tc_web_gl_context.c:39:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_web_gl_context.c:40:    if (!context || context->api != TC_GRAPHICS_OPENGL) return;
+./src/graphics/tc_web_gl_context.c:47:void tc_graphics_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_web_gl_context.c:48:    if (context && context->api == TC_GRAPHICS_OPENGL) emscripten_webgl_commit_frame();
+./src/graphics/tc_web_gl_context.c:51:void tc_graphics_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_android_cpu_context.c:6:#include "tc_internal.h"
+./src/graphics/tc_android_cpu_context.c:13:int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_context) {
+./src/graphics/tc_android_cpu_context.c:14:    ANativeWindow* window = native_window; if (!window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_cpu_context.c:15:    if (ANativeWindow_setBuffersGeometry(window, 0, 0, WINDOW_FORMAT_RGBA_8888) != 0) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_cpu_context.c:17:    TcGraphicsContext* context = calloc(1, sizeof(*context)); if (!context) return TC_ERROR_OUT_OF_MEMORY;
+./src/graphics/tc_android_cpu_context.c:18:    context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_android_cpu_context.c:19:    context->api = TC_GRAPHICS_CPU; context->window = window; context->width = width; context->height = height; context->pitch = width * 4; context->scale = 1.0f; context->pixel_format = TC_CPU_PIXEL_FORMAT_RGBA8888; *out_context = context; return TC_OK;
+./src/graphics/tc_android_cpu_context.c:21:int tc_android_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_android_cpu_context.c:22:    if (!context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_cpu_context.c:23:    void* pixels = realloc(context->pixels, (size_t)width * (size_t)height * 4); if (!pixels) return TC_ERROR_OUT_OF_MEMORY;
+./src/graphics/tc_android_cpu_context.c:25:    return TC_OK;
+./src/graphics/tc_android_cpu_context.c:27:void tc_android_cpu_present(TcGraphicsContext* context) {
+./src/graphics/tc_android_cpu_context.c:33:void tc_android_cpu_destroy(TcGraphicsContext* context) { if (context) { free(context->pixels); free(context); } }
+./src/graphics/tc_ios_cpu_context.mm:6:#include "tc_internal.h"
+./src/graphics/tc_ios_cpu_context.mm:9:int tc_ios_cpu_context_create(void* view, int width, int height, float scale, TcGraphicsContext** out_context) {
+./src/graphics/tc_ios_cpu_context.mm:10:    if (!view || !out_context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_cpu_context.mm:11:    TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context));
+./src/graphics/tc_ios_cpu_context.mm:12:    if (!context) return TC_ERROR_OUT_OF_MEMORY;
+./src/graphics/tc_ios_cpu_context.mm:13:    context->pixels = calloc((size_t)width * (size_t)height, 4); if (!context->pixels) { free(context); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_ios_cpu_context.mm:14:    context->api = TC_GRAPHICS_CPU; context->window = view; context->width = width; context->height = height; context->pitch = width * 4; context->scale = scale; context->pixel_format = TC_CPU_PIXEL_FORMAT_RGBA8888; *out_context = context; return TC_OK;
+./src/graphics/tc_ios_cpu_context.mm:16:int tc_ios_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_ios_cpu_context.mm:17:    if (!context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_cpu_context.mm:18:    void* pixels = realloc(context->pixels, (size_t)width * (size_t)height * 4); if (!pixels) return TC_ERROR_OUT_OF_MEMORY;
+./src/graphics/tc_ios_cpu_context.mm:19:    context->pixels = pixels; context->width = width; context->height = height; context->pitch = width * 4; context->scale = scale; return TC_OK;
+./src/graphics/tc_ios_cpu_context.mm:21:void tc_ios_cpu_context_present(TcGraphicsContext* context) { if (context && context->window) [(__bridge UIView*)context->window setNeedsDisplay]; }
+./src/graphics/tc_ios_cpu_context.mm:22:void tc_ios_cpu_context_destroy(TcGraphicsContext* context) { if (context) { free(context->pixels); free(context); } }
+./src/graphics/tc_gl_context.c:6:#include "tc_internal.h"
+./src/graphics/tc_gl_context.c:10:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_gl_context.c:13:    if (api != TC_GRAPHICS_OPENGL || !sdl_window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_gl_context.c:15:    if (!gl_context || !SDL_GL_MakeCurrent(sdl_window, gl_context)) { if (gl_context) SDL_GL_DestroyContext(gl_context); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_gl_context.c:18:    if (!SDL_GetWindowSizeInPixels(sdl_window, &width, &height) || width <= 0 || height <= 0) { SDL_GL_DestroyContext(gl_context); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_gl_context.c:19:    TcGraphicsContext* context = calloc(1, sizeof(*context));
+./src/graphics/tc_gl_context.c:20:    if (!context) { SDL_GL_DestroyContext(gl_context); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_gl_context.c:21:    context->api = TC_GRAPHICS_OPENGL; context->window = sdl_window; context->surface = gl_context; context->width = width; context->height = height; context->scale = 1.0f;
+./src/graphics/tc_gl_context.c:23:    SDL_Log("tc_runtime: OpenGL 3.2 core context created");
+./src/graphics/tc_gl_context.c:24:    return TC_OK;
+./src/graphics/tc_gl_context.c:27:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_gl_context.c:28:    if (!context || context->api != TC_GRAPHICS_OPENGL) return;
+./src/graphics/tc_gl_context.c:32:void tc_graphics_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_gl_context.c:33:    if (!context || context->api != TC_GRAPHICS_OPENGL) return;
+./src/graphics/tc_gl_context.c:34:    if (!SDL_GL_SwapWindow((SDL_Window*)context->window)) SDL_Log("tc_runtime: OpenGL swap failed: %s", SDL_GetError());
+./src/graphics/tc_gl_context.c:37:void tc_graphics_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_ios_metal_context.mm:6:#include "tc_internal.h"
+./src/graphics/tc_ios_metal_context.mm:11:typedef struct TcIosMetalContext {
+./src/graphics/tc_ios_metal_context.mm:16:} TcIosMetalContext;
+./src/graphics/tc_ios_metal_context.mm:18:static TcIosMetalContext* tc_ios_metal(TcGraphicsContext* context) {
+./src/graphics/tc_ios_metal_context.mm:19:    return context && context->api == TC_GRAPHICS_METAL ? (TcIosMetalContext*)context->surface : NULL;
+./src/graphics/tc_ios_metal_context.mm:22:static int tc_ios_metal_resize_drawable(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_ios_metal_context.mm:23:    TcIosMetalContext* metal = tc_ios_metal(context);
+./src/graphics/tc_ios_metal_context.mm:24:    if (!metal || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_metal_context.mm:28:    return TC_OK;
+./src/graphics/tc_ios_metal_context.mm:31:int tc_ios_metal_context_create(void* view, int width, int height, float scale, TcGraphicsContext** out_context) {
+./src/graphics/tc_ios_metal_context.mm:33:    if (!native_view || !out_context || width <= 0 || height <= 0 || ![native_view.layer isKindOfClass:CAMetalLayer.class]) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_metal_context.mm:34:    TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context));
+./src/graphics/tc_ios_metal_context.mm:35:    TcIosMetalContext* metal = (TcIosMetalContext*)calloc(1, sizeof(*metal));
+./src/graphics/tc_ios_metal_context.mm:36:    if (!context || !metal) { free(context); free(metal); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_ios_metal_context.mm:40:    if (!metal->device || !metal->queue) { [metal->queue release]; [metal->device release]; free(metal); free(context); return TC_ERROR_UNAVAILABLE; }
+./src/graphics/tc_ios_metal_context.mm:44:    context->api = TC_GRAPHICS_METAL; context->window = view; context->surface = metal;
+./src/graphics/tc_ios_metal_context.mm:45:    if (tc_ios_metal_resize_drawable(context, width, height, scale) != TC_OK) { [metal->queue release]; [metal->device release]; free(metal); free(context); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_ios_metal_context.mm:47:    return TC_OK;
+./src/graphics/tc_ios_metal_context.mm:50:int tc_ios_metal_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_ios_metal_context.mm:51:    return tc_ios_metal_resize_drawable(context, width, height, scale);
+./src/graphics/tc_ios_metal_context.mm:54:void tc_ios_metal_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_ios_metal_context.mm:55:    TcIosMetalContext* metal = tc_ios_metal(context);
+./src/graphics/tc_ios_metal_context.mm:64:void tc_ios_metal_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_ios_metal_context.mm:66:    TcIosMetalContext* metal = tc_ios_metal(context);
+./src/graphics/tc_ios_metal_context.mm:71:extern "C" int tc_metal_context_retain_handles(TcGraphicsContext* context, void** out_device, void** out_queue) {
+./src/graphics/tc_ios_metal_context.mm:72:    TcIosMetalContext* metal = tc_ios_metal(context);
+./src/graphics/tc_ios_metal_context.mm:73:    if (!metal || !out_device || !out_queue) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_metal_context.mm:76:    return TC_OK;
+./src/graphics/tc_ios_metal_context.mm:78:extern "C" void tc_metal_context_release_handles(void* device, void* queue) { [(id<MTLCommandQueue>)queue release]; [(id<MTLDevice>)device release]; }
+./src/graphics/tc_ios_metal_context.mm:79:extern "C" void* tc_metal_context_get_layer(TcGraphicsContext* context) { TcIosMetalContext* metal = tc_ios_metal(context); return metal ? metal->layer : NULL; }
+./src/graphics/tc_ios_metal_context.mm:80:extern "C" const void** tc_metal_context_get_drawable_slot(TcGraphicsContext* context) { TcIosMetalContext* metal = tc_ios_metal(context); return metal ? (const void**)&metal->drawable : NULL; }
+./src/graphics/tc_metal_context.mm:6:#include "tc_internal.h"
+./src/graphics/tc_metal_context.mm:12:typedef struct TcMetalContext {
+./src/graphics/tc_metal_context.mm:18:} TcMetalContext;
+./src/graphics/tc_metal_context.mm:20:static TcMetalContext* tc_metal(TcGraphicsContext* context) {
+./src/graphics/tc_metal_context.mm:21:    return context && context->api == TC_GRAPHICS_METAL ? (TcMetalContext*)context->surface : NULL;
+./src/graphics/tc_metal_context.mm:24:static void tc_metal_resize_drawable(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_metal_context.mm:25:    TcMetalContext* metal = tc_metal(context);
+./src/graphics/tc_metal_context.mm:31:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_metal_context.mm:34:    if (api != TC_GRAPHICS_METAL || !sdl_window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_metal_context.mm:35:    TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context));
+./src/graphics/tc_metal_context.mm:36:    TcMetalContext* metal = (TcMetalContext*)calloc(1, sizeof(*metal));
+./src/graphics/tc_metal_context.mm:37:    if (!context || !metal) { free(context); free(metal); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_metal_context.mm:44:        [metal->queue release]; [metal->device release]; if (metal->view) SDL_Metal_DestroyView(metal->view); free(metal); free(context); return TC_ERROR_PLATFORM;
+./src/graphics/tc_metal_context.mm:49:    context->api = TC_GRAPHICS_METAL; context->window = sdl_window; context->surface = metal;
+./src/graphics/tc_metal_context.mm:50:    tc_metal_resize_drawable(context, width, height, 1.0f);
+./src/graphics/tc_metal_context.mm:52:    SDL_Log("tc_runtime: Metal context created");
+./src/graphics/tc_metal_context.mm:53:    return TC_OK;
+./src/graphics/tc_metal_context.mm:56:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_metal_context.mm:57:    if (!context || context->api != TC_GRAPHICS_METAL || width <= 0 || height <= 0) return;
+./src/graphics/tc_metal_context.mm:58:    tc_metal_resize_drawable(context, width, height, scale);
+./src/graphics/tc_metal_context.mm:61:void tc_graphics_context_present(TcGraphicsContext* context) {
+./src/graphics/tc_metal_context.mm:62:    TcMetalContext* metal = tc_metal(context);
+./src/graphics/tc_metal_context.mm:72:void tc_graphics_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_metal_context.mm:74:    TcMetalContext* metal = tc_metal(context);
+./src/graphics/tc_metal_context.mm:79:extern "C" int tc_metal_context_retain_handles(TcGraphicsContext* context, void** out_device, void** out_queue) {
+./src/graphics/tc_metal_context.mm:80:    TcMetalContext* metal = tc_metal(context);
+./src/graphics/tc_metal_context.mm:81:    if (!metal || !out_device || !out_queue) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_metal_context.mm:83:    return TC_OK;
+./src/graphics/tc_metal_context.mm:85:extern "C" void tc_metal_context_release_handles(void* device, void* queue) { [(id<MTLCommandQueue>)queue release]; [(id<MTLDevice>)device release]; }
+./src/graphics/tc_metal_context.mm:86:extern "C" void* tc_metal_context_get_layer(TcGraphicsContext* context) { TcMetalContext* metal = tc_metal(context); return metal ? metal->layer : NULL; }
+./src/graphics/tc_metal_context.mm:87:extern "C" const void** tc_metal_context_get_drawable_slot(TcGraphicsContext* context) {
+./src/graphics/tc_metal_context.mm:88:    TcMetalContext* metal = tc_metal(context);
+./src/graphics/tc_cpu_context.c:6:#include "tc_internal.h"
+./src/graphics/tc_cpu_context.c:10:static int tc_cpu_context_set_surface(TcGraphicsContext* context, SDL_Surface* surface, int width, int height, float scale) {
+./src/graphics/tc_cpu_context.c:11:    TcCpuPixelFormat pixel_format;
+./src/graphics/tc_cpu_context.c:14:        case SDL_PIXELFORMAT_XRGB8888: pixel_format = TC_CPU_PIXEL_FORMAT_BGRA8888; break;
+./src/graphics/tc_cpu_context.c:16:        case SDL_PIXELFORMAT_XBGR8888: pixel_format = TC_CPU_PIXEL_FORMAT_RGBA8888; break;
+./src/graphics/tc_cpu_context.c:18:            SDL_Log("tc_runtime: unsupported CPU window-surface format %s", SDL_GetPixelFormatName(surface->format));
+./src/graphics/tc_cpu_context.c:19:            return TC_ERROR_UNAVAILABLE;
+./src/graphics/tc_cpu_context.c:23:    return TC_OK;
+./src/graphics/tc_cpu_context.c:26:int tc_cpu_context_create(TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_cpu_context.c:28:    if (!sdl_window || !surface || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_cpu_context.c:31:    if (!sdl_surface) return TC_ERROR_PLATFORM;
+./src/graphics/tc_cpu_context.c:32:    TcGraphicsContext* context = calloc(1, sizeof(*context));
+./src/graphics/tc_cpu_context.c:33:    if (!context) return TC_ERROR_OUT_OF_MEMORY;
+./src/graphics/tc_cpu_context.c:34:    context->api = TC_GRAPHICS_CPU; context->window = sdl_window;
+./src/graphics/tc_cpu_context.c:35:    int result = tc_cpu_context_set_surface(context, sdl_surface, sdl_surface->w, sdl_surface->h, 1.0f);
+./src/graphics/tc_cpu_context.c:36:    if (result != TC_OK) { free(context); return result; }
+./src/graphics/tc_cpu_context.c:37:    SDL_Log("tc_runtime: CPU window surface format %s", SDL_GetPixelFormatName(sdl_surface->format));
+./src/graphics/tc_cpu_context.c:39:    return TC_OK;
+./src/graphics/tc_cpu_context.c:42:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context) {
+./src/graphics/tc_cpu_context.c:43:    if (api != TC_GRAPHICS_CPU) return TC_ERROR_UNAVAILABLE;
+./src/graphics/tc_cpu_context.c:44:    return tc_cpu_context_create(window, surface, out_context);
+./src/graphics/tc_cpu_context.c:47:void tc_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_cpu_context.c:51:    tc_cpu_context_set_surface(context, surface, width, height, scale);
+./src/graphics/tc_cpu_context.c:53:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale) { if (context) tc_cpu_context_resize(context, width, height, scale); }
+./src/graphics/tc_cpu_context.c:54:void tc_cpu_context_present(TcGraphicsContext* context) { if (context && context->window) SDL_UpdateWindowSurface((SDL_Window*)context->window); }
+./src/graphics/tc_cpu_context.c:55:void tc_graphics_context_present(TcGraphicsContext* context) { if (context) tc_cpu_context_present(context); }
+./src/graphics/tc_cpu_context.c:56:void tc_cpu_context_destroy(TcGraphicsContext* context) { free(context); }
+./src/graphics/tc_cpu_context.c:57:void tc_graphics_context_destroy(TcGraphicsContext* context) { if (context) tc_cpu_context_destroy(context); }
+./src/graphics/tc_android_vulkan_context.cpp:6:#include "tc_internal.h"
+./src/graphics/tc_android_vulkan_context.cpp:24:typedef struct TcAndroidVulkanContext {
+./src/graphics/tc_android_vulkan_context.cpp:44:} TcAndroidVulkanContext;
+./src/graphics/tc_android_vulkan_context.cpp:46:static void tc_android_vk_log(const char* message, VkResult result) {
+./src/graphics/tc_android_vulkan_context.cpp:47:    __android_log_print(ANDROID_LOG_ERROR, "tc_runtime", "%s: %d", message, result);
+./src/graphics/tc_android_vulkan_context.cpp:50:static TcAndroidVulkanContext* tc_android_vk(TcGraphicsContext* context) {
+./src/graphics/tc_android_vulkan_context.cpp:51:    return context && context->api == TC_GRAPHICS_VULKAN ? static_cast<TcAndroidVulkanContext*>(context->surface) : nullptr;
+./src/graphics/tc_android_vulkan_context.cpp:54:static PFN_vkVoidFunction tc_android_vk_get_proc(const char* name, VkInstance instance, VkDevice device) {
+./src/graphics/tc_android_vulkan_context.cpp:58:static void tc_android_vk_destroy_swapchain(TcAndroidVulkanContext* vk) {
+./src/graphics/tc_android_vulkan_context.cpp:71:static int tc_android_vk_create_swapchain(TcGraphicsContext* context) {
+./src/graphics/tc_android_vulkan_context.cpp:72:    TcAndroidVulkanContext* vk = tc_android_vk(context);
+./src/graphics/tc_android_vulkan_context.cpp:73:    if (!vk) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_vulkan_context.cpp:74:    tc_android_vk_destroy_swapchain(vk);
+./src/graphics/tc_android_vulkan_context.cpp:78:    if (result != VK_SUCCESS) { tc_android_vk_log("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed", result); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_android_vulkan_context.cpp:81:    if (result != VK_SUCCESS || format_count == 0) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:84:    if (result != VK_SUCCESS) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:89:    if (selected.format != VK_FORMAT_B8G8R8A8_UNORM && selected.format != VK_FORMAT_R8G8B8A8_UNORM && selected.format != VK_FORMAT_B8G8R8A8_SRGB && selected.format != VK_FORMAT_R8G8B8A8_SRGB) return TC_ERROR_UNAVAILABLE;
+./src/graphics/tc_android_vulkan_context.cpp:128:    if (result != VK_SUCCESS) { tc_android_vk_log("vkCreateSwapchainKHR failed", result); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_android_vulkan_context.cpp:133:    if (result != VK_SUCCESS || image_count == 0) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:136:    if (result != VK_SUCCESS) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:151:        if (!vk->surfaces[i]) return TC_ERROR_RENDERER;
+./src/graphics/tc_android_vulkan_context.cpp:158:        if (result != VK_SUCCESS) return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:163:    return TC_OK;
+./src/graphics/tc_android_vulkan_context.cpp:166:extern "C" int tc_android_vk_context_create(void* native_window, TcGraphicsContext** out_context) {
+./src/graphics/tc_android_vulkan_context.cpp:167:    if (!native_window || !out_context) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_vulkan_context.cpp:168:    TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context));
+./src/graphics/tc_android_vulkan_context.cpp:169:    TcAndroidVulkanContext* vk = new (std::nothrow) TcAndroidVulkanContext();
+./src/graphics/tc_android_vulkan_context.cpp:170:    if (!context || !vk) { free(context); delete vk; return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_android_vulkan_context.cpp:224:        vk->extensions.init(tc_android_vk_get_proc, vk->instance, vk->physical_device, 2, instance_extensions, 1, device_extensions);
+./src/graphics/tc_android_vulkan_context.cpp:234:        backend_context.fGetProc = tc_android_vk_get_proc;
+./src/graphics/tc_android_vulkan_context.cpp:237:        context->api = TC_GRAPHICS_VULKAN;
+./src/graphics/tc_android_vulkan_context.cpp:240:        return tc_android_vk_create_swapchain(context) == TC_OK;
+./src/graphics/tc_android_vulkan_context.cpp:244:        __android_log_print(ANDROID_LOG_INFO, "tc_runtime", "Vulkan 1.1 Skia context created");
+./src/graphics/tc_android_vulkan_context.cpp:245:        return TC_OK;
+./src/graphics/tc_android_vulkan_context.cpp:247:    if (vk->device != VK_NULL_HANDLE) { tc_android_vk_destroy_swapchain(vk); vk->skia.reset(); vkDestroyDevice(vk->device, nullptr); }
+./src/graphics/tc_android_vulkan_context.cpp:252:    return TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:255:extern "C" int tc_android_vk_context_resize(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_android_vulkan_context.cpp:257:    return tc_android_vk_create_swapchain(context);
+./src/graphics/tc_android_vulkan_context.cpp:260:extern "C" void* tc_android_vk_context_get_skia_context(TcGraphicsContext* context) {
+./src/graphics/tc_android_vulkan_context.cpp:261:    TcAndroidVulkanContext* vk = tc_android_vk(context);
+./src/graphics/tc_android_vulkan_context.cpp:265:extern "C" void* tc_android_vk_begin_frame(TcGraphicsContext* context) {
+./src/graphics/tc_android_vulkan_context.cpp:266:    TcAndroidVulkanContext* vk = tc_android_vk(context);
+./src/graphics/tc_android_vulkan_context.cpp:275:    if (result == VK_ERROR_OUT_OF_DATE_KHR) tc_android_vk_create_swapchain(context);
+./src/graphics/tc_android_vulkan_context.cpp:285:extern "C" int tc_android_vk_end_frame(TcGraphicsContext* context, void* surface) {
+./src/graphics/tc_android_vulkan_context.cpp:286:    TcAndroidVulkanContext* vk = tc_android_vk(context);
+./src/graphics/tc_android_vulkan_context.cpp:287:    if (!vk || vk->active_image == UINT32_MAX || surface != vk->surfaces[vk->active_image].get()) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_android_vulkan_context.cpp:295:    if (!vk->skia->submit()) { vk->active_backbuffer = UINT32_MAX; vk->active_image = UINT32_MAX; return TC_ERROR_RENDERER; }
+./src/graphics/tc_android_vulkan_context.cpp:306:    if (result == VK_ERROR_OUT_OF_DATE_KHR) tc_android_vk_create_swapchain(context);
+./src/graphics/tc_android_vulkan_context.cpp:307:    return (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) ? TC_OK : TC_ERROR_PLATFORM;
+./src/graphics/tc_android_vulkan_context.cpp:310:extern "C" void tc_android_vk_context_destroy(TcGraphicsContext* context) {
+./src/graphics/tc_android_vulkan_context.cpp:312:    TcAndroidVulkanContext* vk = tc_android_vk(context);
+./src/graphics/tc_android_vulkan_context.cpp:314:        tc_android_vk_destroy_swapchain(vk);
+./src/graphics/tc_ios_gl_context.mm:6:#include "tc_internal.h"
+./src/graphics/tc_ios_gl_context.mm:12:typedef struct TcIosGlContext { EAGLContext* eagl; GLuint framebuffer; GLuint colorbuffer; } TcIosGlContext;
+./src/graphics/tc_ios_gl_context.mm:14:static int tc_ios_gl_rebuild_drawable(TcGraphicsContext* context, int width, int height, float scale) {
+./src/graphics/tc_ios_gl_context.mm:15:    TcIosGlContext* gl = (TcIosGlContext*)context->surface;
+./src/graphics/tc_ios_gl_context.mm:17:    if (![EAGLContext setCurrentContext:gl->eagl]) return TC_ERROR_PLATFORM;
+./src/graphics/tc_ios_gl_context.mm:23:    if (![gl->eagl renderbufferStorage:GL_RENDERBUFFER fromDrawable:layer]) return TC_ERROR_PLATFORM;
+./src/graphics/tc_ios_gl_context.mm:25:    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) return TC_ERROR_PLATFORM;
+./src/graphics/tc_ios_gl_context.mm:32:    return TC_OK;
+./src/graphics/tc_ios_gl_context.mm:35:int tc_ios_gl_context_create(void* view, int width, int height, float scale, TcGraphicsContext** out_context) {
+./src/graphics/tc_ios_gl_context.mm:36:    if (!view || !out_context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/graphics/tc_ios_gl_context.mm:37:    TcGraphicsContext* context = (TcGraphicsContext*)calloc(1, sizeof(*context)); TcIosGlContext* gl = (TcIosGlContext*)calloc(1, sizeof(*gl));
+./src/graphics/tc_ios_gl_context.mm:38:    if (!context || !gl) { free(context); free(gl); return TC_ERROR_OUT_OF_MEMORY; }
+./src/graphics/tc_ios_gl_context.mm:40:    if (!gl->eagl) { free(gl); free(context); return TC_ERROR_UNAVAILABLE; }
+./src/graphics/tc_ios_gl_context.mm:41:    context->api = TC_GRAPHICS_OPENGL; context->window = view; context->surface = gl;
+./src/graphics/tc_ios_gl_context.mm:42:    if (tc_ios_gl_rebuild_drawable(context, width, height, scale) != TC_OK) { [gl->eagl release]; free(gl); free(context); return TC_ERROR_PLATFORM; }
+./src/graphics/tc_ios_gl_context.mm:43:    *out_context = context; return TC_OK;
+./src/graphics/tc_ios_gl_context.mm:46:int tc_ios_gl_context_resize(TcGraphicsContext* context, int width, int height, float scale) { return !context || context->api != TC_GRAPHICS_OPENGL ? TC_ERROR_INVALID_ARGUMENT : tc_ios_gl_rebuild_drawable(context, width, height, scale); }
+./src/graphics/tc_ios_gl_context.mm:47:void tc_ios_gl_context_present(TcGraphicsContext* context) { if (!context || context->api != TC_GRAPHICS_OPENGL) return; TcIosGlContext* gl = (TcIosGlContext*)context->surface; [EAGLContext setCurrentContext:gl->eagl]; glBindRenderbuffer(GL_RENDERBUFFER, gl->colorbuffer); [gl->eagl presentRenderbuffer:GL_RENDERBUFFER]; }
+./src/graphics/tc_ios_gl_context.mm:48:void tc_ios_gl_context_destroy(TcGraphicsContext* context) { if (!context) return; TcIosGlContext* gl = (TcIosGlContext*)context->surface; if (gl) { [EAGLContext setCurrentContext:gl->eagl]; if (gl->framebuffer) glDeleteFramebuffers(1, &gl->framebuffer); if (gl->colorbuffer) glDeleteRenderbuffers(1, &gl->colorbuffer); [EAGLContext setCurrentContext:nil]; [gl->eagl release]; free(gl); } free(context); }
+./src/graphics/tc_vulkan_context.c:6:/* Planned Vulkan context. CMake rejects TC_GRAPHICS=VULKAN until implemented. */
+./src/graphics/tc_vulkan_context.c:7:int tc_vulkan_context_stub(void) { return 0; }
+./src/runtime/tc_scheduler.c:6:#include "tc_internal.h"
+./src/runtime/tc_scheduler.c:8:int tc_scheduler_start(TcFrameScheduler* scheduler, TcFrameCallback callback, void* user_data) {
+./src/runtime/tc_scheduler.c:9:    if (!scheduler || !callback) return TC_ERROR_INVALID_ARGUMENT;
+./src/runtime/tc_scheduler.c:15:    return TC_OK;
+./src/runtime/tc_scheduler.c:18:int tc_scheduler_request_frame(TcFrameScheduler* scheduler) {
+./src/runtime/tc_scheduler.c:19:    if (!scheduler || !scheduler->running) return TC_ERROR_INVALID_ARGUMENT;
+./src/runtime/tc_scheduler.c:21:    return TC_OK;
+./src/runtime/tc_scheduler.c:24:void tc_scheduler_stop(TcFrameScheduler* scheduler) { if (scheduler) scheduler->running = false; }
+./.agent/platform-rendering-architecture-execplan.md:70:  Evidence: `aarch64-linux-android24-clang` produced an AArch64 ELF object from `src/backends/android/tc_android_backend.c` with warnings treated as errors.
+./.agent/platform-rendering-architecture-execplan.md:91:  Evidence: configuring with `-DTC_GRAPHICS=OPENGL` built `tc_demo`; its runtime log reported `OpenGL 3.2 core context created` and completed the demo frame loop.
+./.agent/platform-rendering-architecture-execplan.md:109:  Evidence: `SkSurface::MakeFromCAMetalLayer` returned no surface during renderer creation, while an LLDB breakpoint at `tc_metal_context_set_drawable` was hit from the first `tc_renderer_begin_frame` after the SDL event loop started.
+./.agent/platform-rendering-architecture-execplan.md:168:  Rationale: The release supplies the headers and platform static libraries needed to prove the CPU vertical slice without adding large generated binaries to the repository. `scripts/fetch-totalcross-skia.sh` downloads it into an ignored cache and `TC_SKIA_ROOT` makes the selection explicit.
+./.agent/platform-rendering-architecture-execplan.md:171:- Decision: Keep the SDL event/frame loop in the SDL backend rather than `tc_app_run`.
+./.agent/platform-rendering-architecture-execplan.md:188:- Decision: Select Android CPU or OpenGL ES rendering at CMake/Gradle build time through `TC_ANDROID_GRAPHICS` / `tcAndroidGraphics`.
+./.agent/platform-rendering-architecture-execplan.md:216:- Decision: Offer the iOS simulator's OpenGL ES path through `TC_IOS_GRAPHICS=OPENGL`, while leaving CPU as the default and Metal as the future iOS GPU target.
+./.agent/platform-rendering-architecture-execplan.md:266:The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports CPU, EGL/OpenGL ES 3, and Vulkan Skia paths; the arm64 API 34 emulator displayed both GPU variants correctly. The iOS UIKit demo supports CPU, an arm64 simulator OpenGL ES path, and a native Metal path using the same per-frame Skia surface and presentation flow; the Metal path displayed the animated generic demo on an iPhone 16 simulator. The Web target now compiles the same generic demo to WebGL 2 with the r4 wasm32 Skia archive: Emscripten resize/input callbacks feed generic events and its animation-frame loop feeds the generic scheduler, producing `tc_demo.html`, `tc_demo.js`, and `tc_demo.wasm`.
+./.agent/platform-rendering-architecture-execplan.md:365:include/tc_runtime/
+./.agent/platform-rendering-architecture-execplan.md:366:  tc_app.h
+./.agent/platform-rendering-architecture-execplan.md:367:  tc_backend.h
+./.agent/platform-rendering-architecture-execplan.md:368:  tc_canvas.h
+./.agent/platform-rendering-architecture-execplan.md:369:  tc_event.h
+./.agent/platform-rendering-architecture-execplan.md:370:  tc_graphics.h
+./.agent/platform-rendering-architecture-execplan.md:371:  tc_renderer.h
+./.agent/platform-rendering-architecture-execplan.md:372:  tc_scheduler.h
+./.agent/platform-rendering-architecture-execplan.md:373:  tc_types.h
+./.agent/platform-rendering-architecture-execplan.md:376:  tc_app.c
+./.agent/platform-rendering-architecture-execplan.md:377:  tc_event_queue.c
+./.agent/platform-rendering-architecture-execplan.md:378:  tc_scheduler.c
+./.agent/platform-rendering-architecture-execplan.md:381:  tc_sdl_backend.c
+./.agent/platform-rendering-architecture-execplan.md:382:  tc_sdl_backend.h
+./.agent/platform-rendering-architecture-execplan.md:385:  tc_android_backend.c
+./.agent/platform-rendering-architecture-execplan.md:386:  tc_android_backend.h
+./.agent/platform-rendering-architecture-execplan.md:389:  tc_ios_backend.c
+./.agent/platform-rendering-architecture-execplan.md:390:  tc_ios_backend.h
+./.agent/platform-rendering-architecture-execplan.md:393:  tc_glfw_backend.c
+./.agent/platform-rendering-architecture-execplan.md:394:  tc_glfw_backend.h
+./.agent/platform-rendering-architecture-execplan.md:400:  tc_cpu_context.c
+./.agent/platform-rendering-architecture-execplan.md:401:  tc_gl_context.c
+./.agent/platform-rendering-architecture-execplan.md:402:  tc_metal_context.c
+./.agent/platform-rendering-architecture-execplan.md:403:  tc_vulkan_context.c
+./.agent/platform-rendering-architecture-execplan.md:406:  tc_skia_renderer.cpp
+./.agent/platform-rendering-architecture-execplan.md:407:  tc_skia_renderer_c_api.h
+./.agent/platform-rendering-architecture-execplan.md:410:  tc_nanovg_renderer.c
+./.agent/platform-rendering-architecture-execplan.md:413:  tc_blend2d_renderer.cpp
+./.agent/platform-rendering-architecture-execplan.md:414:  tc_blend2d_renderer_c_api.h
+./.agent/platform-rendering-architecture-execplan.md:443:Create `include/tc_runtime/tc_types.h` with plain C structs for rectangles, colors, points, sizes, transforms, and handles.
+./.agent/platform-rendering-architecture-execplan.md:448:typedef struct TcApp TcApp;
+./.agent/platform-rendering-architecture-execplan.md:449:typedef struct TcPlatformBackend TcPlatformBackend;
+./.agent/platform-rendering-architecture-execplan.md:450:typedef struct TcGraphicsContext TcGraphicsContext;
+./.agent/platform-rendering-architecture-execplan.md:451:typedef struct TcRenderer2D TcRenderer2D;
+./.agent/platform-rendering-architecture-execplan.md:452:typedef struct TcCanvas2D TcCanvas2D;
+./.agent/platform-rendering-architecture-execplan.md:453:typedef struct TcFrameScheduler TcFrameScheduler;
+./.agent/platform-rendering-architecture-execplan.md:459:typedef struct TcNativeWindowHandle TcNativeWindowHandle;
+./.agent/platform-rendering-architecture-execplan.md:460:typedef struct TcNativeSurfaceHandle TcNativeSurfaceHandle;
+./.agent/platform-rendering-architecture-execplan.md:467:Create `include/tc_runtime/tc_event.h` with backend-neutral event types:
+./.agent/platform-rendering-architecture-execplan.md:470:typedef enum TcEventType {
+./.agent/platform-rendering-architecture-execplan.md:471:    TC_EVENT_NONE = 0,
+./.agent/platform-rendering-architecture-execplan.md:472:    TC_EVENT_QUIT,
+./.agent/platform-rendering-architecture-execplan.md:473:    TC_EVENT_RESIZE,
+./.agent/platform-rendering-architecture-execplan.md:474:    TC_EVENT_REDRAW_REQUESTED,
+./.agent/platform-rendering-architecture-execplan.md:475:    TC_EVENT_POINTER_DOWN,
+./.agent/platform-rendering-architecture-execplan.md:476:    TC_EVENT_POINTER_MOVE,
+./.agent/platform-rendering-architecture-execplan.md:477:    TC_EVENT_POINTER_UP,
+./.agent/platform-rendering-architecture-execplan.md:478:    TC_EVENT_KEY_DOWN,
+./.agent/platform-rendering-architecture-execplan.md:479:    TC_EVENT_KEY_UP,
+./.agent/platform-rendering-architecture-execplan.md:480:    TC_EVENT_TEXT_INPUT,
+./.agent/platform-rendering-architecture-execplan.md:481:    TC_EVENT_PAUSE,
+./.agent/platform-rendering-architecture-execplan.md:482:    TC_EVENT_RESUME
+./.agent/platform-rendering-architecture-execplan.md:483:} TcEventType;
+./.agent/platform-rendering-architecture-execplan.md:490:Create `include/tc_runtime/tc_scheduler.h`:
+./.agent/platform-rendering-architecture-execplan.md:493:typedef struct TcFrameScheduler TcFrameScheduler;
+./.agent/platform-rendering-architecture-execplan.md:495:typedef void (*TcFrameCallback)(
+./.agent/platform-rendering-architecture-execplan.md:501:int tc_scheduler_start(
+./.agent/platform-rendering-architecture-execplan.md:502:    TcFrameScheduler* scheduler,
+./.agent/platform-rendering-architecture-execplan.md:503:    TcFrameCallback callback,
+./.agent/platform-rendering-architecture-execplan.md:507:int tc_scheduler_request_frame(TcFrameScheduler* scheduler);
+./.agent/platform-rendering-architecture-execplan.md:509:void tc_scheduler_stop(TcFrameScheduler* scheduler);
+./.agent/platform-rendering-architecture-execplan.md:538:Create `include/tc_runtime/tc_backend.h` with a backend abstraction that provides:
+./.agent/platform-rendering-architecture-execplan.md:541:int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config);
+./.agent/platform-rendering-architecture-execplan.md:542:TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend);
+./.agent/platform-rendering-architecture-execplan.md:543:TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend);
+./.agent/platform-rendering-architecture-execplan.md:544:TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend);
+./.agent/platform-rendering-architecture-execplan.md:545:int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data);
+./.agent/platform-rendering-architecture-execplan.md:546:void tc_backend_request_redraw(TcPlatformBackend* backend);
+./.agent/platform-rendering-architecture-execplan.md:547:void tc_backend_shutdown(TcPlatformBackend* backend);
+./.agent/platform-rendering-architecture-execplan.md:550:`tc_backend_pump_events` may be meaningful for SDL3 and GLFW. Callback-driven platforms may implement it as a no-op or as a platform-specific dispatch hook.
+./.agent/platform-rendering-architecture-execplan.md:554:Create `include/tc_runtime/tc_app.h`:
+./.agent/platform-rendering-architecture-execplan.md:557:typedef struct TcAppCallbacks {
+./.agent/platform-rendering-architecture-execplan.md:558:    void (*on_event)(void* user_data, const TcEvent* event);
+./.agent/platform-rendering-architecture-execplan.md:560:    void (*on_draw)(void* user_data, TcCanvas2D* canvas);
+./.agent/platform-rendering-architecture-execplan.md:562:} TcAppCallbacks;
+./.agent/platform-rendering-architecture-execplan.md:580:Create `include/tc_runtime/tc_graphics.h`:
+./.agent/platform-rendering-architecture-execplan.md:583:typedef enum TcGraphicsApi {
+./.agent/platform-rendering-architecture-execplan.md:584:    TC_GRAPHICS_CPU = 0,
+./.agent/platform-rendering-architecture-execplan.md:585:    TC_GRAPHICS_OPENGL,
+./.agent/platform-rendering-architecture-execplan.md:586:    TC_GRAPHICS_METAL,
+./.agent/platform-rendering-architecture-execplan.md:587:    TC_GRAPHICS_VULKAN
+./.agent/platform-rendering-architecture-execplan.md:588:} TcGraphicsApi;
+./.agent/platform-rendering-architecture-execplan.md:590:int tc_graphics_context_create(
+./.agent/platform-rendering-architecture-execplan.md:591:    TcGraphicsApi api,
+./.agent/platform-rendering-architecture-execplan.md:592:    TcNativeWindowHandle* window,
+./.agent/platform-rendering-architecture-execplan.md:593:    TcNativeSurfaceHandle* surface,
+./.agent/platform-rendering-architecture-execplan.md:594:    TcGraphicsContext** out_context
+./.agent/platform-rendering-architecture-execplan.md:597:void tc_graphics_context_resize(
+./.agent/platform-rendering-architecture-execplan.md:598:    TcGraphicsContext* context,
+./.agent/platform-rendering-architecture-execplan.md:604:void tc_graphics_context_destroy(TcGraphicsContext* context);
+./.agent/platform-rendering-architecture-execplan.md:611:Create `include/tc_runtime/tc_renderer.h`:
+./.agent/platform-rendering-architecture-execplan.md:614:typedef enum TcRendererKind {
+./.agent/platform-rendering-architecture-execplan.md:615:    TC_RENDERER_SKIA = 0,
+./.agent/platform-rendering-architecture-execplan.md:616:    TC_RENDERER_NANOVG,
+./.agent/platform-rendering-architecture-execplan.md:617:    TC_RENDERER_BLEND2D,
+./.agent/platform-rendering-architecture-execplan.md:618:    TC_RENDERER_VELLO
+./.agent/platform-rendering-architecture-execplan.md:619:} TcRendererKind;
+./.agent/platform-rendering-architecture-execplan.md:621:int tc_renderer_create(
+./.agent/platform-rendering-architecture-execplan.md:622:    TcRendererKind kind,
+./.agent/platform-rendering-architecture-execplan.md:623:    TcGraphicsContext* context,
+./.agent/platform-rendering-architecture-execplan.md:624:    TcRenderer2D** out_renderer
+./.agent/platform-rendering-architecture-execplan.md:627:int tc_renderer_attach(TcRenderer2D* renderer, TcGraphicsContext* context);
+./.agent/platform-rendering-architecture-execplan.md:628:int tc_renderer_resize(TcRenderer2D* renderer, int width, int height, float scale);
+./.agent/platform-rendering-architecture-execplan.md:629:TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer);
+./.agent/platform-rendering-architecture-execplan.md:630:int tc_renderer_end_frame(TcRenderer2D* renderer);
+./.agent/platform-rendering-architecture-execplan.md:631:void tc_renderer_destroy(TcRenderer2D* renderer);
+./.agent/platform-rendering-architecture-execplan.md:638:Create `include/tc_runtime/tc_canvas.h` with backend-agnostic drawing:
+./.agent/platform-rendering-architecture-execplan.md:641:void tc_canvas_save(TcCanvas2D* canvas);
+./.agent/platform-rendering-architecture-execplan.md:642:void tc_canvas_restore(TcCanvas2D* canvas);
+./.agent/platform-rendering-architecture-execplan.md:644:void tc_canvas_translate(TcCanvas2D* canvas, float x, float y);
+./.agent/platform-rendering-architecture-execplan.md:645:void tc_canvas_scale(TcCanvas2D* canvas, float x, float y);
+./.agent/platform-rendering-architecture-execplan.md:646:void tc_canvas_rotate(TcCanvas2D* canvas, float degrees);
+./.agent/platform-rendering-architecture-execplan.md:648:void tc_canvas_clip_rect(TcCanvas2D* canvas, TcRect rect);
+./.agent/platform-rendering-architecture-execplan.md:649:void tc_canvas_clear(TcCanvas2D* canvas, TcColor color);
+./.agent/platform-rendering-architecture-execplan.md:651:void tc_canvas_draw_rect(TcCanvas2D* canvas, TcRect rect, TcPaint paint);
+./.agent/platform-rendering-architecture-execplan.md:652:void tc_canvas_draw_round_rect(TcCanvas2D* canvas, TcRect rect, float radius, TcPaint paint);
+./.agent/platform-rendering-architecture-execplan.md:653:void tc_canvas_draw_line(TcCanvas2D* canvas, TcPoint a, TcPoint b, TcPaint paint);
+./.agent/platform-rendering-architecture-execplan.md:654:void tc_canvas_draw_text(TcCanvas2D* canvas, const char* text, float x, float y, TcTextStyle style);
+./.agent/platform-rendering-architecture-execplan.md:660:typedef struct TcPath TcPath;
+./.agent/platform-rendering-architecture-execplan.md:661:typedef struct TcImage TcImage;
+./.agent/platform-rendering-architecture-execplan.md:726:- SDL events are translated to `TcEvent`.
+./.agent/platform-rendering-architecture-execplan.md:764:./build-sdl-skia-gl/examples/demo/tc_demo
+./.agent/platform-rendering-architecture-execplan.md:770:tc_demo: backend=sdl
+./.agent/platform-rendering-architecture-execplan.md:771:tc_demo: renderer=skia
+./.agent/platform-rendering-architecture-execplan.md:772:tc_demo: graphics=opengl
+./.agent/platform-rendering-architecture-execplan.md:773:tc_demo: window created
+./.agent/platform-rendering-architecture-execplan.md:774:tc_demo: running
+./.agent/platform-rendering-architecture-execplan.md:775:tc_demo: shutdown
+./.agent/platform-rendering-architecture-execplan.md:832:examples/demo_web/tc_demo.js
+./.agent/platform-rendering-architecture-execplan.md:833:examples/demo_web/tc_demo.wasm
+./.agent/platform-rendering-architecture-execplan.md:834:examples/demo_web/tc_demo.data, if needed
+./.agent/platform-rendering-architecture-execplan.md:949:TC_PLATFORM=DESKTOP
+./.agent/platform-rendering-architecture-execplan.md:950:TC_BACKEND=SDL
+./.agent/platform-rendering-architecture-execplan.md:951:TC_GRAPHICS=CPU
+./.agent/platform-rendering-architecture-execplan.md:952:TC_RENDERER=SKIA
+./.agent/platform-rendering-architecture-execplan.md:1070:- The demo application uses only `tc_canvas_*`, `tc_event_*`, scheduler, and runtime APIs.
+./src/renderers/nanovg/tc_nanovg_renderer.c:6:/* Planned NanoVG renderer. CMake rejects TC_RENDERER=NANOVG until implemented. */
+./src/renderers/nanovg/tc_nanovg_renderer.c:7:int tc_nanovg_renderer_stub(void) { return 0; }
+./include/tc_runtime/tc_types.h:6:#ifndef TC_RUNTIME_TYPES_H
+./include/tc_runtime/tc_types.h:7:#define TC_RUNTIME_TYPES_H
+./include/tc_runtime/tc_types.h:13:typedef enum TcResult { TC_OK = 0, TC_ERROR_INVALID_ARGUMENT = -1, TC_ERROR_UNAVAILABLE = -2, TC_ERROR_OUT_OF_MEMORY = -3, TC_ERROR_PLATFORM = -4, TC_ERROR_RENDERER = -5 } TcResult;
+./include/tc_runtime/tc_types.h:14:typedef struct TcPoint { float x, y; } TcPoint;
+./include/tc_runtime/tc_types.h:15:typedef struct TcSize { float width, height; } TcSize;
+./include/tc_runtime/tc_types.h:16:typedef struct TcRect { float x, y, width, height; } TcRect;
+./include/tc_runtime/tc_types.h:17:typedef struct TcColor { float r, g, b, a; } TcColor;
+./include/tc_runtime/tc_types.h:18:typedef struct TcTransform { float m11, m12, m21, m22, dx, dy; } TcTransform;
+./include/tc_runtime/tc_types.h:19:typedef enum TcPaintStyle { TC_PAINT_FILL, TC_PAINT_STROKE } TcPaintStyle;
+./include/tc_runtime/tc_types.h:20:typedef struct TcPaint { TcColor color; float stroke_width; TcPaintStyle style; } TcPaint;
+./include/tc_runtime/tc_types.h:21:typedef struct TcTextStyle { TcColor color; float size; const char* family; } TcTextStyle;
+./include/tc_runtime/tc_types.h:23:typedef struct TcApp TcApp;
+./include/tc_runtime/tc_types.h:24:typedef struct TcPlatformBackend TcPlatformBackend;
+./include/tc_runtime/tc_types.h:25:typedef struct TcGraphicsContext TcGraphicsContext;
+./include/tc_runtime/tc_types.h:26:typedef struct TcRenderer2D TcRenderer2D;
+./include/tc_runtime/tc_types.h:27:typedef struct TcCanvas2D TcCanvas2D;
+./include/tc_runtime/tc_types.h:28:typedef struct TcFrameScheduler TcFrameScheduler;
+./include/tc_runtime/tc_types.h:29:typedef struct TcNativeWindowHandle TcNativeWindowHandle;
+./include/tc_runtime/tc_types.h:30:typedef struct TcNativeSurfaceHandle TcNativeSurfaceHandle;
+./include/tc_runtime/tc_types.h:31:typedef struct TcPath TcPath;
+./include/tc_runtime/tc_types.h:32:typedef struct TcImage TcImage;
+./examples/demo_android/demo_android_main.c:6:#include "tc_internal.h"
+./examples/demo_android/demo_android_main.c:7:#include "tc_android_backend.h"
+./examples/demo_android/demo_android_main.c:11:typedef struct DemoAndroid { DemoScene scene; TcGraphicsContext* graphics; TcRenderer2D* renderer; } DemoAndroid;
+./examples/demo_android/demo_android_main.c:12:static void on_event(void* data, const TcEvent* event) { DemoAndroid* demo = data; demo_scene_on_event(&demo->scene, event); if (event->type == TC_EVENT_RESIZE && demo->renderer) { tc_graphics_context_resize(demo->graphics, event->data.resize.width, event->data.resize.height, event->data.resize.scale); tc_renderer_resize(demo->renderer, event->data.resize.width, event->data.resize.height, event->data.resize.scale); } }
+./examples/demo_android/demo_android_main.c:13:static void on_frame(void* data, double time, double delta) { (void)time; DemoAndroid* demo = data; demo_scene_on_update(&demo->scene, delta); TcCanvas2D* canvas = tc_renderer_begin_frame(demo->renderer); if (!canvas) return; demo_scene_on_draw(&demo->scene, canvas); tc_renderer_end_frame(demo->renderer); }
+./examples/demo_android/demo_android_main.c:15:    TcAndroidNativeBackend* backend = NULL; DemoAndroid demo = {0};
+./examples/demo_android/demo_android_main.c:16:    if (tc_android_backend_attach(app, on_event, &demo, &backend) != TC_OK) return;
+./examples/demo_android/demo_android_main.c:18:#if TC_ANDROID_GRAPHICS_OPENGL
+./examples/demo_android/demo_android_main.c:19:    const TcGraphicsApi graphics_api = TC_GRAPHICS_OPENGL;
+./examples/demo_android/demo_android_main.c:20:#elif TC_ANDROID_GRAPHICS_VULKAN
+./examples/demo_android/demo_android_main.c:21:    const TcGraphicsApi graphics_api = TC_GRAPHICS_VULKAN;
+./examples/demo_android/demo_android_main.c:23:    const TcGraphicsApi graphics_api = TC_GRAPHICS_CPU;
+./examples/demo_android/demo_android_main.c:25:    TcNativeWindowHandle window = {app->window}; TcNativeSurfaceHandle surface = {0};
+./examples/demo_android/demo_android_main.c:26:    if (app->destroyRequested || tc_graphics_context_create(graphics_api, &window, &surface, &demo.graphics) != TC_OK || tc_renderer_create(TC_RENDERER_SKIA, demo.graphics, &demo.renderer) != TC_OK) goto cleanup;
+./examples/demo_android/demo_android_main.c:27:    demo_scene_init(&demo.scene, demo.graphics->width, demo.graphics->height); tc_android_backend_start(backend, on_frame, &demo);
+./examples/demo_android/demo_android_main.c:30:    tc_android_backend_stop(backend); tc_renderer_destroy(demo.renderer); tc_graphics_context_destroy(demo.graphics); tc_android_backend_detach(backend);
+./plans/convert-to-magic-doodle-board.md:11:A developer will be able to prove the result in three ways. First, each layer will build by itself against only installed public dependencies. Second, the same backend-agnostic demo scene will run with supported desktop, mobile, web, and headless combinations. Third, an architecture test will show that public headers contain no forbidden SDL, Skia, Emscripten, Android, UIKit, Metal, Vulkan, OpenGL, C++, or Rust types and that no legacy `tc_` or `Tc...` framework symbols remain after the final migration milestone.
+./plans/convert-to-magic-doodle-board.md:19:- [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
+./plans/convert-to-magic-doodle-board.md:29:- [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
+./plans/convert-to-magic-doodle-board.md:34:- Observation: The current public `TcApp` callback model includes `on_draw(TcCanvas2D *)`, which directly couples application lifecycle to the rendering layer.
+./plans/convert-to-magic-doodle-board.md:35:  Evidence: The supplied current architecture describes `tc_app_frame()` invoking `tc_renderer_begin_frame()`, `on_draw(TcCanvas2D *)`, and `tc_renderer_end_frame()` as one runtime operation. The new Board frame callback must contain timing only, and application composition must own Magic and Doodle calls.
+./plans/convert-to-magic-doodle-board.md:38:  Evidence: The supplied Web configuration uses `TC_PLATFORM=WEB` and `TC_BACKEND=SDL` while the implementation substitutes a private Emscripten backend. The target architecture makes Web an explicit Board backend and an explicit Magic backend so configured behavior matches generated behavior.
+./plans/convert-to-magic-doodle-board.md:41:  Evidence: Current files include `tc_android_vulkan_context.cpp`, `tc_ios_metal_context.mm`, and a Skia adapter that creates raster, framebuffer, drawable, and swapchain-backed surfaces. The migration must define stable Board-to-Magic and Magic-to-Doodle interop contracts before moving these files.
+./plans/convert-to-magic-doodle-board.md:81:- Decision: Use additive APIs and temporary compatibility adapters during migration, then remove all framework-owned `tc_`, `Tc...`, and `TC_...` names before completion.
+./plans/convert-to-magic-doodle-board.md:101:The current project is named `didactic-doodle`. It is a C-first, multiplatform 2D runtime whose public headers currently live under `include/tc_runtime/`. Its implementation mixes application runtime code under `src/runtime/`, native window backends under `src/backends/`, graphics contexts under `src/graphics/`, and renderer adapters under `src/renderers/`.
+./plans/convert-to-magic-doodle-board.md:105:- `TcApp`, which owns application lifecycle and callbacks named `on_event`, `on_update`, `on_draw`, and `on_shutdown`.
+./plans/convert-to-magic-doodle-board.md:106:- `TcPlatformBackend`, which owns window or surface creation, events, and scheduling.
+./plans/convert-to-magic-doodle-board.md:107:- `TcFrameScheduler`, which starts, requests, and stops frame callbacks.
+./plans/convert-to-magic-doodle-board.md:108:- `TcGraphicsContext`, which represents CPU, OpenGL/OpenGL ES, Metal, or Vulkan context state.
+./plans/convert-to-magic-doodle-board.md:109:- `TcRenderer2D`, which creates and resizes a renderer and begins or ends frames.
+./plans/convert-to-magic-doodle-board.md:110:- `TcCanvas2D`, which provides basic 2D drawing and state operations.
+./plans/convert-to-magic-doodle-board.md:111:- `TcEvent`, which represents quit, resize, pointer, key, text, pause, and resume events.
+./plans/convert-to-magic-doodle-board.md:115:    include/tc_runtime/
+./plans/convert-to-magic-doodle-board.md:116:      tc_app.h
+./plans/convert-to-magic-doodle-board.md:117:      tc_backend.h
+./plans/convert-to-magic-doodle-board.md:118:      tc_canvas.h
+./plans/convert-to-magic-doodle-board.md:119:      tc_event.h
+./plans/convert-to-magic-doodle-board.md:120:      tc_graphics.h
+./plans/convert-to-magic-doodle-board.md:121:      tc_renderer.h
+./plans/convert-to-magic-doodle-board.md:122:      tc_scheduler.h
+./plans/convert-to-magic-doodle-board.md:123:      tc_types.h
+./plans/convert-to-magic-doodle-board.md:126:      tc_app.c
+./plans/convert-to-magic-doodle-board.md:127:      tc_scheduler.c
+./plans/convert-to-magic-doodle-board.md:128:      tc_event_queue.c
+./plans/convert-to-magic-doodle-board.md:139:      tc_cpu_context.c
+./plans/convert-to-magic-doodle-board.md:140:      tc_gl_context.c
+./plans/convert-to-magic-doodle-board.md:141:      tc_metal_context.mm
+./plans/convert-to-magic-doodle-board.md:142:      tc_web_gl_context.c
+./plans/convert-to-magic-doodle-board.md:143:      tc_android_cpu_context.c
+./plans/convert-to-magic-doodle-board.md:144:      tc_android_gl_context.c
+./plans/convert-to-magic-doodle-board.md:145:      tc_android_vulkan_context.cpp
+./plans/convert-to-magic-doodle-board.md:146:      tc_ios_cpu_context.mm
+./plans/convert-to-magic-doodle-board.md:147:      tc_ios_gl_context.mm
+./plans/convert-to-magic-doodle-board.md:148:      tc_ios_metal_context.mm
+./plans/convert-to-magic-doodle-board.md:162:The current event and frame model is callback-oriented. Native backends convert input into `TcEvent`, dispatch it to the application, and invoke frame callbacks from a platform-native scheduler. The application has no blocking loop. Web uses browser animation frames, Android uses `AChoreographer`, iOS uses `CADisplayLink`, and desktop uses an adapter around its window backend.
+./plans/convert-to-magic-doodle-board.md:168:    TC_PLATFORM=DESKTOP|ANDROID|IOS|WEB
+./plans/convert-to-magic-doodle-board.md:169:    TC_BACKEND=SDL|ANDROID_NATIVE|IOS_NATIVE|GLFW|WINIT
+./plans/convert-to-magic-doodle-board.md:170:    TC_GRAPHICS=CPU|OPENGL|METAL|VULKAN
+./plans/convert-to-magic-doodle-board.md:171:    TC_RENDERER=SKIA|NANOVG|BLEND2D|VELLO
+./plans/convert-to-magic-doodle-board.md:280:    TcApp                         -> BoardApp
+./plans/convert-to-magic-doodle-board.md:281:    TcAppConfig                   -> BoardAppConfig
+./plans/convert-to-magic-doodle-board.md:282:    TcAppCallbacks                -> BoardAppCallbacks
+./plans/convert-to-magic-doodle-board.md:283:    TcPlatformBackend             -> BoardBackend
+./plans/convert-to-magic-doodle-board.md:284:    TcFrameScheduler              -> BoardFrameScheduler
+./plans/convert-to-magic-doodle-board.md:285:    TcEvent                       -> BoardEvent
+./plans/convert-to-magic-doodle-board.md:286:    TcEventType                   -> BoardEventType
+./plans/convert-to-magic-doodle-board.md:287:    TcNativeWindowHandle          -> BoardNativeSurface or BoardNativeHandle
+./plans/convert-to-magic-doodle-board.md:289:    tc_app_*                      -> board_app_*
+./plans/convert-to-magic-doodle-board.md:290:    tc_backend_*                  -> board_backend_*
+./plans/convert-to-magic-doodle-board.md:291:    tc_scheduler_*                -> board_scheduler_*
+./plans/convert-to-magic-doodle-board.md:292:    tc_event_*                    -> board_event_*
+./plans/convert-to-magic-doodle-board.md:293:    tc_window_*                   -> board_window_*
+./plans/convert-to-magic-doodle-board.md:294:    tc_native_view_*              -> board_native_view_*
+./plans/convert-to-magic-doodle-board.md:296:    tc_app.h                      -> board_app.h
+./plans/convert-to-magic-doodle-board.md:297:    tc_backend.h                  -> board_backend.h
+./plans/convert-to-magic-doodle-board.md:298:    tc_scheduler.h                -> board_scheduler.h
+./plans/convert-to-magic-doodle-board.md:299:    tc_event.h                    -> board_event.h
+./plans/convert-to-magic-doodle-board.md:303:    TcGraphicsContext             -> MagicContext
+./plans/convert-to-magic-doodle-board.md:304:    TcGraphicsConfig              -> MagicConfig
+./plans/convert-to-magic-doodle-board.md:305:    TcGraphicsBackend             -> MagicBackend
+./plans/convert-to-magic-doodle-board.md:306:    TcFrame or graphics frame     -> MagicFrame
+./plans/convert-to-magic-doodle-board.md:309:    tc_graphics_create            -> magic_context_create
+./plans/convert-to-magic-doodle-board.md:310:    tc_graphics_destroy           -> magic_context_destroy
+./plans/convert-to-magic-doodle-board.md:311:    tc_graphics_resize            -> magic_context_resize
+./plans/convert-to-magic-doodle-board.md:312:    tc_graphics_begin_frame       -> magic_context_begin_frame
+./plans/convert-to-magic-doodle-board.md:313:    tc_graphics_end_frame         -> magic_context_end_frame
+./plans/convert-to-magic-doodle-board.md:314:    tc_graphics_*                 -> magic_context_* or magic_frame_*
+./plans/convert-to-magic-doodle-board.md:316:    tc_graphics.h                 -> magic_context.h, magic_frame.h, and magic_interop.h
+./plans/convert-to-magic-doodle-board.md:317:    tc_*_context.c/.cpp/.mm       -> magic_*_context.c/.cpp/.mm under the owning Magic backend
+./plans/convert-to-magic-doodle-board.md:321:    TcRenderer2D                  -> DoodleRenderer
+./plans/convert-to-magic-doodle-board.md:322:    TcRendererConfig              -> DoodleRendererConfig
+./plans/convert-to-magic-doodle-board.md:323:    TcCanvas2D                    -> DoodleCanvas
+./plans/convert-to-magic-doodle-board.md:324:    TcPaint                       -> DoodlePaint
+./plans/convert-to-magic-doodle-board.md:325:    TcPath                        -> DoodlePath
+./plans/convert-to-magic-doodle-board.md:326:    TcImage                       -> DoodleImage
+./plans/convert-to-magic-doodle-board.md:327:    TcFont                        -> DoodleFont
+./plans/convert-to-magic-doodle-board.md:329:    tc_renderer_*                 -> doodle_renderer_*
+./plans/convert-to-magic-doodle-board.md:330:    tc_canvas_*                   -> doodle_canvas_*
+./plans/convert-to-magic-doodle-board.md:331:    tc_paint_*                    -> doodle_paint_*
+./plans/convert-to-magic-doodle-board.md:332:    tc_path_*                     -> doodle_path_*
+./plans/convert-to-magic-doodle-board.md:333:    tc_image_*                    -> doodle_image_*
+./plans/convert-to-magic-doodle-board.md:334:    tc_font_*                     -> doodle_font_*
+./plans/convert-to-magic-doodle-board.md:336:    tc_renderer.h                 -> doodle_renderer.h
+./plans/convert-to-magic-doodle-board.md:337:    tc_canvas.h                   -> doodle_canvas.h
+./plans/convert-to-magic-doodle-board.md:343:Do not mechanically rename `tc_types.h` into a new global type header. Split every type by ownership. Drawing geometry and colors belong to Doodle. Window metrics, input values, and lifecycle states belong to Board. Frame formats, target sizes, and synchronization values belong to Magic. Where two layers exchange a value, the producer layer's public header owns its declaration.
+./plans/convert-to-magic-doodle-board.md:345:During migration only, place aliases or wrapper functions under `compat/tc_runtime/` and `compat/src/`. Mark them deprecated and exclude them from final installation by default. New implementation code, new tests, and new examples must never use compatibility names. Delete `compat/` before final acceptance.
+./plans/convert-to-magic-doodle-board.md:509:Begin by proving the current state before renaming anything. From the repository root, inspect `CMakeLists.txt`, all included CMake modules, `include/tc_runtime/`, `src/runtime/`, `src/backends/`, `src/graphics/`, `src/renderers/`, and every example entry point. Record the exact source files, public symbols, CMake targets, options, generated files, and current supported combinations in `artifacts/baseline/inventory.md`. Do not assume the supplied conceptual tree matches every filename.
+./plans/convert-to-magic-doodle-board.md:573:Move the portable Canvas API, renderer lifecycle, and renderer-owned resources into Doodle. Split the current `tc_canvas.h`, `tc_renderer.h`, and any renderer-neutral types into `doodle/include/doodle/`. Rename all framework-owned symbols to `Doodle...`, `doodle_...`, and `DOODLE_...`. Ensure drawing geometry, colors, paints, paths, images, fonts, and text resources are owned by Doodle rather than a shared type header.
+./plans/convert-to-magic-doodle-board.md:637:Provide a transitional CMake compatibility module that recognizes old `TC_*` options, emits a deprecation warning, and maps them to the new values only during intermediate milestones. Remove that module before final completion unless a release policy explicitly requires one compatibility release; if retained, record that policy in the Decision Log and exclude old names from public code symbols and installed headers.
+./plans/convert-to-magic-doodle-board.md:641:Enable the architecture checker to fail on all framework-owned `Tc...`, `tc_...`, and legacy `TC_...` names outside intentionally documented third-party or historical artifact files. Remove `include/tc_runtime/`, `src/runtime/`, `src/backends/`, `src/graphics/`, `src/renderers/`, and `compat/` only when their migrated counterparts are complete and no build references remain. Use `git grep`, generated build files, install manifests, exported symbol inspection, and clean builds to prove removal.
+./plans/convert-to-magic-doodle-board.md:857:9. The repository contains no framework-owned public `Tc...` types, `tc_...` functions or files, or old build selections. The final install prefix contains only `board/`, `magic/`, and `doodle/` public include trees and their CMake package files.
+./include/tc_runtime/tc_event.h:6:#ifndef TC_RUNTIME_EVENT_H
+./include/tc_runtime/tc_event.h:7:#define TC_RUNTIME_EVENT_H
+./include/tc_runtime/tc_event.h:8:#include "tc_types.h"
+./include/tc_runtime/tc_event.h:12:typedef enum TcEventType { TC_EVENT_NONE = 0, TC_EVENT_QUIT, TC_EVENT_RESIZE, TC_EVENT_REDRAW_REQUESTED, TC_EVENT_POINTER_DOWN, TC_EVENT_POINTER_MOVE, TC_EVENT_POINTER_UP, TC_EVENT_KEY_DOWN, TC_EVENT_KEY_UP, TC_EVENT_TEXT_INPUT, TC_EVENT_PAUSE, TC_EVENT_RESUME } TcEventType;
+./include/tc_runtime/tc_event.h:13:typedef enum TcPointerButton { TC_POINTER_BUTTON_NONE, TC_POINTER_BUTTON_LEFT, TC_POINTER_BUTTON_MIDDLE, TC_POINTER_BUTTON_RIGHT } TcPointerButton;
+./include/tc_runtime/tc_event.h:14:typedef struct TcEvent { TcEventType type; union { struct { int width, height; float scale; } resize; struct { float x, y; TcPointerButton button; unsigned int pointer_id; } pointer; struct { int key; int repeat; } key; struct { char text[32]; } text; } data; } TcEvent;
+./include/tc_runtime/tc_event.h:15:typedef void (*TcEventSink)(void* user_data, const TcEvent* event);
+./include/tc_runtime/tc_scheduler.h:6:#ifndef TC_RUNTIME_SCHEDULER_H
+./include/tc_runtime/tc_scheduler.h:7:#define TC_RUNTIME_SCHEDULER_H
+./include/tc_runtime/tc_scheduler.h:8:#include "tc_types.h"
+./include/tc_runtime/tc_scheduler.h:12:typedef void (*TcFrameCallback)(void* user_data, double timestamp_seconds, double delta_seconds);
+./include/tc_runtime/tc_scheduler.h:13:int tc_scheduler_start(TcFrameScheduler* scheduler, TcFrameCallback callback, void* user_data);
+./include/tc_runtime/tc_scheduler.h:14:int tc_scheduler_request_frame(TcFrameScheduler* scheduler);
+./include/tc_runtime/tc_scheduler.h:15:void tc_scheduler_stop(TcFrameScheduler* scheduler);
+./CMakeLists.txt:5:project(tc_runtime VERSION 0.1.0 LANGUAGES C CXX)
+./CMakeLists.txt:7:set(TC_PLATFORM "DESKTOP" CACHE STRING "Target platform: DESKTOP, ANDROID, IOS, WEB")
+./CMakeLists.txt:8:set(TC_BACKEND "SDL" CACHE STRING "Platform backend: SDL, ANDROID_NATIVE, IOS_NATIVE, GLFW, WINIT")
+./CMakeLists.txt:9:set(TC_GRAPHICS "CPU" CACHE STRING "Graphics API: CPU, OPENGL, METAL, VULKAN")
+./CMakeLists.txt:10:set(TC_RENDERER "SKIA" CACHE STRING "2D renderer: SKIA, NANOVG, BLEND2D, VELLO")
+./CMakeLists.txt:11:set(TC_SKIA_TARGET "skia" CACHE STRING "CMake target exported by the Skia package")
+./CMakeLists.txt:12:set(TC_SKIA_ROOT "" CACHE PATH "Root of a TotalCross Skia release (headers/ and libskia-<platform>.a)")
+./CMakeLists.txt:13:set(TC_SKIA_LIBRARY "" CACHE FILEPATH "Optional explicit path to a Skia static library")
+./CMakeLists.txt:14:set_property(CACHE TC_PLATFORM PROPERTY STRINGS DESKTOP ANDROID IOS WEB)
+./CMakeLists.txt:15:set_property(CACHE TC_BACKEND PROPERTY STRINGS SDL ANDROID_NATIVE IOS_NATIVE GLFW WINIT)
+./CMakeLists.txt:16:set_property(CACHE TC_GRAPHICS PROPERTY STRINGS CPU OPENGL METAL VULKAN)
+./CMakeLists.txt:17:set_property(CACHE TC_RENDERER PROPERTY STRINGS SKIA NANOVG BLEND2D VELLO)
+./CMakeLists.txt:19:function(tc_require value description)
+./CMakeLists.txt:26:tc_require("${TC_PLATFORM}" "TC_PLATFORM" DESKTOP ANDROID IOS WEB)
+./CMakeLists.txt:27:tc_require("${TC_BACKEND}" "TC_BACKEND" SDL ANDROID_NATIVE IOS_NATIVE GLFW WINIT)
+./CMakeLists.txt:28:tc_require("${TC_GRAPHICS}" "TC_GRAPHICS" CPU OPENGL METAL VULKAN)
+./CMakeLists.txt:29:tc_require("${TC_RENDERER}" "TC_RENDERER" SKIA NANOVG BLEND2D VELLO)
+./CMakeLists.txt:31:if(NOT TC_BACKEND STREQUAL "SDL" AND NOT (TC_PLATFORM STREQUAL "ANDROID" AND TC_BACKEND STREQUAL "ANDROID_NATIVE"))
+./CMakeLists.txt:32:  message(FATAL_ERROR "TC_BACKEND=${TC_BACKEND} is a planned stub, not an implementation yet. Select -DTC_BACKEND=SDL.")
+./CMakeLists.txt:34:if(NOT TC_RENDERER STREQUAL "SKIA")
+./CMakeLists.txt:35:  message(FATAL_ERROR "TC_RENDERER=${TC_RENDERER} is a planned stub, not an implementation yet. Select -DTC_RENDERER=SKIA.")
+./CMakeLists.txt:37:if(TC_GRAPHICS STREQUAL "VULKAN")
+./CMakeLists.txt:38:  message(FATAL_ERROR "TC_GRAPHICS=VULKAN is a planned stub, not an implementation yet. Select CPU, OPENGL, or METAL.")
+./CMakeLists.txt:40:if(TC_GRAPHICS STREQUAL "METAL" AND NOT APPLE)
+./CMakeLists.txt:41:  message(FATAL_ERROR "TC_GRAPHICS=METAL requires a macOS host. Select CPU or OPENGL for this platform.")
+./CMakeLists.txt:43:if(TC_PLATFORM STREQUAL "ANDROID" OR TC_PLATFORM STREQUAL "IOS")
+./CMakeLists.txt:44:  if(TC_PLATFORM STREQUAL "ANDROID")
+./CMakeLists.txt:48:        message(FATAL_ERROR "tc_runtime requires Android API level 24 or newer; configure the NDK with -DANDROID_PLATFORM=android-24 or higher.")
+./CMakeLists.txt:51:    message(FATAL_ERROR "TC_PLATFORM=ANDROID has a native lifecycle/input scheduler adapter, but no Android graphics context or GPU-enabled Skia archive is configured yet. Supply an Android NDK and Skia built with OpenGL ES or Vulkan before enabling this target.")
+./CMakeLists.txt:53:  message(FATAL_ERROR "TC_PLATFORM=IOS requires its native backend, which is not implemented yet.")
+./CMakeLists.txt:55:if(TC_PLATFORM STREQUAL "WEB" AND NOT TC_GRAPHICS STREQUAL "OPENGL")
+./CMakeLists.txt:56:  message(FATAL_ERROR "TC_PLATFORM=WEB currently requires -DTC_GRAPHICS=OPENGL.")
+./CMakeLists.txt:58:if(TC_PLATFORM STREQUAL "WEB" AND NOT EMSCRIPTEN)
+./CMakeLists.txt:59:  message(FATAL_ERROR "TC_PLATFORM=WEB requires the Emscripten toolchain. Configure with emcmake cmake.")
+./CMakeLists.txt:61:if(NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:64:    message(FATAL_ERROR "SDL3 is required by TC_BACKEND=SDL. Install SDL3 or set CMAKE_PREFIX_PATH to its CMake package.")
+./CMakeLists.txt:67:if(TC_SKIA_ROOT)
+./CMakeLists.txt:68:  if(NOT TC_SKIA_LIBRARY)
+./CMakeLists.txt:69:    if(TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:70:      set(TC_SKIA_LIBRARY "${TC_SKIA_ROOT}/libskia-wasm32.a")
+./CMakeLists.txt:72:      set(TC_SKIA_LIBRARY "${TC_SKIA_ROOT}/libskia-macos-arm64.a")
+./CMakeLists.txt:74:      set(TC_SKIA_LIBRARY "${TC_SKIA_ROOT}/libskia-windows-x64.lib")
+./CMakeLists.txt:76:      set(TC_SKIA_LIBRARY "${TC_SKIA_ROOT}/libskia-linux-x86_64.a")
+./CMakeLists.txt:79:  if(NOT EXISTS "${TC_SKIA_ROOT}/headers/modules/skia/include/core/SkCanvas.h" OR NOT EXISTS "${TC_SKIA_LIBRARY}")
+./CMakeLists.txt:80:    message(FATAL_ERROR "TC_SKIA_ROOT must contain headers/modules/skia/include/core/SkCanvas.h and a matching libskia archive. See README.md for the supported TotalCross release layout.")
+./CMakeLists.txt:82:  add_library(tc_skia STATIC IMPORTED GLOBAL)
+./CMakeLists.txt:83:  set_target_properties(tc_skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
+./CMakeLists.txt:84:  if(NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:87:    target_link_libraries(tc_skia INTERFACE PNG::PNG ZLIB::ZLIB)
+./CMakeLists.txt:89:  if(APPLE AND NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:97:    target_link_libraries(tc_skia INTERFACE ${COCOA_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK} ${COREGRAPHICS_FRAMEWORK} ${CORETEXT_FRAMEWORK} ${IMAGEIO_FRAMEWORK} ${METAL_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
+./CMakeLists.txt:98:  elseif(WIN32 AND NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:99:    target_link_libraries(tc_skia INTERFACE dwrite d3d11 dxgi windowscodecs user32 gdi32 ole32)
+./CMakeLists.txt:100:  elseif(NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:102:    target_link_libraries(tc_skia INTERFACE Threads::Threads dl)
+./CMakeLists.txt:104:  set(TC_SKIA_LINK_TARGET tc_skia)
+./CMakeLists.txt:107:  if(NOT TARGET ${TC_SKIA_TARGET})
+./CMakeLists.txt:108:    message(FATAL_ERROR "Skia is required by TC_RENDERER=SKIA. Supply -DTC_SKIA_ROOT=<TotalCross release directory>, or provide a Skia CMake package exporting target '${TC_SKIA_TARGET}'.")
+./CMakeLists.txt:110:  set(TC_SKIA_LINK_TARGET ${TC_SKIA_TARGET})
+./CMakeLists.txt:113:set(TC_RUNTIME_SOURCES
+./CMakeLists.txt:114:  src/runtime/tc_app.c
+./CMakeLists.txt:115:  src/runtime/tc_scheduler.c
+./CMakeLists.txt:116:  src/runtime/tc_event_queue.c
+./CMakeLists.txt:117:  src/renderers/skia/tc_skia_renderer.cpp)
+./CMakeLists.txt:118:if(TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:119:  list(APPEND TC_RUNTIME_SOURCES src/backends/web/tc_web_backend.c)
+./CMakeLists.txt:121:  list(APPEND TC_RUNTIME_SOURCES src/backends/sdl/tc_sdl_backend.c)
+./CMakeLists.txt:123:if(TC_GRAPHICS STREQUAL "CPU")
+./CMakeLists.txt:124:  list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_cpu_context.c)
+./CMakeLists.txt:125:elseif(TC_GRAPHICS STREQUAL "OPENGL")
+./CMakeLists.txt:126:  if(TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:127:    list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_web_gl_context.c)
+./CMakeLists.txt:129:    list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_gl_context.c)
+./CMakeLists.txt:131:elseif(TC_GRAPHICS STREQUAL "METAL")
+./CMakeLists.txt:133:  list(APPEND TC_RUNTIME_SOURCES src/graphics/tc_metal_context.mm)
+./CMakeLists.txt:135:add_library(tc_runtime ${TC_RUNTIME_SOURCES})
+./CMakeLists.txt:136:target_include_directories(tc_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+./CMakeLists.txt:137:target_include_directories(tc_runtime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+./CMakeLists.txt:138:target_compile_features(tc_runtime PUBLIC c_std_11)
+./CMakeLists.txt:139:target_compile_features(tc_runtime PRIVATE cxx_std_17)
+./CMakeLists.txt:140:target_link_libraries(tc_runtime PRIVATE ${TC_SKIA_LINK_TARGET})
+./CMakeLists.txt:141:if(NOT TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:142:  target_link_libraries(tc_runtime PRIVATE SDL3::SDL3)
+./CMakeLists.txt:144:target_compile_definitions(tc_runtime PRIVATE
+./CMakeLists.txt:145:  TC_BUILD_GRAPHICS_CPU=$<STREQUAL:${TC_GRAPHICS},CPU>
+./CMakeLists.txt:146:  TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_GRAPHICS},OPENGL>
+./CMakeLists.txt:147:  TC_BUILD_GRAPHICS_METAL=$<STREQUAL:${TC_GRAPHICS},METAL>)
+./CMakeLists.txt:148:if(TC_GRAPHICS STREQUAL "OPENGL")
+./CMakeLists.txt:149:  target_compile_definitions(tc_runtime PRIVATE SK_GL=1)
+./CMakeLists.txt:150:  if(TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:151:    target_link_options(tc_runtime INTERFACE "-sUSE_WEBGL2=1" "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2")
+./CMakeLists.txt:154:    target_link_libraries(tc_runtime PRIVATE ${OPENGL_FRAMEWORK})
+./CMakeLists.txt:157:    target_link_libraries(tc_runtime PRIVATE OpenGL::GL)
+./CMakeLists.txt:160:if(APPLE AND TC_SKIA_ROOT)
+./CMakeLists.txt:163:  target_compile_definitions(tc_runtime PRIVATE SK_GL=1 SK_METAL=1)
+./CMakeLists.txt:164:elseif(TC_GRAPHICS STREQUAL "METAL")
+./CMakeLists.txt:165:  target_compile_definitions(tc_runtime PRIVATE SK_METAL=1)
+./CMakeLists.txt:168:add_executable(tc_demo examples/demo/demo_main.c examples/demo/demo_scene.c)
+./CMakeLists.txt:169:target_link_libraries(tc_demo PRIVATE tc_runtime)
+./CMakeLists.txt:170:target_compile_definitions(tc_demo PRIVATE TC_DEMO_GRAPHICS_OPENGL=$<STREQUAL:${TC_GRAPHICS},OPENGL> TC_DEMO_GRAPHICS_METAL=$<STREQUAL:${TC_GRAPHICS},METAL>)
+./CMakeLists.txt:172:  target_link_libraries(tc_demo PRIVATE m)
+./CMakeLists.txt:174:set_target_properties(tc_demo PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples/demo")
+./CMakeLists.txt:175:if(TC_PLATFORM STREQUAL "WEB")
+./CMakeLists.txt:176:  set_target_properties(tc_demo PROPERTIES SUFFIX ".html")
+./CMakeLists.txt:177:  target_link_options(tc_demo PRIVATE
+./CMakeLists.txt:184:message(STATUS "tc_runtime: platform=${TC_PLATFORM}; backend=${TC_BACKEND}; graphics=${TC_GRAPHICS}; renderer=${TC_RENDERER}")
+./src/renderers/blend2d/tc_blend2d_renderer.cpp:6:#include "tc_blend2d_renderer_c_api.h"
+./src/renderers/blend2d/tc_blend2d_renderer.cpp:7:int tc_blend2d_renderer_stub(void) { return 0; }
+./examples/demo_web/index.html:11:  <title>tc_runtime web demo</title>
+./README.md.orig:636:The current `tc_` runtime is split by ownership:
+./README.md.orig:639:TcApp, TcPlatformBackend, TcFrameScheduler, TcEvent
+./README.md.orig:642:TcGraphicsContext and graphics frame/surface operations
+./README.md.orig:645:TcRenderer2D, TcCanvas2D, paints, paths, images, fonts
+./README.md.orig:652:tc_app.h              -> board_app.h
+./README.md.orig:653:tc_event.h            -> board_event.h
+./README.md.orig:654:tc_scheduler.h        -> board_scheduler.h
+./README.md.orig:655:tc_backend.h          -> board_backend.h
+./README.md.orig:656:tc_graphics.h         -> magic_context.h and magic_frame.h
+./README.md.orig:657:tc_renderer.h         -> doodle_renderer.h
+./README.md.orig:658:tc_canvas.h           -> doodle_canvas.h
+./README.md.orig:660:tc_app_*              -> board_app_*
+./README.md.orig:661:tc_graphics_*         -> magic_context_* or magic_frame_*
+./README.md.orig:662:tc_renderer_*         -> doodle_renderer_*
+./README.md.orig:663:tc_canvas_*           -> doodle_canvas_*
+./src/runtime/tc_app.c:6:#include "tc_internal.h"
+./src/runtime/tc_app.c:9:int tc_app_create(const TcAppConfig* config, TcApp** out_app) {
+./src/runtime/tc_app.c:10:    if (!config || !out_app || !config->backend || !config->renderer || !config->callbacks.on_draw) return TC_ERROR_INVALID_ARGUMENT;
+./src/runtime/tc_app.c:11:    TcApp* app = calloc(1, sizeof(*app));
+./src/runtime/tc_app.c:12:    if (!app) return TC_ERROR_OUT_OF_MEMORY;
+./src/runtime/tc_app.c:16:    return TC_OK;
+./src/runtime/tc_app.c:19:void tc_app_dispatch_event(TcApp* app, const TcEvent* event) {
+./src/runtime/tc_app.c:21:    if (event->type == TC_EVENT_QUIT) { app->running = false; tc_scheduler_stop(tc_backend_get_scheduler(app->backend)); }
+./src/runtime/tc_app.c:22:    if (event->type == TC_EVENT_RESIZE) {
+./src/runtime/tc_app.c:23:        tc_graphics_context_resize(app->renderer->context, event->data.resize.width, event->data.resize.height, event->data.resize.scale);
+./src/runtime/tc_app.c:24:        tc_renderer_resize(app->renderer, event->data.resize.width, event->data.resize.height, event->data.resize.scale);
+./src/runtime/tc_app.c:29:void tc_app_frame(TcApp* app, double timestamp_seconds, double delta_seconds) {
+./src/runtime/tc_app.c:33:    TcCanvas2D* canvas = tc_renderer_begin_frame(app->renderer);
+./src/runtime/tc_app.c:36:    if (tc_renderer_end_frame(app->renderer) != TC_OK) app->running = false;
+./src/runtime/tc_app.c:39:static void tc_app_event_sink(void* user_data, const TcEvent* event) { tc_app_dispatch_event((TcApp*)user_data, event); }
+./src/runtime/tc_app.c:40:static void tc_app_frame_callback(void* user_data, double timestamp_seconds, double delta_seconds) { tc_app_frame((TcApp*)user_data, timestamp_seconds, delta_seconds); }
+./src/runtime/tc_app.c:42:int tc_app_run(TcApp* app) {
+./src/runtime/tc_app.c:43:    if (!app) return TC_ERROR_INVALID_ARGUMENT;
+./src/runtime/tc_app.c:44:    TcFrameScheduler* scheduler = tc_backend_get_scheduler(app->backend);
+./src/runtime/tc_app.c:45:    if (!scheduler) return TC_ERROR_PLATFORM;
+./src/runtime/tc_app.c:46:    if (tc_scheduler_start(scheduler, tc_app_frame_callback, app) != TC_OK) return TC_ERROR_PLATFORM;
+./src/runtime/tc_app.c:47:    int result = tc_backend_run(app->backend, tc_app_event_sink, app);
+./src/runtime/tc_app.c:48:    tc_scheduler_stop(scheduler);
+./src/runtime/tc_app.c:52:void tc_app_request_quit(TcApp* app) { if (app) { app->running = false; tc_scheduler_stop(tc_backend_get_scheduler(app->backend)); } }
+./src/runtime/tc_app.c:53:void tc_app_destroy(TcApp* app) {
+./include/tc_runtime/tc_renderer.h:6:#ifndef TC_RUNTIME_RENDERER_H
+./include/tc_runtime/tc_renderer.h:7:#define TC_RUNTIME_RENDERER_H
+./include/tc_runtime/tc_renderer.h:8:#include "tc_graphics.h"
+./include/tc_runtime/tc_renderer.h:12:typedef enum TcRendererKind { TC_RENDERER_SKIA = 0, TC_RENDERER_NANOVG, TC_RENDERER_BLEND2D, TC_RENDERER_VELLO } TcRendererKind;
+./include/tc_runtime/tc_renderer.h:13:int tc_renderer_create(TcRendererKind kind, TcGraphicsContext* context, TcRenderer2D** out_renderer);
+./include/tc_runtime/tc_renderer.h:14:int tc_renderer_attach(TcRenderer2D* renderer, TcGraphicsContext* context);
+./include/tc_runtime/tc_renderer.h:15:int tc_renderer_resize(TcRenderer2D* renderer, int width, int height, float scale);
+./include/tc_runtime/tc_renderer.h:16:TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer);
+./include/tc_runtime/tc_renderer.h:17:int tc_renderer_end_frame(TcRenderer2D* renderer);
+./include/tc_runtime/tc_renderer.h:18:void tc_renderer_destroy(TcRenderer2D* renderer);
+./include/tc_runtime/tc_backend.h:6:#ifndef TC_RUNTIME_BACKEND_H
+./include/tc_runtime/tc_backend.h:7:#define TC_RUNTIME_BACKEND_H
+./include/tc_runtime/tc_backend.h:8:#include "tc_event.h"
+./include/tc_runtime/tc_backend.h:9:#include "tc_scheduler.h"
+./include/tc_runtime/tc_backend.h:13:typedef struct TcBackendConfig { const char* title; int width, height; int resizable; } TcBackendConfig;
+./include/tc_runtime/tc_backend.h:14:int tc_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend);
+./include/tc_runtime/tc_backend.h:15:int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config);
+./include/tc_runtime/tc_backend.h:16:TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend);
+./include/tc_runtime/tc_backend.h:17:TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend);
+./include/tc_runtime/tc_backend.h:18:TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend);
+./include/tc_runtime/tc_backend.h:19:int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data);
+./include/tc_runtime/tc_backend.h:20:void tc_backend_request_redraw(TcPlatformBackend* backend);
+./include/tc_runtime/tc_backend.h:21:void tc_backend_shutdown(TcPlatformBackend* backend);
+./include/tc_runtime/tc_backend.h:22:void tc_backend_destroy(TcPlatformBackend* backend);
+./src/runtime/tc_event_queue.c:6:#include "tc_runtime/tc_event.h"
+./src/runtime/tc_event_queue.c:10:int tc_event_queue_translation_unit_anchor(void) { return 0; }
+./src/renderers/blend2d/tc_blend2d_renderer_c_api.h:6:#ifndef TC_BLEND2D_RENDERER_C_API_H
+./src/renderers/blend2d/tc_blend2d_renderer_c_api.h:7:#define TC_BLEND2D_RENDERER_C_API_H
+./include/tc_runtime/tc_canvas.h:6:#ifndef TC_RUNTIME_CANVAS_H
+./include/tc_runtime/tc_canvas.h:7:#define TC_RUNTIME_CANVAS_H
+./include/tc_runtime/tc_canvas.h:8:#include "tc_types.h"
+./include/tc_runtime/tc_canvas.h:12:void tc_canvas_save(TcCanvas2D* canvas); void tc_canvas_restore(TcCanvas2D* canvas);
+./include/tc_runtime/tc_canvas.h:13:void tc_canvas_translate(TcCanvas2D* canvas, float x, float y); void tc_canvas_scale(TcCanvas2D* canvas, float x, float y); void tc_canvas_rotate(TcCanvas2D* canvas, float degrees);
+./include/tc_runtime/tc_canvas.h:14:void tc_canvas_clip_rect(TcCanvas2D* canvas, TcRect rect); void tc_canvas_clear(TcCanvas2D* canvas, TcColor color);
+./include/tc_runtime/tc_canvas.h:15:void tc_canvas_draw_rect(TcCanvas2D* canvas, TcRect rect, TcPaint paint); void tc_canvas_draw_round_rect(TcCanvas2D* canvas, TcRect rect, float radius, TcPaint paint); void tc_canvas_draw_line(TcCanvas2D* canvas, TcPoint a, TcPoint b, TcPaint paint); void tc_canvas_draw_circle(TcCanvas2D* canvas, TcPoint center, float radius, TcPaint paint); void tc_canvas_draw_text(TcCanvas2D* canvas, const char* text, float x, float y, TcTextStyle style);
+./ios/CMakeLists.txt:5:project(tc_demo_ios LANGUAGES C CXX OBJC OBJCXX)
+./ios/CMakeLists.txt:6:set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
+./ios/CMakeLists.txt:7:set(TC_SKIA_ROOT "" CACHE PATH "Unpacked iOS simulator Skia release")
+./ios/CMakeLists.txt:8:set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked iOS simulator libpng release")
+./ios/CMakeLists.txt:9:set(TC_ZLIB_NG_ROOT "" CACHE PATH "Unpacked iOS simulator zlib-ng release")
+./ios/CMakeLists.txt:10:set(TC_IOS_GRAPHICS "CPU" CACHE STRING "iOS graphics API: CPU, OPENGL, or METAL")
+./ios/CMakeLists.txt:11:set_property(CACHE TC_IOS_GRAPHICS PROPERTY STRINGS CPU OPENGL METAL)
+./ios/CMakeLists.txt:12:if(NOT TC_IOS_GRAPHICS STREQUAL "CPU" AND NOT TC_IOS_GRAPHICS STREQUAL "OPENGL" AND NOT TC_IOS_GRAPHICS STREQUAL "METAL")
+./ios/CMakeLists.txt:13:  message(FATAL_ERROR "TC_IOS_GRAPHICS must be CPU, OPENGL, or METAL")
+./ios/CMakeLists.txt:15:if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" OR NOT EXISTS "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a" OR NOT EXISTS "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
+./ios/CMakeLists.txt:19:set_target_properties(skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
+./ios/CMakeLists.txt:21:set_target_properties(png PROPERTIES IMPORTED_LOCATION "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a")
+./ios/CMakeLists.txt:23:set_target_properties(zlib_ng PROPERTIES IMPORTED_LOCATION "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
+./ios/CMakeLists.txt:24:set(TC_IOS_DEMO_SOURCES ${TC_ROOT}/examples/demo_ios/demo_ios_main.mm ${TC_ROOT}/examples/demo/demo_scene.c ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
+./ios/CMakeLists.txt:25:if(TC_IOS_GRAPHICS STREQUAL "CPU")
+./ios/CMakeLists.txt:26:  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_cpu_context.mm)
+./ios/CMakeLists.txt:27:elseif(TC_IOS_GRAPHICS STREQUAL "OPENGL")
+./ios/CMakeLists.txt:28:  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_gl_context.mm)
+./ios/CMakeLists.txt:30:  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_metal_context.mm)
+./ios/CMakeLists.txt:32:add_executable(TCdemo MACOSX_BUNDLE ${TC_IOS_DEMO_SOURCES})
+./ios/CMakeLists.txt:33:target_include_directories(TCdemo PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/examples/demo)
+./ios/CMakeLists.txt:36:  TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_IOS_GRAPHICS},OPENGL>
+./ios/CMakeLists.txt:37:  TC_BUILD_GRAPHICS_METAL=$<STREQUAL:${TC_IOS_GRAPHICS},METAL>
+./ios/CMakeLists.txt:38:  TC_IOS_GRAPHICS_OPENGL=$<STREQUAL:${TC_IOS_GRAPHICS},OPENGL>
+./ios/CMakeLists.txt:39:  TC_IOS_GRAPHICS_METAL=$<STREQUAL:${TC_IOS_GRAPHICS},METAL>
+./ios/CMakeLists.txt:42:if(TC_IOS_GRAPHICS STREQUAL "OPENGL")
+./include/tc_runtime/tc_app.h:6:#ifndef TC_RUNTIME_APP_H
+./include/tc_runtime/tc_app.h:7:#define TC_RUNTIME_APP_H
+./include/tc_runtime/tc_app.h:8:#include "tc_backend.h"
+./include/tc_runtime/tc_app.h:9:#include "tc_canvas.h"
+./include/tc_runtime/tc_app.h:10:#include "tc_renderer.h"
+./include/tc_runtime/tc_app.h:14:typedef struct TcAppCallbacks { void (*on_event)(void* user_data, const TcEvent* event); void (*on_update)(void* user_data, double delta_seconds); void (*on_draw)(void* user_data, TcCanvas2D* canvas); void (*on_shutdown)(void* user_data); } TcAppCallbacks;
+./include/tc_runtime/tc_app.h:15:typedef struct TcAppConfig { TcAppCallbacks callbacks; void* user_data; TcPlatformBackend* backend; TcRenderer2D* renderer; } TcAppConfig;
+./include/tc_runtime/tc_app.h:16:int tc_app_create(const TcAppConfig* config, TcApp** out_app); void tc_app_dispatch_event(TcApp* app, const TcEvent* event); void tc_app_frame(TcApp* app, double timestamp_seconds, double delta_seconds); int tc_app_run(TcApp* app); void tc_app_request_quit(TcApp* app); void tc_app_destroy(TcApp* app);
+./examples/demo_ios/demo_ios_main.mm:6:#include "tc_internal.h"
+./examples/demo_ios/demo_ios_main.mm:11:int tc_ios_cpu_context_create(void*, int, int, float, TcGraphicsContext**);
+./examples/demo_ios/demo_ios_main.mm:12:int tc_ios_cpu_context_resize(TcGraphicsContext*, int, int, float);
+./examples/demo_ios/demo_ios_main.mm:13:void tc_ios_cpu_context_present(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:14:void tc_ios_cpu_context_destroy(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:15:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:16:int tc_ios_gl_context_create(void*, int, int, float, TcGraphicsContext**);
+./examples/demo_ios/demo_ios_main.mm:17:int tc_ios_gl_context_resize(TcGraphicsContext*, int, int, float);
+./examples/demo_ios/demo_ios_main.mm:18:void tc_ios_gl_context_present(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:19:void tc_ios_gl_context_destroy(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:20:void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_gl_context_present(context); }
+./examples/demo_ios/demo_ios_main.mm:21:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:22:int tc_ios_metal_context_create(void*, int, int, float, TcGraphicsContext**);
+./examples/demo_ios/demo_ios_main.mm:23:int tc_ios_metal_context_resize(TcGraphicsContext*, int, int, float);
+./examples/demo_ios/demo_ios_main.mm:24:void tc_ios_metal_context_present(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:25:void tc_ios_metal_context_destroy(TcGraphicsContext*);
+./examples/demo_ios/demo_ios_main.mm:26:void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_metal_context_present(context); }
+./examples/demo_ios/demo_ios_main.mm:28:void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_context_present(context); }
+./examples/demo_ios/demo_ios_main.mm:31:@interface TcDemoView : UIView { @public DemoScene scene; TcGraphicsContext* graphics; TcRenderer2D* renderer; CADisplayLink* displayLink; }
+./examples/demo_ios/demo_ios_main.mm:33:@implementation TcDemoView
+./examples/demo_ios/demo_ios_main.mm:35:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:37:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:44:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:46:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:53:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:54:    int created = tc_ios_gl_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
+./examples/demo_ios/demo_ios_main.mm:55:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:56:    int created = tc_ios_metal_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
+./examples/demo_ios/demo_ios_main.mm:58:    int created = tc_ios_cpu_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
+./examples/demo_ios/demo_ios_main.mm:60:    if (created != TC_OK) { NSLog(@"tc_runtime: graphics context creation failed: %d", created); return; }
+./examples/demo_ios/demo_ios_main.mm:61:    int renderer_result = tc_renderer_create(TC_RENDERER_SKIA, graphics, &renderer);
+./examples/demo_ios/demo_ios_main.mm:62:    if (renderer_result != TC_OK) { NSLog(@"tc_runtime: Skia renderer creation failed: %d", renderer_result); return; }
+./examples/demo_ios/demo_ios_main.mm:66:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:67:    tc_ios_gl_context_resize(graphics, w, h, self.contentScaleFactor);
+./examples/demo_ios/demo_ios_main.mm:68:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:69:    tc_ios_metal_context_resize(graphics, w, h, self.contentScaleFactor);
+./examples/demo_ios/demo_ios_main.mm:71:    tc_ios_cpu_context_resize(graphics, w, h, self.contentScaleFactor);
+./examples/demo_ios/demo_ios_main.mm:73:    tc_renderer_resize(renderer, w, h, self.contentScaleFactor); TcEvent event = {.type = TC_EVENT_RESIZE}; event.data.resize.width = w; event.data.resize.height = h; event.data.resize.scale = self.contentScaleFactor; demo_scene_on_event(&scene, &event); }
+./examples/demo_ios/demo_ios_main.mm:74:- (void)frame:(CADisplayLink*)link { demo_scene_on_update(&scene, link.targetTimestamp - link.timestamp); TcCanvas2D* canvas = tc_renderer_begin_frame(renderer); if (!canvas) return; demo_scene_on_draw(&scene, canvas); tc_renderer_end_frame(renderer); }
+./examples/demo_ios/demo_ios_main.mm:76:#if !TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:80:- (void)dealloc { [displayLink invalidate]; tc_renderer_destroy(renderer);
+./examples/demo_ios/demo_ios_main.mm:81:#if TC_IOS_GRAPHICS_OPENGL
+./examples/demo_ios/demo_ios_main.mm:82:    tc_ios_gl_context_destroy(graphics);
+./examples/demo_ios/demo_ios_main.mm:83:#elif TC_IOS_GRAPHICS_METAL
+./examples/demo_ios/demo_ios_main.mm:84:    tc_ios_metal_context_destroy(graphics);
+./examples/demo_ios/demo_ios_main.mm:86:    tc_ios_cpu_context_destroy(graphics);
+./examples/demo_ios/demo_ios_main.mm:91:@interface TcAppDelegate : UIResponder <UIApplicationDelegate> @property(nonatomic, retain) UIWindow* window; @end
+./examples/demo_ios/demo_ios_main.mm:92:@implementation TcAppDelegate
+./examples/demo_ios/demo_ios_main.mm:93:- (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)options { (void)application; (void)options; self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds]; self.window.rootViewController = [UIViewController new]; self.window.rootViewController.view = [[TcDemoView alloc] initWithFrame:self.window.bounds]; [self.window makeKeyAndVisible]; return YES; }
+./examples/demo_ios/demo_ios_main.mm:95:int main(int argc, char* argv[]) { @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(TcAppDelegate.class)); } }
+./include/tc_runtime/tc_graphics.h:6:#ifndef TC_RUNTIME_GRAPHICS_H
+./include/tc_runtime/tc_graphics.h:7:#define TC_RUNTIME_GRAPHICS_H
+./include/tc_runtime/tc_graphics.h:8:#include "tc_types.h"
+./include/tc_runtime/tc_graphics.h:12:typedef enum TcGraphicsApi { TC_GRAPHICS_CPU = 0, TC_GRAPHICS_OPENGL, TC_GRAPHICS_METAL, TC_GRAPHICS_VULKAN } TcGraphicsApi;
+./include/tc_runtime/tc_graphics.h:13:int tc_graphics_context_create(TcGraphicsApi api, TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context);
+./include/tc_runtime/tc_graphics.h:14:void tc_graphics_context_resize(TcGraphicsContext* context, int width, int height, float scale);
+./include/tc_runtime/tc_graphics.h:15:void tc_graphics_context_present(TcGraphicsContext* context);
+./include/tc_runtime/tc_graphics.h:16:void tc_graphics_context_destroy(TcGraphicsContext* context);
+./src/backends/glfw/tc_glfw_backend.h:6:#ifndef TC_GLFW_BACKEND_H
+./src/backends/glfw/tc_glfw_backend.h:7:#define TC_GLFW_BACKEND_H
+./src/backends/glfw/tc_glfw_backend.h:8:/* Planned GLFW adapter. Select TC_BACKEND=SDL until implemented. */
+./examples/demo/demo_main.c:7:#include "tc_runtime/tc_graphics.h"
+./examples/demo/demo_main.c:11:    TcPlatformBackend* backend = NULL; TcGraphicsContext* graphics = NULL; TcRenderer2D* renderer = NULL; TcApp* app = NULL;
+./examples/demo/demo_main.c:12:    TcBackendConfig backend_config = {"tc_demo", 960, 640, 1};
+./examples/demo/demo_main.c:14:#if TC_DEMO_GRAPHICS_OPENGL
+./examples/demo/demo_main.c:15:    const TcGraphicsApi graphics_api = TC_GRAPHICS_OPENGL; const char* graphics_name = "opengl";
+./examples/demo/demo_main.c:16:#elif TC_DEMO_GRAPHICS_METAL
+./examples/demo/demo_main.c:17:    const TcGraphicsApi graphics_api = TC_GRAPHICS_METAL; const char* graphics_name = "metal";
+./examples/demo/demo_main.c:19:    const TcGraphicsApi graphics_api = TC_GRAPHICS_CPU; const char* graphics_name = "cpu";
+./examples/demo/demo_main.c:21:    printf("tc_demo: backend=sdl\ntc_demo: renderer=skia\ntc_demo: graphics=%s\n", graphics_name);
+./examples/demo/demo_main.c:22:    if (tc_backend_create(&backend_config, &backend) || tc_graphics_context_create(graphics_api, tc_backend_get_native_window(backend), tc_backend_get_native_surface(backend), &graphics) || tc_renderer_create(TC_RENDERER_SKIA, graphics, &renderer)) {
+./examples/demo/demo_main.c:23:        fprintf(stderr, "tc_demo: initialization failed\n"); goto cleanup;
+./examples/demo/demo_main.c:25:    TcAppConfig config = { { demo_scene_on_event, demo_scene_on_update, demo_scene_on_draw, NULL }, &scene, backend, renderer };
+./examples/demo/demo_main.c:26:    if (tc_app_create(&config, &app) == TC_OK) { printf("tc_demo: window created\ntc_demo: running\n"); tc_app_run(app); printf("tc_demo: shutdown\n"); }
+./examples/demo/demo_main.c:28:    tc_app_destroy(app); tc_renderer_destroy(renderer); tc_graphics_context_destroy(graphics); tc_backend_destroy(backend);
+./.github/workflows/build-web.yml:21:          test -f build-web/examples/demo/tc_demo.html
+./.github/workflows/build-web.yml:22:          test -f build-web/examples/demo/tc_demo.wasm
+./src/backends/glfw/tc_glfw_backend.c:6:#include "tc_glfw_backend.h"
+./src/backends/glfw/tc_glfw_backend.c:7:int tc_glfw_backend_stub(void) { return 0; }
+./.github/workflows/build-android.yml:12:        run: test -f src/backends/android/tc_android_backend.c
+./examples/demo/demo_scene.h:6:#ifndef TC_DEMO_SCENE_H
+./examples/demo/demo_scene.h:7:#define TC_DEMO_SCENE_H
+./examples/demo/demo_scene.h:8:#include "tc_runtime/tc_app.h"
+./examples/demo/demo_scene.h:14:void demo_scene_on_event(void* user_data, const TcEvent* event);
+./examples/demo/demo_scene.h:16:void demo_scene_on_draw(void* user_data, TcCanvas2D* canvas);
+./README.md:632:The current `tc_` runtime is split by ownership:
+./README.md:635:TcApp, TcPlatformBackend, TcFrameScheduler, TcEvent
+./README.md:638:TcGraphicsContext and graphics frame/surface operations
+./README.md:641:TcRenderer2D, TcCanvas2D, paints, paths, images, fonts
+./README.md:648:tc_app.h              -> board_app.h
+./README.md:649:tc_event.h            -> board_event.h
+./README.md:650:tc_scheduler.h        -> board_scheduler.h
+./README.md:651:tc_backend.h          -> board_backend.h
+./README.md:652:tc_graphics.h         -> magic_context.h and magic_frame.h
+./README.md:653:tc_renderer.h         -> doodle_renderer.h
+./README.md:654:tc_canvas.h           -> doodle_canvas.h
+./README.md:656:tc_app_*              -> board_app_*
+./README.md:657:tc_graphics_*         -> magic_context_* or magic_frame_*
+./README.md:658:tc_renderer_*         -> doodle_renderer_*
+./README.md:659:tc_canvas_*           -> doodle_canvas_*
+./examples/demo/demo_scene.c:10:static TcColor color(float r, float g, float b, float a) { return (TcColor){r, g, b, a}; }
+./examples/demo/demo_scene.c:11:static TcPaint fill(TcColor c) { return (TcPaint){c, 1.0f, TC_PAINT_FILL}; }
+./examples/demo/demo_scene.c:12:static TcPaint stroke(TcColor c, float width) { return (TcPaint){c, width, TC_PAINT_STROKE}; }
+./examples/demo/demo_scene.c:14:void demo_scene_on_event(void* data, const TcEvent* event) {
+./examples/demo/demo_scene.c:16:    if (event->type == TC_EVENT_RESIZE) { scene->width = event->data.resize.width; scene->height = event->data.resize.height; }
+./examples/demo/demo_scene.c:17:    if (event->type == TC_EVENT_POINTER_DOWN || event->type == TC_EVENT_POINTER_MOVE || event->type == TC_EVENT_POINTER_UP) {
+./examples/demo/demo_scene.c:18:        scene->pointer_x = event->data.pointer.x; scene->pointer_y = event->data.pointer.y; scene->pointer_down = event->type != TC_EVENT_POINTER_UP;
+./examples/demo/demo_scene.c:22:void demo_scene_on_draw(void* data, TcCanvas2D* canvas) {
+./examples/demo/demo_scene.c:24:    tc_canvas_clear(canvas, color(0.055f, 0.075f, 0.12f, 1));
+./examples/demo/demo_scene.c:25:    tc_canvas_draw_rect(canvas, (TcRect){32, 32, w - 64, h - 64}, fill(color(.10f, .15f, .25f, 1)));
+./examples/demo/demo_scene.c:26:    tc_canvas_draw_round_rect(canvas, (TcRect){56, 82, 190, 94}, 16, fill(color(.16f, .55f, .86f, 1)));
+./examples/demo/demo_scene.c:27:    tc_canvas_draw_line(canvas, (TcPoint){56, 210}, (TcPoint){w - 56, 210}, stroke(color(.95f, .73f, .28f, 1), 5));
+./examples/demo/demo_scene.c:28:    tc_canvas_draw_text(canvas, "tc_runtime: SDL3 + Skia", 56, 65, (TcTextStyle){color(.92f, .95f, 1, 1), 24, NULL});
+./examples/demo/demo_scene.c:30:    tc_canvas_save(canvas); tc_canvas_translate(canvas, x, h * .56f); tc_canvas_rotate(canvas, (float)s->elapsed * 55.f);
+./examples/demo/demo_scene.c:31:    tc_canvas_draw_round_rect(canvas, (TcRect){-36, -36, 72, 72}, 12, fill(color(.97f, .31f, .42f, 1))); tc_canvas_restore(canvas);
+./examples/demo/demo_scene.c:32:    if (s->pointer_down) tc_canvas_draw_circle(canvas, (TcPoint){s->pointer_x, s->pointer_y}, 18, fill(color(.3f, .95f, .66f, .85f)));
+./.github/workflows/build-ios.yml:12:        run: test -f src/backends/ios/tc_ios_backend.c
+./src/tc_internal.h:6:#ifndef TC_INTERNAL_H
+./src/tc_internal.h:7:#define TC_INTERNAL_H
+./src/tc_internal.h:11:#include "tc_runtime/tc_app.h"
+./src/tc_internal.h:13:struct TcFrameScheduler { TcFrameCallback callback; void* user_data; bool running; bool requested; double last_timestamp; };
+./src/tc_internal.h:14:struct TcNativeWindowHandle { void* value; };
+./src/tc_internal.h:15:struct TcNativeSurfaceHandle { void* value; };
+./src/tc_internal.h:16:struct TcPlatformBackend { struct TcNativeWindowHandle window; struct TcNativeSurfaceHandle surface; struct TcFrameScheduler scheduler; void* implementation; bool initialized; bool redraw_requested; int width, height; };
+./src/tc_internal.h:17:typedef enum TcCpuPixelFormat { TC_CPU_PIXEL_FORMAT_RGBA8888, TC_CPU_PIXEL_FORMAT_BGRA8888 } TcCpuPixelFormat;
+./src/tc_internal.h:18:struct TcGraphicsContext { TcGraphicsApi api; void* window; void* surface; void* pixels; int width, height, pitch; int framebuffer, stencil_bits, sample_count; float scale; TcCpuPixelFormat pixel_format; };
+./src/tc_internal.h:19:struct TcRenderer2D { TcGraphicsContext* context; void* implementation; TcCanvas2D* canvas; };
+./src/tc_internal.h:20:struct TcCanvas2D { void* implementation; };
+./src/tc_internal.h:21:struct TcApp { TcAppCallbacks callbacks; void* user_data; TcPlatformBackend* backend; TcRenderer2D* renderer; bool running; bool shutdown_called; };
+./src/tc_internal.h:23:int tc_sdl_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend);
+./src/tc_internal.h:24:int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data);
+./src/tc_internal.h:25:int tc_cpu_context_create(TcNativeWindowHandle* window, TcNativeSurfaceHandle* surface, TcGraphicsContext** out_context);
+./src/tc_internal.h:26:void tc_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale);
+./src/tc_internal.h:27:void tc_cpu_context_present(TcGraphicsContext* context);
+./src/tc_internal.h:28:void tc_cpu_context_destroy(TcGraphicsContext* context);
+./src/tc_internal.h:29:void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend);
+./src/tc_internal.h:30:int tc_android_cpu_context_create(void* native_window, TcGraphicsContext** out_context);
+./src/tc_internal.h:31:int tc_android_cpu_context_resize(TcGraphicsContext* context, int width, int height, float scale);
+./src/tc_internal.h:32:void tc_android_cpu_destroy(TcGraphicsContext* context);
+./AGENTS.md:41:- Do not add new `tc_` symbols, `Tc...` types, or `tc_...` files. During the migration, compatibility aliases may exist only in an explicitly temporary compatibility directory and must not be used by new code.
+./src/backends/android/tc_android_backend.c:6:#include "tc_android_backend.h"
+./src/backends/android/tc_android_backend.c:15:struct TcFrameScheduler { TcFrameCallback callback; void* user_data; int running; int requested; double last_timestamp; };
+./src/backends/android/tc_android_backend.c:16:struct TcAndroidNativeBackend { struct android_app* app; TcEventSink sink; void* sink_user_data; struct TcFrameScheduler scheduler; int width, height; };
+./src/backends/android/tc_android_backend.c:18:static void tc_android_emit(TcAndroidNativeBackend* backend, TcEvent event) { if (backend->sink) backend->sink(backend->sink_user_data, &event); }
+./src/backends/android/tc_android_backend.c:19:static void tc_android_frame(long frame_time_ns, void* user_data) {
+./src/backends/android/tc_android_backend.c:20:    TcAndroidNativeBackend* backend = user_data;
+./src/backends/android/tc_android_backend.c:22:    tc_android_backend_tick(backend, (double)frame_time_ns / 1e9);
+./src/backends/android/tc_android_backend.c:23:    AChoreographer_postFrameCallback(AChoreographer_getInstance(), tc_android_frame, backend);
+./src/backends/android/tc_android_backend.c:25:static int32_t tc_android_input(struct android_app* app, AInputEvent* input) {
+./src/backends/android/tc_android_backend.c:26:    TcAndroidNativeBackend* backend = app->userData;
+./src/backends/android/tc_android_backend.c:29:    TcEvent event = { .type = TC_EVENT_POINTER_MOVE };
+./src/backends/android/tc_android_backend.c:30:    if (action == AMOTION_EVENT_ACTION_DOWN) event.type = TC_EVENT_POINTER_DOWN;
+./src/backends/android/tc_android_backend.c:31:    else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_CANCEL) event.type = TC_EVENT_POINTER_UP;
+./src/backends/android/tc_android_backend.c:34:    event.data.pointer.pointer_id = (unsigned)AMotionEvent_getPointerId(input, 0); event.data.pointer.button = TC_POINTER_BUTTON_LEFT;
+./src/backends/android/tc_android_backend.c:35:    tc_android_emit(backend, event); return 1;
+./src/backends/android/tc_android_backend.c:37:static void tc_android_command(struct android_app* app, int32_t command) {
+./src/backends/android/tc_android_backend.c:38:    TcAndroidNativeBackend* backend = app->userData;
+./src/backends/android/tc_android_backend.c:40:    TcEvent event = { .type = TC_EVENT_NONE };
+./src/backends/android/tc_android_backend.c:46:            event.type = TC_EVENT_RESIZE; event.data.resize.width = backend->width; event.data.resize.height = backend->height; event.data.resize.scale = 1.0f; break;
+./src/backends/android/tc_android_backend.c:47:        case APP_CMD_PAUSE: event.type = TC_EVENT_PAUSE; break;
+./src/backends/android/tc_android_backend.c:48:        case APP_CMD_RESUME: event.type = TC_EVENT_RESUME; break;
+./src/backends/android/tc_android_backend.c:49:        case APP_CMD_DESTROY: event.type = TC_EVENT_QUIT; backend->scheduler.running = 0; break;
+./src/backends/android/tc_android_backend.c:52:    tc_android_emit(backend, event);
+./src/backends/android/tc_android_backend.c:54:int tc_android_backend_attach(struct android_app* app, TcEventSink sink, void* user_data, TcAndroidNativeBackend** out_backend) {
+./src/backends/android/tc_android_backend.c:55:    if (!app || !sink || !out_backend) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/android/tc_android_backend.c:56:    TcAndroidNativeBackend* backend = calloc(1, sizeof(*backend)); if (!backend) return TC_ERROR_OUT_OF_MEMORY;
+./src/backends/android/tc_android_backend.c:58:    app->userData = backend; app->onAppCmd = tc_android_command; app->onInputEvent = tc_android_input; *out_backend = backend;
+./src/backends/android/tc_android_backend.c:59:    return TC_OK;
+./src/backends/android/tc_android_backend.c:61:void tc_android_backend_detach(TcAndroidNativeBackend* backend) { if (!backend) return; if (backend->app && backend->app->userData == backend) backend->app->userData = NULL; free(backend); }
+./src/backends/android/tc_android_backend.c:62:TcFrameScheduler* tc_android_backend_scheduler(TcAndroidNativeBackend* backend) { return backend ? (TcFrameScheduler*)&backend->scheduler : NULL; }
+./src/backends/android/tc_android_backend.c:63:int tc_android_backend_start(TcAndroidNativeBackend* backend, TcFrameCallback callback, void* user_data) {
+./src/backends/android/tc_android_backend.c:64:    if (!backend || !callback) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/android/tc_android_backend.c:66:    AChoreographer_postFrameCallback(AChoreographer_getInstance(), tc_android_frame, backend);
+./src/backends/android/tc_android_backend.c:67:    return TC_OK;
+./src/backends/android/tc_android_backend.c:69:void tc_android_backend_stop(TcAndroidNativeBackend* backend) { if (backend) backend->scheduler.running = 0; }
+./src/backends/android/tc_android_backend.c:70:void tc_android_backend_tick(TcAndroidNativeBackend* backend, double timestamp_seconds) {
+./src/renderers/skia/tc_skia_renderer.cpp:6:#include "tc_internal.h"
+./src/renderers/skia/tc_skia_renderer.cpp:7:#include "tc_skia_renderer_c_api.h"
+./src/renderers/skia/tc_skia_renderer.cpp:13:#if TC_BUILD_GRAPHICS_OPENGL || TC_BUILD_GRAPHICS_METAL || TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:17:#if TC_BUILD_GRAPHICS_OPENGL
+./src/renderers/skia/tc_skia_renderer.cpp:21:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:24:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:25:extern "C" void* tc_android_vk_context_get_skia_context(TcGraphicsContext*);
+./src/renderers/skia/tc_skia_renderer.cpp:26:extern "C" void* tc_android_vk_begin_frame(TcGraphicsContext*);
+./src/renderers/skia/tc_skia_renderer.cpp:27:extern "C" int tc_android_vk_end_frame(TcGraphicsContext*, void*);
+./src/renderers/skia/tc_skia_renderer.cpp:32:struct TcSkiaRenderer {
+./src/renderers/skia/tc_skia_renderer.cpp:34:#if TC_BUILD_GRAPHICS_OPENGL
+./src/renderers/skia/tc_skia_renderer.cpp:37:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:40:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:43:    TcCanvas2D canvas;
+./src/renderers/skia/tc_skia_renderer.cpp:45:static SkColor4f color(TcColor c) { return {c.r, c.g, c.b, c.a}; }
+./src/renderers/skia/tc_skia_renderer.cpp:46:static SkPaint paint(TcPaint value) { SkPaint p; p.setColor4f(color(value.color), nullptr); p.setStyle(value.style == TC_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); p.setStrokeWidth(value.stroke_width); p.setAntiAlias(true); return p; }
+./src/renderers/skia/tc_skia_renderer.cpp:47:static TcSkiaRenderer* impl(TcCanvas2D* canvas) { return canvas ? static_cast<TcSkiaRenderer*>(canvas->implementation) : nullptr; }
+./src/renderers/skia/tc_skia_renderer.cpp:48:static SkCanvas* native(TcCanvas2D* canvas) { TcSkiaRenderer* r = impl(canvas); return r && r->surface ? r->surface->getCanvas() : nullptr; }
+./src/renderers/skia/tc_skia_renderer.cpp:49:static SkImageInfo raster_info(const TcGraphicsContext* context, int width, int height) { return SkImageInfo::Make(width, height, context->pixel_format == TC_CPU_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType, kPremul_SkAlphaType); }
+./src/renderers/skia/tc_skia_renderer.cpp:50:#if TC_BUILD_GRAPHICS_OPENGL
+./src/renderers/skia/tc_skia_renderer.cpp:51:static sk_sp<SkSurface> gl_surface(TcSkiaRenderer* state, TcGraphicsContext* context, int width, int height) {
+./src/renderers/skia/tc_skia_renderer.cpp:64:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:65:extern "C" int tc_metal_context_retain_handles(TcGraphicsContext*, void**, void**);
+./src/renderers/skia/tc_skia_renderer.cpp:66:extern "C" void tc_metal_context_release_handles(void*, void*);
+./src/renderers/skia/tc_skia_renderer.cpp:67:extern "C" void* tc_metal_context_get_layer(TcGraphicsContext*);
+./src/renderers/skia/tc_skia_renderer.cpp:68:extern "C" const void** tc_metal_context_get_drawable_slot(TcGraphicsContext*);
+./src/renderers/skia/tc_skia_renderer.cpp:69:static sk_sp<SkSurface> metal_surface(TcSkiaRenderer* state, TcGraphicsContext* context) {
+./src/renderers/skia/tc_skia_renderer.cpp:70:    const void** drawable_slot = tc_metal_context_get_drawable_slot(context);
+./src/renderers/skia/tc_skia_renderer.cpp:72:    return SkSurface::MakeFromCAMetalLayer(state->metal_context.get(), tc_metal_context_get_layer(context), kTopLeft_GrSurfaceOrigin, 1, kBGRA_8888_SkColorType, nullptr, nullptr, drawable_slot);
+./src/renderers/skia/tc_skia_renderer.cpp:75:extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer) {
+./src/renderers/skia/tc_skia_renderer.cpp:76:    if (!context || !out_renderer) return TC_ERROR_INVALID_ARGUMENT;
+./src/renderers/skia/tc_skia_renderer.cpp:77:    TcRenderer2D* renderer = new (std::nothrow) TcRenderer2D{};
+./src/renderers/skia/tc_skia_renderer.cpp:78:    TcSkiaRenderer* state = new (std::nothrow) TcSkiaRenderer{};
+./src/renderers/skia/tc_skia_renderer.cpp:79:    if (!renderer || !state) { delete renderer; delete state; return TC_ERROR_OUT_OF_MEMORY; }
+./src/renderers/skia/tc_skia_renderer.cpp:80:    if (context->api == TC_GRAPHICS_CPU && context->pixels) {
+./src/renderers/skia/tc_skia_renderer.cpp:84:#if TC_BUILD_GRAPHICS_OPENGL
+./src/renderers/skia/tc_skia_renderer.cpp:85:    else if (context->api == TC_GRAPHICS_OPENGL && context->surface) {
+./src/renderers/skia/tc_skia_renderer.cpp:90:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:91:    else if (context->api == TC_GRAPHICS_METAL && context->surface) {
+./src/renderers/skia/tc_skia_renderer.cpp:93:        if (tc_metal_context_retain_handles(context, &device, &queue) == TC_OK) {
+./src/renderers/skia/tc_skia_renderer.cpp:95:            if (!state->metal_context) tc_metal_context_release_handles(device, queue);
+./src/renderers/skia/tc_skia_renderer.cpp:99:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:100:    else if (context->api == TC_GRAPHICS_VULKAN && context->surface) {
+./src/renderers/skia/tc_skia_renderer.cpp:101:        if (void* native_context = tc_android_vk_context_get_skia_context(context)) state->vulkan_context = sk_ref_sp(static_cast<GrDirectContext*>(native_context));
+./src/renderers/skia/tc_skia_renderer.cpp:105:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:106:        && !(context->api == TC_GRAPHICS_METAL && state->metal_context)
+./src/renderers/skia/tc_skia_renderer.cpp:108:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:109:        && !(context->api == TC_GRAPHICS_VULKAN && state->vulkan_context)
+./src/renderers/skia/tc_skia_renderer.cpp:111:    ) { delete renderer; delete state; return TC_ERROR_RENDERER; }
+./src/renderers/skia/tc_skia_renderer.cpp:113:    return TC_OK;
+./src/renderers/skia/tc_skia_renderer.cpp:115:extern "C" int tc_renderer_create(TcRendererKind kind, TcGraphicsContext* context, TcRenderer2D** out_renderer) { return kind == TC_RENDERER_SKIA ? tc_skia_renderer_create(context, out_renderer) : TC_ERROR_UNAVAILABLE; }
+./src/renderers/skia/tc_skia_renderer.cpp:116:extern "C" int tc_renderer_attach(TcRenderer2D* renderer, TcGraphicsContext* context) { if (!renderer || !context) return TC_ERROR_INVALID_ARGUMENT; renderer->context = context; return tc_renderer_resize(renderer, context->width, context->height, context->scale); }
+./src/renderers/skia/tc_skia_renderer.cpp:117:extern "C" int tc_renderer_resize(TcRenderer2D* renderer, int width, int height, float scale) {
+./src/renderers/skia/tc_skia_renderer.cpp:118:    (void)scale; if (!renderer || !renderer->context || width <= 0 || height <= 0) return TC_ERROR_INVALID_ARGUMENT;
+./src/renderers/skia/tc_skia_renderer.cpp:119:    TcGraphicsContext* context = renderer->context; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation);
+./src/renderers/skia/tc_skia_renderer.cpp:120:    if (context->api == TC_GRAPHICS_CPU) { SkImageInfo info = raster_info(context, width, height); state->surface = SkSurface::MakeRasterDirect(info, context->pixels, context->pitch); }
+./src/renderers/skia/tc_skia_renderer.cpp:121:#if TC_BUILD_GRAPHICS_OPENGL
+./src/renderers/skia/tc_skia_renderer.cpp:122:    else if (context->api == TC_GRAPHICS_OPENGL && state->gl_context) state->surface = gl_surface(state, context, width, height);
+./src/renderers/skia/tc_skia_renderer.cpp:124:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:125:    else if (context->api == TC_GRAPHICS_METAL && state->metal_context) state->surface.reset();
+./src/renderers/skia/tc_skia_renderer.cpp:127:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:128:    else if (context->api == TC_GRAPHICS_VULKAN && state->vulkan_context) state->surface.reset();
+./src/renderers/skia/tc_skia_renderer.cpp:130:    else return TC_ERROR_UNAVAILABLE;
+./src/renderers/skia/tc_skia_renderer.cpp:132:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:133:        || (context->api == TC_GRAPHICS_METAL && state->metal_context)
+./src/renderers/skia/tc_skia_renderer.cpp:135:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:136:        || (context->api == TC_GRAPHICS_VULKAN && state->vulkan_context)
+./src/renderers/skia/tc_skia_renderer.cpp:138:        ? TC_OK : TC_ERROR_RENDERER;
+./src/renderers/skia/tc_skia_renderer.cpp:140:extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) {
+./src/renderers/skia/tc_skia_renderer.cpp:142:    TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation);
+./src/renderers/skia/tc_skia_renderer.cpp:143:#if TC_BUILD_GRAPHICS_METAL
+./src/renderers/skia/tc_skia_renderer.cpp:144:    if (renderer->context && renderer->context->api == TC_GRAPHICS_METAL && state && state->metal_context) state->surface = metal_surface(state, renderer->context);
+./src/renderers/skia/tc_skia_renderer.cpp:146:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:147:    if (renderer->context && renderer->context->api == TC_GRAPHICS_VULKAN && state && state->vulkan_context) state->surface = sk_ref_sp(static_cast<SkSurface*>(tc_android_vk_begin_frame(renderer->context)));
+./src/renderers/skia/tc_skia_renderer.cpp:151:extern "C" int tc_renderer_end_frame(TcRenderer2D* renderer) { if (!renderer) return TC_ERROR_INVALID_ARGUMENT; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation); if (!state || !state->surface) return TC_ERROR_RENDERER;
+./src/renderers/skia/tc_skia_renderer.cpp:152:#if TC_BUILD_GRAPHICS_VULKAN
+./src/renderers/skia/tc_skia_renderer.cpp:153:    if (renderer->context && renderer->context->api == TC_GRAPHICS_VULKAN) return tc_android_vk_end_frame(renderer->context, state->surface.get());
+./src/renderers/skia/tc_skia_renderer.cpp:155:    state->surface->flushAndSubmit(); tc_graphics_context_present(renderer->context); return TC_OK; }
+./src/renderers/skia/tc_skia_renderer.cpp:156:extern "C" void tc_renderer_destroy(TcRenderer2D* renderer) { if (!renderer) return; delete static_cast<TcSkiaRenderer*>(renderer->implementation); delete renderer; }
+./src/renderers/skia/tc_skia_renderer.cpp:158:extern "C" void tc_canvas_save(TcCanvas2D* c) { if (auto* n = native(c)) n->save(); }
+./src/renderers/skia/tc_skia_renderer.cpp:159:extern "C" void tc_canvas_restore(TcCanvas2D* c) { if (auto* n = native(c)) n->restore(); }
+./src/renderers/skia/tc_skia_renderer.cpp:160:extern "C" void tc_canvas_translate(TcCanvas2D* c, float x, float y) { if (auto* n = native(c)) n->translate(x, y); }
+./src/renderers/skia/tc_skia_renderer.cpp:161:extern "C" void tc_canvas_scale(TcCanvas2D* c, float x, float y) { if (auto* n = native(c)) n->scale(x, y); }
+./src/renderers/skia/tc_skia_renderer.cpp:162:extern "C" void tc_canvas_rotate(TcCanvas2D* c, float degrees) { if (auto* n = native(c)) n->rotate(degrees); }
+./src/renderers/skia/tc_skia_renderer.cpp:163:extern "C" void tc_canvas_clip_rect(TcCanvas2D* c, TcRect r) { if (auto* n = native(c)) n->clipRect(SkRect::MakeXYWH(r.x, r.y, r.width, r.height)); }
+./src/renderers/skia/tc_skia_renderer.cpp:164:extern "C" void tc_canvas_clear(TcCanvas2D* c, TcColor v) { if (auto* n = native(c)) n->clear(color(v)); }
+./src/renderers/skia/tc_skia_renderer.cpp:165:extern "C" void tc_canvas_draw_rect(TcCanvas2D* c, TcRect r, TcPaint p) { if (auto* n = native(c)) n->drawRect(SkRect::MakeXYWH(r.x, r.y, r.width, r.height), paint(p)); }
+./src/renderers/skia/tc_skia_renderer.cpp:166:extern "C" void tc_canvas_draw_round_rect(TcCanvas2D* c, TcRect r, float radius, TcPaint p) { if (auto* n = native(c)) n->drawRoundRect(SkRect::MakeXYWH(r.x, r.y, r.width, r.height), radius, radius, paint(p)); }
+./src/renderers/skia/tc_skia_renderer.cpp:167:extern "C" void tc_canvas_draw_line(TcCanvas2D* c, TcPoint a, TcPoint b, TcPaint p) { if (auto* n = native(c)) n->drawLine(a.x, a.y, b.x, b.y, paint(p)); }
+./src/renderers/skia/tc_skia_renderer.cpp:168:extern "C" void tc_canvas_draw_circle(TcCanvas2D* c, TcPoint center, float radius, TcPaint p) { if (auto* n = native(c)) n->drawCircle(center.x, center.y, radius, paint(p)); }
+./src/renderers/skia/tc_skia_renderer.cpp:169:extern "C" void tc_canvas_draw_text(TcCanvas2D* c, const char* text, float x, float y, TcTextStyle style) { if (auto* n = native(c); n && text) { SkFont font(nullptr, style.size); SkPaint p; p.setColor4f(color(style.color), nullptr); p.setAntiAlias(true); n->drawString(text, x, y, font, p); } }
+./src/backends/ios/tc_ios_backend.c:6:#include "tc_ios_backend.h"
+./src/backends/ios/tc_ios_backend.c:7:int tc_ios_backend_stub(void) { return 0; }
+./src/backends/sdl/tc_sdl_backend.h:6:#ifndef TC_SDL_BACKEND_H
+./src/backends/sdl/tc_sdl_backend.h:7:#define TC_SDL_BACKEND_H
+./src/backends/sdl/tc_sdl_backend.h:8:#include "tc_runtime/tc_backend.h"
+./src/backends/sdl/tc_sdl_backend.h:9:int tc_sdl_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend);
+./src/backends/android/tc_android_backend.h:6:#ifndef TC_ANDROID_BACKEND_H
+./src/backends/android/tc_android_backend.h:7:#define TC_ANDROID_BACKEND_H
+./src/backends/android/tc_android_backend.h:10: * tc_runtime headers. It requires API level 24 or newer because frames use
+./src/backends/android/tc_android_backend.h:11: * AChoreographer directly. Applications bind the generic TcEvent sink here
+./src/backends/android/tc_android_backend.h:15:#include "tc_runtime/tc_event.h"
+./src/backends/android/tc_android_backend.h:16:#include "tc_runtime/tc_scheduler.h"
+./src/backends/android/tc_android_backend.h:18:typedef struct TcAndroidNativeBackend TcAndroidNativeBackend;
+./src/backends/android/tc_android_backend.h:19:int tc_android_backend_attach(struct android_app* app, TcEventSink sink, void* user_data, TcAndroidNativeBackend** out_backend);
+./src/backends/android/tc_android_backend.h:20:void tc_android_backend_detach(TcAndroidNativeBackend* backend);
+./src/backends/android/tc_android_backend.h:21:TcFrameScheduler* tc_android_backend_scheduler(TcAndroidNativeBackend* backend);
+./src/backends/android/tc_android_backend.h:22:int tc_android_backend_start(TcAndroidNativeBackend* backend, TcFrameCallback callback, void* user_data);
+./src/backends/android/tc_android_backend.h:23:void tc_android_backend_stop(TcAndroidNativeBackend* backend);
+./src/backends/android/tc_android_backend.h:24:void tc_android_backend_tick(TcAndroidNativeBackend* backend, double timestamp_seconds);
+./src/renderers/skia/tc_skia_renderer_c_api.h:6:#ifndef TC_SKIA_RENDERER_C_API_H
+./src/renderers/skia/tc_skia_renderer_c_api.h:7:#define TC_SKIA_RENDERER_C_API_H
+./src/renderers/skia/tc_skia_renderer_c_api.h:8:#include "tc_runtime/tc_renderer.h"
+./src/renderers/skia/tc_skia_renderer_c_api.h:12:int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer);
+./src/backends/ios/tc_ios_backend.h:6:#ifndef TC_IOS_BACKEND_H
+./src/backends/ios/tc_ios_backend.h:7:#define TC_IOS_BACKEND_H
+./src/backends/ios/tc_ios_backend.h:8:/* Planned iOS-native adapter. Select TC_BACKEND=SDL until implemented. */
+./android/app/src/main/AndroidManifest.xml:6:<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:label="tc demo"><activity android:name="android.app.NativeActivity" android:screenOrientation="unspecified" android:configChanges="orientation|screenSize" android:exported="true"><meta-data android:name="android.app.lib_name" android:value="tc_demo_android"/><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
+./android/app/src/main/cpp/CMakeLists.txt:5:project(tc_demo_android LANGUAGES C CXX)
+./android/app/src/main/cpp/CMakeLists.txt:6:set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../..")
+./android/app/src/main/cpp/CMakeLists.txt:7:set(TC_SKIA_ROOT "" CACHE PATH "Unpacked TotalCross Android Skia release")
+./android/app/src/main/cpp/CMakeLists.txt:8:set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked TotalCross Android libpng release")
+./android/app/src/main/cpp/CMakeLists.txt:9:set(TC_ZLIB_NG_ROOT "" CACHE PATH "Unpacked TotalCross Android zlib-ng release")
+./android/app/src/main/cpp/CMakeLists.txt:10:set(TC_ANDROID_GRAPHICS "CPU" CACHE STRING "Android graphics API: CPU, OPENGL, or VULKAN")
+./android/app/src/main/cpp/CMakeLists.txt:11:set_property(CACHE TC_ANDROID_GRAPHICS PROPERTY STRINGS CPU OPENGL VULKAN)
+./android/app/src/main/cpp/CMakeLists.txt:12:if(NOT TC_ANDROID_GRAPHICS STREQUAL "CPU" AND NOT TC_ANDROID_GRAPHICS STREQUAL "OPENGL" AND NOT TC_ANDROID_GRAPHICS STREQUAL "VULKAN")
+./android/app/src/main/cpp/CMakeLists.txt:13:  message(FATAL_ERROR "TC_ANDROID_GRAPHICS must be CPU, OPENGL, or VULKAN")
+./android/app/src/main/cpp/CMakeLists.txt:15:if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-android-arm64-v8a.a")
+./android/app/src/main/cpp/CMakeLists.txt:16:  message(FATAL_ERROR "Set TC_SKIA_ROOT to the directory created by scripts/fetch-totalcross-skia.sh ... android-arm64-v8a")
+./android/app/src/main/cpp/CMakeLists.txt:18:if(NOT EXISTS "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/lib/libpng16.a")
+./android/app/src/main/cpp/CMakeLists.txt:19:  message(FATAL_ERROR "Set TC_LIBPNG_ROOT to the unpacked TotalCross libpng-android-arm64-v8a release required by the selected Skia archive")
+./android/app/src/main/cpp/CMakeLists.txt:21:if(NOT EXISTS "${TC_ZLIB_NG_ROOT}/zlib-ng/android/arm64-v8a/lib/libz.a")
+./android/app/src/main/cpp/CMakeLists.txt:22:  message(FATAL_ERROR "Set TC_ZLIB_NG_ROOT to the unpacked TotalCross zlib-ng-android-arm64-v8a release required by libpng")
+./android/app/src/main/cpp/CMakeLists.txt:25:set_target_properties(skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_ROOT}/libskia-android-arm64-v8a.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
+./android/app/src/main/cpp/CMakeLists.txt:27:set_target_properties(png PROPERTIES IMPORTED_LOCATION "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/lib/libpng16.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_LIBPNG_ROOT}/libpng/android/arm64-v8a/include")
+./android/app/src/main/cpp/CMakeLists.txt:29:set_target_properties(zlib_ng PROPERTIES IMPORTED_LOCATION "${TC_ZLIB_NG_ROOT}/zlib-ng/android/arm64-v8a/lib/libz.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_ZLIB_NG_ROOT}/zlib-ng/android/arm64-v8a/include")
+./android/app/src/main/cpp/CMakeLists.txt:30:set(TC_DEMO_ANDROID_SOURCES
+./android/app/src/main/cpp/CMakeLists.txt:31:  ${TC_ROOT}/examples/demo_android/demo_android_main.c ${TC_ROOT}/examples/demo/demo_scene.c
+./android/app/src/main/cpp/CMakeLists.txt:33:  ${TC_ROOT}/src/backends/android/tc_android_backend.c ${TC_ROOT}/src/graphics/tc_android_cpu_context.c ${TC_ROOT}/src/graphics/tc_android_graphics.c
+./android/app/src/main/cpp/CMakeLists.txt:34:  ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
+./android/app/src/main/cpp/CMakeLists.txt:35:if(TC_ANDROID_GRAPHICS STREQUAL "OPENGL")
+./android/app/src/main/cpp/CMakeLists.txt:36:  list(APPEND TC_DEMO_ANDROID_SOURCES ${TC_ROOT}/src/graphics/tc_android_gl_context.c)
+./android/app/src/main/cpp/CMakeLists.txt:37:elseif(TC_ANDROID_GRAPHICS STREQUAL "VULKAN")
+./android/app/src/main/cpp/CMakeLists.txt:38:  list(APPEND TC_DEMO_ANDROID_SOURCES ${TC_ROOT}/src/graphics/tc_android_vulkan_context.cpp)
+./android/app/src/main/cpp/CMakeLists.txt:40:add_library(tc_demo_android SHARED ${TC_DEMO_ANDROID_SOURCES})
+./android/app/src/main/cpp/CMakeLists.txt:41:target_include_directories(tc_demo_android PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/src/backends/android ${TC_ROOT}/examples/demo "${ANDROID_NDK}/sources/android/native_app_glue")
+./android/app/src/main/cpp/CMakeLists.txt:42:target_compile_features(tc_demo_android PRIVATE c_std_11 cxx_std_17)
+./android/app/src/main/cpp/CMakeLists.txt:43:target_compile_definitions(tc_demo_android PRIVATE
+./android/app/src/main/cpp/CMakeLists.txt:44:  TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL>
+./android/app/src/main/cpp/CMakeLists.txt:45:  TC_BUILD_GRAPHICS_VULKAN=$<STREQUAL:${TC_ANDROID_GRAPHICS},VULKAN>
+./android/app/src/main/cpp/CMakeLists.txt:46:  TC_ANDROID_GRAPHICS_OPENGL=$<STREQUAL:${TC_ANDROID_GRAPHICS},OPENGL>
+./android/app/src/main/cpp/CMakeLists.txt:47:  TC_ANDROID_GRAPHICS_VULKAN=$<STREQUAL:${TC_ANDROID_GRAPHICS},VULKAN>
+./android/app/src/main/cpp/CMakeLists.txt:50:target_link_libraries(tc_demo_android PRIVATE skia png zlib_ng android log EGL GLESv2 vulkan)
+./src/backends/sdl/tc_sdl_backend.c:6:#include "tc_internal.h"
+./src/backends/sdl/tc_sdl_backend.c:10:typedef struct TcSdlBackend { SDL_Window* window; } TcSdlBackend;
+./src/backends/sdl/tc_sdl_backend.c:11:static TcSdlBackend* tc_sdl(TcPlatformBackend* backend) { return backend ? backend->implementation : NULL; }
+./src/backends/sdl/tc_sdl_backend.c:13:static TcPointerButton tc_sdl_button(Uint8 button) {
+./src/backends/sdl/tc_sdl_backend.c:14:    if (button == SDL_BUTTON_LEFT) return TC_POINTER_BUTTON_LEFT;
+./src/backends/sdl/tc_sdl_backend.c:15:    if (button == SDL_BUTTON_MIDDLE) return TC_POINTER_BUTTON_MIDDLE;
+./src/backends/sdl/tc_sdl_backend.c:16:    if (button == SDL_BUTTON_RIGHT) return TC_POINTER_BUTTON_RIGHT;
+./src/backends/sdl/tc_sdl_backend.c:17:    return TC_POINTER_BUTTON_NONE;
+./src/backends/sdl/tc_sdl_backend.c:20:int tc_sdl_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend) {
+./src/backends/sdl/tc_sdl_backend.c:21:    if (!config || !out_backend) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/sdl/tc_sdl_backend.c:22:    TcPlatformBackend* backend = calloc(1, sizeof(*backend));
+./src/backends/sdl/tc_sdl_backend.c:23:    if (!backend) return TC_ERROR_OUT_OF_MEMORY;
+./src/backends/sdl/tc_sdl_backend.c:24:    int result = tc_backend_init(backend, config);
+./src/backends/sdl/tc_sdl_backend.c:25:    if (result != TC_OK) { free(backend); return result; }
+./src/backends/sdl/tc_sdl_backend.c:27:    return TC_OK;
+./src/backends/sdl/tc_sdl_backend.c:29:int tc_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend) { return tc_sdl_backend_create(config, out_backend); }
+./src/backends/sdl/tc_sdl_backend.c:30:int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
+./src/backends/sdl/tc_sdl_backend.c:31:    if (!backend || !config) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/sdl/tc_sdl_backend.c:32:    if (!SDL_Init(SDL_INIT_VIDEO)) return TC_ERROR_PLATFORM;
+./src/backends/sdl/tc_sdl_backend.c:34:#if TC_BUILD_GRAPHICS_OPENGL
+./src/backends/sdl/tc_sdl_backend.c:36:    if (!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) || !SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) || !SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8)) { SDL_Quit(); return TC_ERROR_PLATFORM; }
+./src/backends/sdl/tc_sdl_backend.c:37:#elif TC_BUILD_GRAPHICS_METAL
+./src/backends/sdl/tc_sdl_backend.c:40:    TcSdlBackend* state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return TC_ERROR_OUT_OF_MEMORY; }
+./src/backends/sdl/tc_sdl_backend.c:41:    state->window = SDL_CreateWindow(config->title ? config->title : "tc_runtime", config->width, config->height, flags);
+./src/backends/sdl/tc_sdl_backend.c:42:    if (!state->window) { free(state); SDL_Quit(); return TC_ERROR_PLATFORM; }
+./src/backends/sdl/tc_sdl_backend.c:46:    return TC_OK;
+./src/backends/sdl/tc_sdl_backend.c:48:TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend) { return backend ? &backend->window : NULL; }
+./src/backends/sdl/tc_sdl_backend.c:49:TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend) { return backend ? &backend->surface : NULL; }
+./src/backends/sdl/tc_sdl_backend.c:50:TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend) { return backend ? &backend->scheduler : NULL; }
+./src/backends/sdl/tc_sdl_backend.c:51:void tc_sdl_backend_refresh_surface(TcPlatformBackend* backend) {
+./src/backends/sdl/tc_sdl_backend.c:52:#if TC_BUILD_GRAPHICS_CPU
+./src/backends/sdl/tc_sdl_backend.c:53:    TcSdlBackend* state = tc_sdl(backend); if (state && state->window) backend->surface.value = SDL_GetWindowSurface(state->window);
+./src/backends/sdl/tc_sdl_backend.c:58:int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
+./src/backends/sdl/tc_sdl_backend.c:59:    if (!backend || !sink) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/sdl/tc_sdl_backend.c:62:        TcEvent event = { .type = TC_EVENT_NONE };
+./src/backends/sdl/tc_sdl_backend.c:64:            case SDL_EVENT_QUIT: event.type = TC_EVENT_QUIT; break;
+./src/backends/sdl/tc_sdl_backend.c:67:                tc_sdl_backend_refresh_surface(backend);
+./src/backends/sdl/tc_sdl_backend.c:68:                event.type = TC_EVENT_RESIZE; event.data.resize.width = backend->width; event.data.resize.height = backend->height; event.data.resize.scale = 1.0f; break;
+./src/backends/sdl/tc_sdl_backend.c:70:                event.type = native_event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? TC_EVENT_POINTER_DOWN : TC_EVENT_POINTER_UP;
+./src/backends/sdl/tc_sdl_backend.c:71:                event.data.pointer.x = native_event.button.x; event.data.pointer.y = native_event.button.y; event.data.pointer.button = tc_sdl_button(native_event.button.button); event.data.pointer.pointer_id = 0; break;
+./src/backends/sdl/tc_sdl_backend.c:73:                event.type = TC_EVENT_POINTER_MOVE; event.data.pointer.x = native_event.motion.x; event.data.pointer.y = native_event.motion.y; event.data.pointer.button = TC_POINTER_BUTTON_NONE; event.data.pointer.pointer_id = 0; break;
+./src/backends/sdl/tc_sdl_backend.c:75:                event.type = native_event.type == SDL_EVENT_KEY_DOWN ? TC_EVENT_KEY_DOWN : TC_EVENT_KEY_UP;
+./src/backends/sdl/tc_sdl_backend.c:78:                event.type = TC_EVENT_TEXT_INPUT; SDL_strlcpy(event.data.text.text, native_event.text.text, sizeof(event.data.text.text)); break;
+./src/backends/sdl/tc_sdl_backend.c:81:        if (event.type != TC_EVENT_NONE) sink(user_data, &event);
+./src/backends/sdl/tc_sdl_backend.c:83:    return TC_OK;
+./src/backends/sdl/tc_sdl_backend.c:85:int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
+./src/backends/sdl/tc_sdl_backend.c:86:    if (!backend || !sink || !backend->scheduler.callback) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/sdl/tc_sdl_backend.c:89:        tc_backend_pump_events(backend, sink, user_data);
+./src/backends/sdl/tc_sdl_backend.c:97:    return TC_OK;
+./src/backends/sdl/tc_sdl_backend.c:99:void tc_backend_request_redraw(TcPlatformBackend* backend) { if (backend) backend->redraw_requested = true; }
+./src/backends/sdl/tc_sdl_backend.c:100:void tc_backend_shutdown(TcPlatformBackend* backend) { TcSdlBackend* state = tc_sdl(backend); if (!backend || !backend->initialized) return; SDL_DestroyWindow(state->window); free(state); backend->implementation = NULL; backend->window.value = NULL; backend->initialized = false; SDL_Quit(); }
+./src/backends/sdl/tc_sdl_backend.c:101:void tc_backend_destroy(TcPlatformBackend* backend) { if (!backend) return; tc_backend_shutdown(backend); free(backend); }
+./src/backends/web/tc_web_backend.c:6:#include "tc_internal.h"
+./src/backends/web/tc_web_backend.c:13:typedef struct TcWebBackend {
+./src/backends/web/tc_web_backend.c:14:    TcEventSink sink;
+./src/backends/web/tc_web_backend.c:18:} TcWebBackend;
+./src/backends/web/tc_web_backend.c:20:static TcWebBackend* tc_web(TcPlatformBackend* backend) {
+./src/backends/web/tc_web_backend.c:21:    return backend ? (TcWebBackend*)backend->implementation : NULL;
+./src/backends/web/tc_web_backend.c:24:static TcPointerButton tc_web_button(short button) {
+./src/backends/web/tc_web_backend.c:25:    if (button == 0) return TC_POINTER_BUTTON_LEFT;
+./src/backends/web/tc_web_backend.c:26:    if (button == 1) return TC_POINTER_BUTTON_MIDDLE;
+./src/backends/web/tc_web_backend.c:27:    if (button == 2) return TC_POINTER_BUTTON_RIGHT;
+./src/backends/web/tc_web_backend.c:28:    return TC_POINTER_BUTTON_NONE;
+./src/backends/web/tc_web_backend.c:31:static void tc_web_emit(TcPlatformBackend* backend, TcEvent event) {
+./src/backends/web/tc_web_backend.c:32:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:36:static void tc_web_resize_canvas(TcPlatformBackend* backend, double css_width, double css_height) {
+./src/backends/web/tc_web_backend.c:37:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:48:    TcEvent event = {.type = TC_EVENT_RESIZE};
+./src/backends/web/tc_web_backend.c:52:    tc_web_emit(backend, event);
+./src/backends/web/tc_web_backend.c:55:static EM_BOOL tc_web_resize_callback(int event_type, const EmscriptenUiEvent* event, void* user_data) {
+./src/backends/web/tc_web_backend.c:60:    tc_web_resize_canvas((TcPlatformBackend*)user_data, width, height);
+./src/backends/web/tc_web_backend.c:64:static EM_BOOL tc_web_mouse_callback(int event_type, const EmscriptenMouseEvent* event, void* user_data) {
+./src/backends/web/tc_web_backend.c:65:    TcPlatformBackend* backend = user_data;
+./src/backends/web/tc_web_backend.c:66:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:68:    TcEvent output = {.type = TC_EVENT_POINTER_MOVE};
+./src/backends/web/tc_web_backend.c:69:    if (event_type == EMSCRIPTEN_EVENT_MOUSEDOWN) output.type = TC_EVENT_POINTER_DOWN;
+./src/backends/web/tc_web_backend.c:70:    if (event_type == EMSCRIPTEN_EVENT_MOUSEUP) output.type = TC_EVENT_POINTER_UP;
+./src/backends/web/tc_web_backend.c:73:    output.data.pointer.button = tc_web_button(event->button);
+./src/backends/web/tc_web_backend.c:75:    tc_web_emit(backend, output);
+./src/backends/web/tc_web_backend.c:79:static EM_BOOL tc_web_touch_callback(int event_type, const EmscriptenTouchEvent* event, void* user_data) {
+./src/backends/web/tc_web_backend.c:80:    TcPlatformBackend* backend = user_data;
+./src/backends/web/tc_web_backend.c:81:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:87:    TcEvent output = {.type = event_type == EMSCRIPTEN_EVENT_TOUCHEND ? TC_EVENT_POINTER_UP : event_type == EMSCRIPTEN_EVENT_TOUCHSTART ? TC_EVENT_POINTER_DOWN : TC_EVENT_POINTER_MOVE};
+./src/backends/web/tc_web_backend.c:90:    output.data.pointer.button = TC_POINTER_BUTTON_LEFT;
+./src/backends/web/tc_web_backend.c:92:    tc_web_emit(backend, output);
+./src/backends/web/tc_web_backend.c:96:static EM_BOOL tc_web_key_callback(int event_type, const EmscriptenKeyboardEvent* event, void* user_data) {
+./src/backends/web/tc_web_backend.c:97:    TcEvent output = {.type = event_type == EMSCRIPTEN_EVENT_KEYDOWN ? TC_EVENT_KEY_DOWN : TC_EVENT_KEY_UP};
+./src/backends/web/tc_web_backend.c:100:    tc_web_emit((TcPlatformBackend*)user_data, output);
+./src/backends/web/tc_web_backend.c:104:static void tc_web_frame(void* user_data) {
+./src/backends/web/tc_web_backend.c:105:    TcPlatformBackend* backend = user_data;
+./src/backends/web/tc_web_backend.c:106:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:117:int tc_backend_init(TcPlatformBackend* backend, const TcBackendConfig* config) {
+./src/backends/web/tc_web_backend.c:118:    if (!backend || !config) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/web/tc_web_backend.c:119:    TcWebBackend* state = calloc(1, sizeof(*state));
+./src/backends/web/tc_web_backend.c:120:    if (!state) return TC_ERROR_OUT_OF_MEMORY;
+./src/backends/web/tc_web_backend.c:126:    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, backend, EM_TRUE, tc_web_resize_callback);
+./src/backends/web/tc_web_backend.c:127:    emscripten_set_mousedown_callback("#canvas", backend, EM_TRUE, tc_web_mouse_callback);
+./src/backends/web/tc_web_backend.c:128:    emscripten_set_mousemove_callback("#canvas", backend, EM_TRUE, tc_web_mouse_callback);
+./src/backends/web/tc_web_backend.c:129:    emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, backend, EM_TRUE, tc_web_mouse_callback);
+./src/backends/web/tc_web_backend.c:130:    emscripten_set_touchstart_callback("#canvas", backend, EM_TRUE, tc_web_touch_callback);
+./src/backends/web/tc_web_backend.c:131:    emscripten_set_touchmove_callback("#canvas", backend, EM_TRUE, tc_web_touch_callback);
+./src/backends/web/tc_web_backend.c:132:    emscripten_set_touchend_callback("#canvas", backend, EM_TRUE, tc_web_touch_callback);
+./src/backends/web/tc_web_backend.c:133:    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, backend, EM_TRUE, tc_web_key_callback);
+./src/backends/web/tc_web_backend.c:134:    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, backend, EM_TRUE, tc_web_key_callback);
+./src/backends/web/tc_web_backend.c:137:    tc_web_resize_canvas(backend, width, height);
+./src/backends/web/tc_web_backend.c:138:    return TC_OK;
+./src/backends/web/tc_web_backend.c:141:int tc_backend_create(const TcBackendConfig* config, TcPlatformBackend** out_backend) {
+./src/backends/web/tc_web_backend.c:142:    if (!config || !out_backend) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/web/tc_web_backend.c:143:    TcPlatformBackend* backend = calloc(1, sizeof(*backend));
+./src/backends/web/tc_web_backend.c:144:    if (!backend) return TC_ERROR_OUT_OF_MEMORY;
+./src/backends/web/tc_web_backend.c:145:    const int result = tc_backend_init(backend, config);
+./src/backends/web/tc_web_backend.c:146:    if (result != TC_OK) { free(backend); return result; }
+./src/backends/web/tc_web_backend.c:148:    return TC_OK;
+./src/backends/web/tc_web_backend.c:151:TcNativeWindowHandle* tc_backend_get_native_window(TcPlatformBackend* backend) { return backend ? &backend->window : NULL; }
+./src/backends/web/tc_web_backend.c:152:TcNativeSurfaceHandle* tc_backend_get_native_surface(TcPlatformBackend* backend) { return backend ? &backend->surface : NULL; }
+./src/backends/web/tc_web_backend.c:153:TcFrameScheduler* tc_backend_get_scheduler(TcPlatformBackend* backend) { return backend ? &backend->scheduler : NULL; }
+./src/backends/web/tc_web_backend.c:154:int tc_backend_pump_events(TcPlatformBackend* backend, TcEventSink sink, void* user_data) { (void)backend; (void)sink; (void)user_data; return TC_OK; }
+./src/backends/web/tc_web_backend.c:155:int tc_backend_run(TcPlatformBackend* backend, TcEventSink sink, void* user_data) {
+./src/backends/web/tc_web_backend.c:156:    TcWebBackend* state = tc_web(backend);
+./src/backends/web/tc_web_backend.c:157:    if (!state || !sink || !backend->scheduler.callback) return TC_ERROR_INVALID_ARGUMENT;
+./src/backends/web/tc_web_backend.c:160:    emscripten_set_main_loop_arg(tc_web_frame, backend, 0, EM_TRUE);
+./src/backends/web/tc_web_backend.c:161:    return TC_OK;
+./src/backends/web/tc_web_backend.c:163:void tc_backend_request_redraw(TcPlatformBackend* backend) { if (backend) backend->redraw_requested = true; }
+./src/backends/web/tc_web_backend.c:164:void tc_backend_shutdown(TcPlatformBackend* backend) {
+./src/backends/web/tc_web_backend.c:171:void tc_backend_destroy(TcPlatformBackend* backend) { if (!backend) return; tc_backend_shutdown(backend); free(backend); }

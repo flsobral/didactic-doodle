@@ -1,0 +1,2 @@
+BOARD_BACKEND=HEADLESS + MAGIC_BACKEND=CPU + DOODLE_RENDERER=NONE: passes
+DOODLE_RENDERER=VELLO: configuration fails clearly as unimplemented

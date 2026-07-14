@@ -15,10 +15,10 @@ The new framework has exactly three public layers. **Board** owns application ho
 ## Progress
 
 - [x] (2026-07-14 00:00Z) Captured the current runtime structure, supported combinations, public APIs, frame model, mobile integration requirements, naming goals, and target three-layer architecture in this ExecPlan.
-- [ ] Record a clean baseline for every currently working build combination and save concise evidence under `artifacts/baseline/`.
+- [x] (2026-07-14) Recorded the source and legacy-symbol baseline under `artifacts/baseline/`; desktop configuration was attempted and its missing Skia artifact recorded as an environment limitation.
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
-- [ ] Add architecture and public-header tests before moving code so boundary regressions are visible during the migration.
-- [ ] Create independently configurable Board, Magic, and Doodle project skeletons with installable public APIs and CMake package exports.
+- [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
+- [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core.
 - [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; add the headless backend.
 - [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
@@ -45,6 +45,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: Headless support is missing but is the best path for deterministic end-to-end architecture tests.
   Evidence: The supplied backend list omits headless. A manual scheduler, injected events, CPU target, and image hash allow testing Board, Magic, and Doodle without a display server or mobile device.
+
+- Observation: The local development environment has SDL3 available but no configured Skia package or TotalCross Skia archive.
+  Evidence: `cmake -S . -B build/baseline-desktop-cpu -DTC_PLATFORM=DESKTOP -DTC_BACKEND=SDL -DTC_GRAPHICS=CPU -DTC_RENDERER=SKIA` stops at the existing Skia package check.
+
+- Observation: Several local Skia archives exist outside this repository, but the matching public header tree is not present in their distribution directory.
+  Evidence: `/Users/flsobral/repos/totalcross-skia-build/dist` contains macOS and Linux archives but no `headers/modules/skia/.../SkCanvas.h`; it cannot satisfy the existing or planned external Skia dependency contract.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -90,9 +96,32 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: This combination provides deterministic tests, offscreen rendering, and CI coverage without a native display. Unsupported headless GPU combinations can be added later through separate plans.
   Date/Author: 2026-07-14 / initial architecture plan.
 
+- Decision: Until matching Skia headers and archive are supplied, expose Doodle core with `DOODLE_RENDERER=NONE` for package and provider-contract validation rather than treating a non-Skia implementation as Skia.
+  Rationale: Naming a fallback renderer as Skia would be a silent backend substitution and would make configuration claims false. The real `DOODLE_RENDERER=SKIA` remains an explicit configuration failure until the external dependency is valid.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
-No implementation work has been completed yet. The intended outcome is a repository where the old monolithic runtime layout no longer exists, the three layer packages build and install separately, supported composed examples behave as before, and new headless and embedded-host demonstrations prove the value of the architecture.
+2026-07-14: The migration now has an executable lower-layer spine. `board_core`
+implements a versioned headless CPU surface and deterministic coalescing frame
+scheduler. `magic_core` consumes only Board's installed surface API and exposes
+versioned CPU frame interop. `doodle_core` consumes only Magic's public API and
+proves provider lifecycle negotiation with a fake provider. All three packages
+install and are consumable in dependency order. Existing monolithic sources,
+the actual Skia provider, desktop/mobile/web backends, shared demos, and legacy
+name removal remain outstanding; this work deliberately does not represent
+those as complete.
+
+Validation recorded on 2026-07-14:
+
+    cmake -S board -B build/standalone-board ... && ctest --test-dir build/standalone-board
+    cmake -S magic -B build/standalone-magic -DCMAKE_PREFIX_PATH=$PWD/build/install ... && ctest --test-dir build/standalone-magic
+    cmake -S doodle -B build/standalone-doodle -DCMAKE_PREFIX_PATH=$PWD/build/install ... && ctest --test-dir build/standalone-doodle
+    cmake -S . -B build/root -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=NONE && ctest --test-dir build/root
+
+All of the listed CTest runs passed. The installed packages were also consumed
+by `tests/integration/consumer`. `DOODLE_RENDERER=VELLO` was confirmed to fail
+configuration with the required explicit unimplemented diagnostic.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
