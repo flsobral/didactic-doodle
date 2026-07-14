@@ -10,7 +10,7 @@ A small, C-first application runtime that keeps platform, scheduler, graphics, r
 
 ## Current status
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU, OpenGL ES 3, and Vulkan; iOS UIKit supports CPU, OpenGL ES, and Metal. The default desktop build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, winit, and Vello are intentional stubs and CMake explains when one is selected.
+The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU, OpenGL ES 3, and Vulkan; iOS UIKit supports CPU, OpenGL ES, and Metal; and the web demo uses Emscripten, WebGL 2, and the wasm32 Skia archive. The default desktop build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. GLFW, other renderers, winit, and Vello are intentional stubs and CMake explains when one is selected.
 
 ## Build the CPU demo
 
@@ -60,7 +60,27 @@ cmake --build build-sdl-skia-metal
 
 `TC_PLATFORM` accepts `DESKTOP`, `ANDROID`, `IOS`, and `WEB`; `TC_BACKEND` accepts `SDL`, `ANDROID_NATIVE`, `IOS_NATIVE`, `GLFW`, and `WINIT`; `TC_GRAPHICS` accepts `CPU`, `OPENGL`, `METAL`, and `VULKAN`; and `TC_RENDERER` accepts `SKIA`, `NANOVG`, `BLEND2D`, and `VELLO`.
 
-`DESKTOP + SDL + CPU + SKIA`, `DESKTOP + SDL + OPENGL + SKIA`, and macOS `DESKTOP + SDL + METAL + SKIA` are implemented. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. The Emscripten demo remains the next milestone.
+`DESKTOP + SDL + CPU + SKIA`, `DESKTOP + SDL + OPENGL + SKIA`, macOS `DESKTOP + SDL + METAL + SKIA`, and `WEB + SDL + OPENGL + SKIA` are implemented. The web selection uses a private Emscripten event/animation-frame adapter while preserving the same public backend API and shared demo source. Other unsupported selections fail clearly at CMake configuration time.
+
+## Web demo
+
+The web demo uses WebGL 2 and Emscripten's `requestAnimationFrame` scheduler. It needs the wasm32 r4 Skia archive and Emscripten **2.0.6**, the version used to produce that archive. Newer SDKs are not binary-compatible with this static archive.
+
+```sh
+./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-wasm32-r4" wasm32
+git clone https://github.com/emscripten-core/emsdk.git .cache/emsdk
+.cache/emsdk/emsdk install 2.0.6
+.cache/emsdk/emsdk activate 2.0.6
+source .cache/emsdk/emsdk_env.sh
+
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release \
+  -DTC_PLATFORM=WEB -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL \
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4"
+cmake --build build-web
+python3 -m http.server --directory build-web/examples/demo 8000
+```
+
+Open `http://localhost:8000/tc_demo.html`. The generated HTML, JavaScript, and WebAssembly files remain together in `build-web/examples/demo/`.
 
 The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly. The default APK uses the CPU raster path; the same shared demo can be built with EGL/OpenGL ES 3 and Skia Ganesh when the selected Skia archive exports GL support.
 

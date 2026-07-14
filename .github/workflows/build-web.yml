@@ -4,9 +4,23 @@
 name: build-web
 on: [push, pull_request]
 jobs:
-  stubs:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Record web scaffold status
-        run: test -f examples/demo_web/index.html
+      - name: Install Emscripten 2.0.6
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 2.0.6
+      - name: Fetch pinned wasm32 Skia
+        run: ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-wasm32-r4" wasm32
+      - name: Configure and build
+        run: |
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DTC_PLATFORM=WEB -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL -DTC_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4"
+          cmake --build build-web --config Release
+          test -f build-web/examples/demo/tc_demo.html
+          test -f build-web/examples/demo/tc_demo.wasm
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: web-build-logs, path: build-web/CMakeFiles }

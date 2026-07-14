@@ -42,7 +42,7 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Implement SDL3 + Skia OpenGL demo path.
 - [x] Implement the macOS SDL3 + Skia Metal demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
-- [ ] Add Web/Emscripten demo target.
+- [x] Add Web/Emscripten WebGL demo target using the shared generic scene source.
 - [x] Add GitHub Actions workflow scaffolds for Linux, Windows, macOS, Android, iOS, and Web.
 - [x] Add clear stubs for Android native, iOS native, GLFW, winit, NanoVG, Blend2D, Vello, and Vulkan where not yet implemented.
 - [x] Document supported and unsupported combinations.
@@ -134,6 +134,9 @@ Record unexpected implementation facts here.
 
 - Observation: the UIKit Metal path presents the generic Skia demo correctly on the arm64 iPhone 16 simulator.
   Evidence: the r4 Metal bundle installed and launched through `simctl`; a simulator screenshot showed the background, primitives, text, and animated shape without orientation or color-channel errors.
+
+- Observation: the r4 wasm32 Skia archive is link-compatible with Emscripten 2.0.6, but not current Emscripten releases.
+  Evidence: the TotalCross release workflow pins `EMSCRIPTEN_VERSION: 2.0.6`. A local Emscripten 6.0.2 link reported obsolete `__invoke_*`, `saveSetjmp`, and libc++ ABI symbols; with 2.0.6, the WebGL demo linked and emitted HTML, JavaScript, and WebAssembly artifacts.
 
 ## Decision Log
 
@@ -250,11 +253,17 @@ Record unexpected implementation facts here.
   Rationale: the graphics context owns Vulkan instance/device/surface/swapchain creation and per-frame acquire, Skia semaphore synchronization, submit, and present. The renderer only receives a private Skia surface, so public headers and the shared demo remain backend-neutral.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Implement the Web target as a private Emscripten adapter with WebGL 2 and `requestAnimationFrame`, while keeping the `SDL` configuration value as the cross-platform default selection.
+  Rationale: the shared demo and public runtime API remain free of Emscripten and renderer-native types; browser input, resize, and frame callbacks are translated directly into the existing generic backend and scheduler interfaces without a blocking loop.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Pin Web builds to Emscripten 2.0.6 for the TotalCross r4 wasm32 archive.
+  Rationale: static Emscripten archives carry runtime and libc++ ABI expectations. Pinning the producing SDK makes local and CI builds reproducible rather than accepting a link that would fail with unresolved legacy runtime symbols.
+  Date/Author: 2026-07-13 / Codex.
+
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports CPU, EGL/OpenGL ES 3, and Vulkan Skia paths; the arm64 API 34 emulator displayed both GPU variants correctly. The iOS UIKit demo supports CPU, an arm64 simulator OpenGL ES path, and a native Metal path using the same per-frame Skia surface and presentation flow; the Metal path displayed the animated generic demo on an iPhone 16 simulator.
-
-Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
+The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports CPU, EGL/OpenGL ES 3, and Vulkan Skia paths; the arm64 API 34 emulator displayed both GPU variants correctly. The iOS UIKit demo supports CPU, an arm64 simulator OpenGL ES path, and a native Metal path using the same per-frame Skia surface and presentation flow; the Metal path displayed the animated generic demo on an iPhone 16 simulator. The Web target now compiles the same generic demo to WebGL 2 with the r4 wasm32 Skia archive: Emscripten resize/input callbacks feed generic events and its animation-frame loop feeds the generic scheduler, producing `tc_demo.html`, `tc_demo.js`, and `tc_demo.wasm`.
 
 ## Context and Orientation
 
