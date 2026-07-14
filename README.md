@@ -19,7 +19,7 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
 **Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
-**Board iOS native + Magic CPU/OpenGL ES + Doodle Skia in the iOS simulator**. Board exposes
+**Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**. Board exposes
 either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
 iOS native view; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
@@ -36,8 +36,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Vulkan, Web, Android, iOS Metal, and the remaining Doodle providers beyond the
-SDL3 CPU/OpenGL/Metal and iOS CPU/OpenGL ES paths are declared migration targets, not working selections
+Vulkan, Web, Android, and the remaining Doodle providers beyond the
+SDL3 CPU/OpenGL/Metal and iOS CPU/OpenGL ES/Metal paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -76,9 +76,11 @@ xcrun simctl install booted build/ios-cpu/magic_doodle_board_ios_demo.app
 xcrun simctl launch booted com.amalgam.magicdoodleboard.demo
 ```
 
-For the OpenGL ES simulator variant, use `-DMAGIC_BACKEND=OPENGL` and a
-separate build directory such as `build/ios-opengl`. The native Board view
-uses a private `CAEAGLLayer`; Magic owns the EAGL context and presentation.
+For the OpenGL ES or Metal simulator variants, use
+`-DMAGIC_BACKEND=OPENGL` or `-DMAGIC_BACKEND=METAL` with a separate build
+directory such as `build/ios-opengl` or `build/ios-metal`. The native Board
+view uses a private `CAEAGLLayer` or `CAMetalLayer`; Magic owns the GPU context
+or Metal device, queue, drawable, and presentation.
 
 The name is both a product metaphor and an architectural map:
 

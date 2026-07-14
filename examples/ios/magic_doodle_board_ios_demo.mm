@@ -42,6 +42,8 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     BoardBackendConfig backend_config;
 #if MDB_IOS_OPENGL
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_OPENGL, 1};
+#elif MDB_IOS_METAL
+    MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_METAL, 1};
 #else
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_CPU, 1};
 #endif

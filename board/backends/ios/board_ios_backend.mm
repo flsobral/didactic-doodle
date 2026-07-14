@@ -8,6 +8,9 @@
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES3/gl.h>
 #endif
+#if BOARD_BUILD_IOS_METAL
+#import <QuartzCore/CAMetalLayer.h>
+#endif
 
 typedef struct BoardIosState { BoardBackend *backend; void *view;
 #if BOARD_BUILD_IOS_OPENGL
@@ -37,6 +40,11 @@ static BoardResult board_ios_resize(BoardBackend *backend, uint32_t width, uint3
     backend->scale = scale > 0 ? scale : 1.0f;
 #if BOARD_BUILD_IOS_OPENGL
     { BoardIosState *state = (BoardIosState *)backend->implementation; if (state && state->active_gl) { BoardResult result = board_ios_gl_rebuild(state, (BoardIosOpenGLContext *)state->active_gl, width, height, backend->scale); if (result != BOARD_OK) return result; } }
+#endif
+#if BOARD_BUILD_IOS_METAL
+    backend->surface.metal.width = width;
+    backend->surface.metal.height = height;
+    backend->surface.metal.scale = backend->scale;
 #endif
     event.timestamp_ns = board_ios_timestamp(CACurrentMediaTime());
     event.data.resize.width = width;
@@ -72,6 +80,8 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 + (Class)layerClass {
 #if BOARD_BUILD_IOS_OPENGL
     return CAEAGLLayer.class;
+#elif BOARD_BUILD_IOS_METAL
+    return CAMetalLayer.class;
 #else
     return CALayer.class;
 #endif
@@ -86,6 +96,9 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 #if BOARD_BUILD_IOS_OPENGL
         ((CAEAGLLayer *)self.layer).opaque = YES;
         ((CAEAGLLayer *)self.layer).drawableProperties = @{kEAGLDrawablePropertyColorFormat: kEAGLColorFormatRGBA8, kEAGLDrawablePropertyRetainedBacking: @NO};
+#elif BOARD_BUILD_IOS_METAL
+        ((CAMetalLayer *)self.layer).opaque = YES;
+        ((CAMetalLayer *)self.layer).contentsScale = self.contentScaleFactor;
 #endif
     }
     return self;
@@ -125,7 +138,7 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; for (UITouch *touch in touches) [self emitTouch:touch type:BOARD_EVENT_POINTER_UP]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; for (UITouch *touch in touches) [self emitTouch:touch type:BOARD_EVENT_POINTER_CANCEL]; }
 - (void)drawRect:(CGRect)rect {
-#if BOARD_BUILD_IOS_OPENGL
+#if BOARD_BUILD_IOS_OPENGL || BOARD_BUILD_IOS_METAL
     (void)rect;
     return;
 #else
@@ -259,6 +272,9 @@ extern "C" BoardResult board_ios_backend_init(BoardBackend *backend, const Board
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_ios_map, board_ios_present};
 #if BOARD_BUILD_IOS_OPENGL
     backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_ios_gl_create, board_ios_gl_destroy, board_ios_gl_make_current, board_ios_gl_get_proc, board_ios_gl_drawable_size, board_ios_gl_swap};
+#endif
+#if BOARD_BUILD_IOS_METAL
+    backend->surface.metal = (BoardSurfaceMetalInterface){sizeof(BoardSurfaceMetalInterface), BOARD_ABI_VERSION, (__bridge void *)view.layer, backend->width, backend->height, backend->scale};
 #endif
     backend->start = board_ios_start;
     backend->dispose = board_ios_dispose;
