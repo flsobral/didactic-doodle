@@ -6,12 +6,12 @@ set -euo pipefail
 
 # Downloads an externally published, pinned Skia build. It intentionally keeps
 # generated headers and libraries outside version control.
-destination=${1:-"$PWD/.cache/skia-158dc9d7"}
+destination=${1:-"$PWD/.cache/skia-158dc9d7-r4"}
 platform=${2:-macos-arm64}
-release=https://github.com/TotalCross/totalcross-depot-tools/releases/download/skia-158dc9d7-r3
+release=https://github.com/TotalCross/totalcross-depot-tools/releases/download/skia-158dc9d7-r4
 
 case "$platform" in
-  macos-arm64|linux-x86_64|linux-aarch64|linux-armv7l|android-arm64-v8a|windows-x64|windows-arm64) ;;
+  macos-arm64|linux-x86_64|linux-aarch64|linux-armv7l|android-arm64-v8a|ios-arm64|ios-simulator-arm64|wasm32|windows-x64|windows-arm64|windows-x86) ;;
   *) echo "Unsupported Skia artifact: $platform" >&2; exit 2 ;;
 esac
 

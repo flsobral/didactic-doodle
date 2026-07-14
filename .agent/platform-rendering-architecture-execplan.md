@@ -98,6 +98,12 @@ Record unexpected implementation facts here.
 - Observation: the iOS simulator Skia archive exports Ganesh OpenGL ES support, and its UIKit drawable uses a non-default framebuffer.
   Evidence: `nm -gU libskia-ios-simulator-arm64.a | c++filt` exports `GrDirectContext::MakeGL(...)` and `GrGLMakeNativeInterface()`. An arm64 iPhone 16 simulator displayed the animated generic demo through an `EAGLContext`/`CAEAGLLayer` path after Skia was explicitly rebound to the context-owned framebuffer.
 
+- Observation: TotalCross Skia revision `skia-158dc9d7-r4` adds Metal-enabled Apple artifacts, Vulkan-enabled Android arm64-v8a, and a wasm32 WebGL archive.
+  Evidence: the r4 release publishes `libskia-wasm32.a`, Android/iOS/macOS manifests, and reports WebAssembly/WebGL, Android arm64-v8a, and iOS device/simulator artifacts. Its manifests enable `skia_use_metal=true` for Apple, `skia_use_vulkan=true` for Android, and `skia_use_webgl=true` for wasm32.
+
+- Observation: r4's public Ganesh value types have feature-dependent layouts, so consumers must define every GPU backend compiled into their platform archive.
+  Evidence: the iOS OpenGL simulator app built without `SK_METAL` aborted in `gl_surface` with a stack-protector failure. Defining `SK_METAL=1` for Apple and `SK_VULKAN=1` for the Android archive aligns consumer headers with the r4 library configuration.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -175,6 +181,14 @@ Record unexpected implementation facts here.
 
 - Decision: Offer the iOS simulator's OpenGL ES path through `TC_IOS_GRAPHICS=OPENGL`, while leaving CPU as the default and Metal as the future iOS GPU target.
   Rationale: the selected archive and simulator validated the legacy EAGL/Ganesh path without exposing native types in the public API. OpenGL ES is deprecated on iOS, so it cannot replace the planned Metal backend.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Pin the external Skia downloader to `skia-158dc9d7-r4` and expose every r4 static-library target it publishes.
+  Rationale: this preserves the current explicit, non-vendored dependency model while making the Metal, Vulkan, and wasm32-capable archives available to their future platform integrations.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Compile consumers against r4's enabled GPU feature macros, even when a different supported backend is selected at runtime.
+  Rationale: Skia's public backend surface types include feature-specific members. Matching the static library's feature set prevents ABI corruption while retaining build-time selection of CPU, OpenGL, Metal, and Vulkan paths.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.

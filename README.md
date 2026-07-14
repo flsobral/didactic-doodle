@@ -25,7 +25,7 @@ Then configure and build:
 
 ```sh
 cmake -S . -B build -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=CPU \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7"
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 cmake --build build --config Release
 ./build/examples/demo/tc_demo
 ```
@@ -39,7 +39,7 @@ The pinned macOS Skia archive contains Ganesh OpenGL symbols. Build the shared d
 ```sh
 cmake -S . -B build-sdl-skia-gl \
   -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7"
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 cmake --build build-sdl-skia-gl
 ./build-sdl-skia-gl/examples/demo/tc_demo
 ```

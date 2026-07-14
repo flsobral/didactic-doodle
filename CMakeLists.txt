@@ -128,6 +128,10 @@ if(TC_GRAPHICS STREQUAL "OPENGL")
     target_link_libraries(tc_runtime PRIVATE OpenGL::GL)
   endif()
 endif()
+if(APPLE AND TC_SKIA_ROOT)
+  # r4's Apple archives include Metal types in public Ganesh value types.
+  target_compile_definitions(tc_runtime PRIVATE SK_METAL=1)
+endif()
 
 add_executable(tc_demo examples/demo/demo_main.c examples/demo/demo_scene.c)
 target_link_libraries(tc_demo PRIVATE tc_runtime)
