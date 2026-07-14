@@ -102,18 +102,18 @@ To build the OpenGL ES variant instead, pass `-PtcAndroidGraphics=OPENGL` to the
 
 ## iOS simulator demo
 
-The UIKit demo is driven by `CADisplayLink` and shares the generic Skia canvas scene. The CPU path is the default; the OpenGL ES path is available for simulator validation, although OpenGL ES is deprecated by Apple and Metal remains the intended iOS GPU backend.
+The UIKit demo is driven by `CADisplayLink` and shares the generic Skia canvas scene. CPU is the default; OpenGL ES remains available for compatibility, while Metal is the native GPU path.
 
 ```sh
-cmake -S ios -B build-ios-sim-gl \
+cmake -S ios -B build-ios-sim-metal \
   -DCMAKE_OSX_SYSROOT=iphonesimulator \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=18.5 \
-  -DTC_IOS_GRAPHICS=OPENGL \
-  -DTC_SKIA_ROOT="$PWD/.cache/skia-ios-sim" \
+  -DTC_IOS_GRAPHICS=METAL \
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-ios-sim-r4" \
   -DTC_LIBPNG_ROOT="$PWD/.cache/libpng-ios-sim" \
   -DTC_ZLIB_NG_ROOT="$PWD/.cache/zlib-ng-ios-sim"
-cmake --build build-ios-sim-gl --parallel
+cmake --build build-ios-sim-metal --parallel
 ```
 
-Install and launch `build-ios-sim-gl/TCdemo.app` with `xcrun simctl install` and `xcrun simctl launch` for a booted arm64 simulator.
+Install and launch `build-ios-sim-metal/TCdemo.app` with `xcrun simctl install` and `xcrun simctl launch` for a booted arm64 simulator. Set `TC_IOS_GRAPHICS=CPU` or `OPENGL` to select the alternate paths.

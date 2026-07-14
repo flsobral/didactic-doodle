@@ -6,6 +6,7 @@
 #include "tc_internal.h"
 #include "demo_scene.h"
 #import <UIKit/UIKit.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 int tc_ios_cpu_context_create(void*, int, int, float, TcGraphicsContext**);
 int tc_ios_cpu_context_resize(TcGraphicsContext*, int, int, float);
@@ -17,6 +18,12 @@ int tc_ios_gl_context_resize(TcGraphicsContext*, int, int, float);
 void tc_ios_gl_context_present(TcGraphicsContext*);
 void tc_ios_gl_context_destroy(TcGraphicsContext*);
 void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_gl_context_present(context); }
+#elif TC_IOS_GRAPHICS_METAL
+int tc_ios_metal_context_create(void*, int, int, float, TcGraphicsContext**);
+int tc_ios_metal_context_resize(TcGraphicsContext*, int, int, float);
+void tc_ios_metal_context_present(TcGraphicsContext*);
+void tc_ios_metal_context_destroy(TcGraphicsContext*);
+void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_metal_context_present(context); }
 #else
 void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_context_present(context); }
 #endif
@@ -27,6 +34,8 @@ void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_contex
 + (Class)layerClass {
 #if TC_IOS_GRAPHICS_OPENGL
     return CAEAGLLayer.class;
+#elif TC_IOS_GRAPHICS_METAL
+    return CAMetalLayer.class;
 #else
     return CALayer.class;
 #endif
@@ -34,6 +43,8 @@ void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_contex
 - (instancetype)initWithFrame:(CGRect)frame { if ((self = [super initWithFrame:frame])) { self.contentScaleFactor = UIScreen.mainScreen.scale; self.opaque = YES;
 #if TC_IOS_GRAPHICS_OPENGL
     ((CAEAGLLayer*)self.layer).drawableProperties = @{kEAGLDrawablePropertyColorFormat: kEAGLColorFormatRGBA8, kEAGLDrawablePropertyRetainedBacking: @NO};
+#elif TC_IOS_GRAPHICS_METAL
+    ((CAMetalLayer*)self.layer).opaque = YES;
 #endif
 } return self; }
 - (void)startRuntimeIfReady {
@@ -41,6 +52,8 @@ void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_contex
     int w = (int)(self.bounds.size.width * self.contentScaleFactor), h = (int)(self.bounds.size.height * self.contentScaleFactor);
 #if TC_IOS_GRAPHICS_OPENGL
     int created = tc_ios_gl_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
+#elif TC_IOS_GRAPHICS_METAL
+    int created = tc_ios_metal_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
 #else
     int created = tc_ios_cpu_context_create((__bridge void*)self, w, h, self.contentScaleFactor, &graphics);
 #endif
@@ -52,11 +65,13 @@ void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_contex
 - (void)layoutSubviews { [super layoutSubviews]; [self startRuntimeIfReady]; if (!renderer) return; int w = (int)(self.bounds.size.width * self.contentScaleFactor), h = (int)(self.bounds.size.height * self.contentScaleFactor);
 #if TC_IOS_GRAPHICS_OPENGL
     tc_ios_gl_context_resize(graphics, w, h, self.contentScaleFactor);
+#elif TC_IOS_GRAPHICS_METAL
+    tc_ios_metal_context_resize(graphics, w, h, self.contentScaleFactor);
 #else
     tc_ios_cpu_context_resize(graphics, w, h, self.contentScaleFactor);
 #endif
     tc_renderer_resize(renderer, w, h, self.contentScaleFactor); TcEvent event = {.type = TC_EVENT_RESIZE}; event.data.resize.width = w; event.data.resize.height = h; event.data.resize.scale = self.contentScaleFactor; demo_scene_on_event(&scene, &event); }
-- (void)frame:(CADisplayLink*)link { demo_scene_on_update(&scene, link.targetTimestamp - link.timestamp); TcCanvas2D* canvas = tc_renderer_begin_frame(renderer); demo_scene_on_draw(&scene, canvas); tc_renderer_end_frame(renderer); }
+- (void)frame:(CADisplayLink*)link { demo_scene_on_update(&scene, link.targetTimestamp - link.timestamp); TcCanvas2D* canvas = tc_renderer_begin_frame(renderer); if (!canvas) return; demo_scene_on_draw(&scene, canvas); tc_renderer_end_frame(renderer); }
 - (void)drawRect:(CGRect)rect { (void)rect;
 #if !TC_IOS_GRAPHICS_OPENGL
     if (!graphics) return; CGColorSpaceRef colors = CGColorSpaceCreateDeviceRGB(); CGDataProviderRef data = CGDataProviderCreateWithData(NULL, graphics->pixels, (size_t)graphics->pitch * graphics->height, NULL); CGImageRef image = CGImageCreate(graphics->width, graphics->height, 8, 32, graphics->pitch, colors, kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast, data, NULL, false, kCGRenderingIntentDefault); CGContextRef context = UIGraphicsGetCurrentContext(); CGContextSaveGState(context); CGContextTranslateCTM(context, 0, CGRectGetHeight(self.bounds)); CGContextScaleCTM(context, 1, -1); CGContextDrawImage(context, CGRectMake(0, 0, CGRectGetWidth(self.bounds), CGRectGetHeight(self.bounds)), image); CGContextRestoreGState(context); CGImageRelease(image); CGDataProviderRelease(data); CGColorSpaceRelease(colors);
@@ -65,6 +80,8 @@ void tc_graphics_context_present(TcGraphicsContext* context) { tc_ios_cpu_contex
 - (void)dealloc { [displayLink invalidate]; tc_renderer_destroy(renderer);
 #if TC_IOS_GRAPHICS_OPENGL
     tc_ios_gl_context_destroy(graphics);
+#elif TC_IOS_GRAPHICS_METAL
+    tc_ios_metal_context_destroy(graphics);
 #else
     tc_ios_cpu_context_destroy(graphics);
 #endif
