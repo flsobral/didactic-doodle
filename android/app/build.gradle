@@ -6,19 +6,18 @@
 plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.totalcross.tcruntime'
+    namespace 'com.amalgam.magicdoodleboard.demo'
     compileSdk 35
     ndkVersion '28.2.13676358'
     defaultConfig {
-        applicationId 'com.totalcross.tcruntime'; minSdk 24; targetSdk 35; versionCode 1; versionName '0.1'
+        applicationId 'com.amalgam.magicdoodleboard.demo'; minSdk 24; targetSdk 35; versionCode 1; versionName '0.1'
         ndk { abiFilters 'arm64-v8a' }
         externalNativeBuild {
             cmake {
                 arguments.addAll([
-                    "-DTC_SKIA_ROOT=${providers.gradleProperty('tcSkiaRoot').orElse('').get()}",
-                    "-DTC_LIBPNG_ROOT=${providers.gradleProperty('tcLibpngRoot').orElse('').get()}",
-                    "-DTC_ZLIB_NG_ROOT=${providers.gradleProperty('tcZlibNgRoot').orElse('').get()}",
-                    "-DTC_ANDROID_GRAPHICS=${providers.gradleProperty('tcAndroidGraphics').orElse('CPU').get()}"
+                    "-DDOODLE_SKIA_ROOT=${providers.gradleProperty('doodleSkiaRoot').orElse('').get()}",
+                    "-DDOODLE_ANDROID_PNG_ROOT=${providers.gradleProperty('doodleAndroidPngRoot').orElse('').get()}",
+                    "-DDOODLE_ANDROID_ZLIB_ROOT=${providers.gradleProperty('doodleAndroidZlibRoot').orElse('').get()}"
                 ])
             }
         }

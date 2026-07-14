@@ -19,7 +19,8 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
 **Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
-**Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**. Board exposes
+**Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**, and
+**Board Android native + Magic CPU + Doodle Skia in an Android emulator**. Board exposes
 either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
 iOS native view; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
@@ -36,8 +37,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Vulkan, Web, Android, and the remaining Doodle providers beyond the
-SDL3 CPU/OpenGL/Metal and iOS CPU/OpenGL ES/Metal paths are declared migration targets, not working selections
+Vulkan, Web, Android OpenGL ES/Vulkan, and the remaining Doodle providers beyond the
+SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -81,6 +82,22 @@ For the OpenGL ES or Metal simulator variants, use
 directory such as `build/ios-opengl` or `build/ios-metal`. The native Board
 view uses a private `CAEAGLLayer` or `CAMetalLayer`; Magic owns the GPU context
 or Metal device, queue, drawable, and presentation.
+
+Run the Android CPU demo on an arm64 Android emulator with API 24 or newer:
+
+```sh
+cd android
+ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew :app:assembleDebug \
+  -PdoodleSkiaRoot="$PWD/../.cache/skia-android" \
+  -PdoodleAndroidPngRoot="$PWD/../.cache/libpng-android/libpng/android/arm64-v8a" \
+  -PdoodleAndroidZlibRoot="$PWD/../.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.amalgam.magicdoodleboard.demo/android.app.NativeActivity
+```
+
+The Android app has `minSdk 24`. Board keeps the NativeActivity, `ANativeWindow`,
+input conversion, and `AChoreographer` frame loop private; Magic CPU presents
+through the versioned Board CPU surface interface.
 
 The name is both a product metaphor and an architectural map:
 

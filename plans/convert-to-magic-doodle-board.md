@@ -19,12 +19,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
-- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, and the iOS native CPU/OpenGL ES/Metal view are complete, while Android, Web, GLFW, and winit remain.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, and iOS; OpenGL is complete for SDL3 macOS and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Vulkan and Web remain.
+- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, Android native CPU, and the iOS native CPU/OpenGL ES/Metal view are complete, while Web, GLFW, and winit remain.
+- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android OpenGL ES/Vulkan, Vulkan, and Web remain.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
-- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. iOS fullscreen-owned CPU hosting is complete; embedded and hybrid-overlay modes remain.
-- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The SDL3 and iOS demos now compose only Board, Magic, and Doodle public headers around `examples/common/magic_doodle_board_scene.c`; other entry points remain.
+- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Android NativeActivity and iOS fullscreen-owned CPU hosting are complete; embedded and hybrid-overlay modes remain.
+- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The SDL3, Android, and iOS demos now compose only Board, Magic, and Doodle public headers around `examples/common/magic_doodle_board_scene.c`; other entry points remain.
 - [ ] Replace old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; add compatibility validation and standalone layer builds.
 - [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
@@ -63,6 +63,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: A `CAMetalLayer` can be hosted by the reusable iOS Board view without adding UIKit or Metal declarations to the public ABI.
   Evidence: Board published the layer as an opaque value through the existing Metal surface capability; Magic created the device, queue, drawable, and presentation command buffer, and the arm64 simulator rendered the Skia scene.
+
+- Observation: `AChoreographer` is available from Android API 24, so a native Android Board host based on it cannot support a lower minimum SDK.
+  Evidence: the NDK marks `AChoreographer_getInstance` and `AChoreographer_postFrameCallback` unavailable below API 24. Board configuration now rejects lower API levels and the Gradle application declares `minSdk 24`.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -144,6 +147,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: Board remains the owner of the platform host layer, while Magic owns Metal device selection, command queue creation, drawable acquisition, and presentation. Doodle receives only the opaque `MagicMetalInterop` table, preserving the layer boundaries and portable public ABI.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Implement the initial Android host as a NativeActivity attachment that accepts the platform `android_app` only as an opaque `void *` in the public Board API.
+  Rationale: Board privately owns NativeActivity callbacks, `ANativeWindow` CPU presentation, input conversion, and the `AChoreographer` loop. Application composition remains limited to Board, Magic, and Doodle public headers while Android NDK declarations stay out of the portable ABI.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
@@ -207,6 +214,16 @@ The arm64 simulator demo was built, installed on iPhone 15 Pro, launched, and
 captured in `artifacts/final/ios-metal-simulator.png`. The iOS Board → Magic
 Metal → Doodle Skia packages also build independently and their installed
 packages configure a simulator consumer through `build/install-ios-metal`.
+
+2026-07-14: The Android native CPU milestone adds a Board NativeActivity host
+with private `ANativeWindow` CPU presentation, input conversion, resize and
+lifecycle events, and an `AChoreographer` scheduler. It requires Android API
+24 and keeps that requirement aligned with the Gradle `minSdk 24`. The arm64
+Android demo composes Board, Magic CPU, and Doodle Skia around the shared scene,
+was installed and launched on the Pixel 3a API 34 emulator, and was captured in
+`artifacts/final/android-cpu-emulator.png`. The Android Board → Magic CPU →
+Doodle Skia packages also build independently and their installed packages
+configure an arm64 Android consumer through `build/install-android-cpu`.
 
 Validation recorded on 2026-07-14:
 

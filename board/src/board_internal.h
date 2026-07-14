@@ -15,6 +15,9 @@ BoardResult board_headless_backend_init(BoardBackend *backend, const BoardBacken
 #if BOARD_BUILD_SDL3
 BoardResult board_sdl3_backend_init(BoardBackend *backend, const BoardBackendConfig *config);
 #endif
+#if BOARD_BUILD_ANDROID
+BoardResult board_android_backend_init(BoardBackend *backend, const BoardBackendConfig *config);
+#endif
 #if BOARD_BUILD_IOS
 #ifdef __cplusplus
 extern "C" {

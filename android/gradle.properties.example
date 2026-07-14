@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 # Copy values into ~/.gradle/gradle.properties or pass them with -P on Gradle's command line.
-tcSkiaRoot=/absolute/path/to/skia-android
-tcLibpngRoot=/absolute/path/to/libpng-android
-tcZlibNgRoot=/absolute/path/to/zlib-ng-android
+doodleSkiaRoot=/absolute/path/to/skia-android
+doodleAndroidPngRoot=/absolute/path/to/libpng/android/arm64-v8a
+doodleAndroidZlibRoot=/absolute/path/to/zlib-ng/android/arm64-v8a

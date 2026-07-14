@@ -15,3 +15,5 @@ iOS OpenGL ES demo: built for iphonesimulator/arm64, installed, launched, and ca
 iOS Board → Magic OpenGL → Doodle Skia packages: built independently through build/install-ios-opengl
 iOS Metal demo: built for iphonesimulator/arm64, installed, launched, and captured at artifacts/final/ios-metal-simulator.png
 iOS Board → Magic Metal → Doodle Skia packages: built independently and consumed through build/install-ios-metal
+Android CPU demo: built for arm64-v8a/API 24, installed, launched, and captured at artifacts/final/android-cpu-emulator.png
+Android Board → Magic CPU → Doodle Skia packages: built independently and consumed through build/install-android-cpu

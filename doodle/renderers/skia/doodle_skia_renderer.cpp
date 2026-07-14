@@ -11,12 +11,18 @@
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/gpu/gl/GrGLTypes.h"
+#if defined(SK_METAL)
 #include "include/gpu/mtl/GrMtlTypes.h"
+#endif
 #include <memory>
 #include <new>
 
 struct DoodleCanvas { SkCanvas *native; };
-struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl; sk_sp<GrDirectContext> metal; DoodleCanvas canvas; };
+struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl;
+#if defined(SK_METAL)
+  sk_sp<GrDirectContext> metal;
+#endif
+  DoodleCanvas canvas; };
 static SkColor4f skia_color(DoodleColor color) { return { color.r, color.g, color.b, color.a }; }
 static SkPaint skia_paint(DoodlePaint paint) { SkPaint result; result.setColor4f(skia_color(paint.color), nullptr); result.setStyle(paint.style == DOODLE_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); result.setStrokeWidth(paint.stroke_width); result.setAntiAlias(true); return result; }
 static DoodleResult skia_create(MagicContext *, const DoodleRendererConfig *, void **out_state) { DoodleSkiaState *state = new (std::nothrow) DoodleSkiaState{}; if (!state) return DOODLE_ERROR_OUT_OF_MEMORY; *out_state = state; return DOODLE_OK; }
@@ -31,8 +37,12 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
     if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
     if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)opengl.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)opengl.width, (int)opengl.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_METAL, MAGIC_ABI_VERSION, &metal, sizeof(metal)) == MAGIC_OK) {
+#if defined(SK_METAL)
     if (!state->metal) state->metal = GrDirectContext::MakeMetal(metal.device, metal.command_queue);
     if (state->metal) state->surface = SkSurface::MakeFromCAMetalLayer(state->metal.get(), metal.layer, kTopLeft_GrSurfaceOrigin, 1, kBGRA_8888_SkColorType, nullptr, nullptr, metal.drawable_slot);
+#else
+    return DOODLE_ERROR_UNAVAILABLE;
+#endif
   } else return DOODLE_ERROR_UNAVAILABLE;
   if (!state->surface) return DOODLE_ERROR_RENDERER;
   state->canvas.native = state->surface->getCanvas(); *out_canvas = &state->canvas; return DOODLE_OK;
