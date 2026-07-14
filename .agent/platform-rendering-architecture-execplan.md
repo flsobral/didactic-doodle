@@ -108,6 +108,9 @@ Record unexpected implementation facts here.
 - Observation: a macOS Metal drawable is not reliably available while the SDL window is being constructed.
   Evidence: `SkSurface::MakeFromCAMetalLayer` returned no surface during renderer creation, while an LLDB breakpoint at `tc_metal_context_set_drawable` was hit from the first `tc_renderer_begin_frame` after the SDL event loop started.
 
+- Observation: presenting a `CAMetalDrawable` directly can race the Skia command buffer and leave the macOS Metal window black.
+  Evidence: Skia's own Metal window context enqueues `presentDrawable:` in a new command buffer on the same queue after Skia flushes, rather than calling the drawable's immediate `present` method.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -199,13 +202,17 @@ Record unexpected implementation facts here.
   Rationale: SDL keeps windowing private, while Skia obtains and submits the native Metal drawable through a per-frame surface. The renderer delays drawable acquisition until `begin_frame`, so its public C API remains free of Metal types and the normal SDL scheduler controls frame timing.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Schedule each macOS Metal drawable's presentation in a command buffer from the queue shared with Skia.
+  Rationale: Metal command queues are ordered. Committing the presentation command after `flushAndSubmit` makes the drawable visible only after Skia's rendering commands, avoiding an otherwise-racy black frame.
+  Date/Author: 2026-07-13 / Codex.
+
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.
   Rationale: native CPU surfaces vary by backend. Keeping this implementation detail private prevents platform types from leaking into public APIs and avoids assuming Skia's N32 format matches every destination.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU and an arm64 simulator OpenGL ES path; the latter displayed the animated Skia demo through its `CAEAGLLayer` framebuffer.
+The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Its presentation now follows Skia's ordered command-queue pattern. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU and an arm64 simulator OpenGL ES path; the latter displayed the animated Skia demo through its `CAEAGLLayer` framebuffer.
 
 Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 

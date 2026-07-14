@@ -61,7 +61,10 @@ void tc_graphics_context_resize(TcGraphicsContext* context, int width, int heigh
 void tc_graphics_context_present(TcGraphicsContext* context) {
     TcMetalContext* metal = tc_metal(context);
     if (!metal || !metal->drawable) return;
-    [metal->drawable present];
+    /* Queue presentation after Skia's submitted work on the same Metal queue. */
+    id<MTLCommandBuffer> present = [metal->queue commandBuffer];
+    [present presentDrawable:metal->drawable];
+    [present commit];
     [metal->drawable release];
     metal->drawable = nil;
 }
