@@ -114,8 +114,11 @@ Record unexpected implementation facts here.
 - Observation: the r4 macOS archive enables both Ganesh OpenGL and Metal, even when the application selects only Metal.
   Evidence: its published macOS arm64 build manifest sets both `skia_use_gl=true` and `skia_use_metal=true`; those backend macros alter public Ganesh value-type layouts and therefore must be defined together by consumers.
 
-- Observation: `MakeFromCAMetalLayer` transfers a retained drawable to its output parameter.
-  Evidence: Skia's own non-ARC Metal window context stores that handle directly and releases it once after queuing presentation. Retaining it again leaks every drawable and exhausts the layer's drawable pool after a few frames.
+- Observation: `MakeFromCAMetalLayer` acquires and retains its drawable lazily, when Skia first materializes the surface during drawing or flush.
+  Evidence: its lazy-proxy callback calls `nextDrawable` and writes the retained handle only at materialization time. The output slot must remain valid through `on_draw` and `flush`; reading it in `begin_frame` yields null and prevents rendering.
+
+- Observation: the pinned Skia Metal implementation cannot create a render pipeline with a raster sample count of zero.
+  Evidence: the Metal runtime reported `Error creating pipeline: rasterSampleCount (0) is not supported by device` once the demo reached the presentation callback. Passing one creates a valid single-sample, non-MSAA render target.
 
 ## Decision Log
 
@@ -212,8 +215,12 @@ Record unexpected implementation facts here.
   Rationale: Metal command queues are ordered. Committing the presentation command after `flushAndSubmit` makes the drawable visible only after Skia's rendering commands, avoiding an otherwise-racy black frame.
   Date/Author: 2026-07-13 / Codex.
 
-- Decision: Transfer the drawable ownership returned by `MakeFromCAMetalLayer` into the private Metal context.
-  Rationale: The context releases that retained reference exactly once after queuing presentation, so every frame returns its drawable to `CAMetalLayer` for reuse.
+- Decision: Give `MakeFromCAMetalLayer` the private Metal context's drawable slot directly.
+  Rationale: Skia fills the slot once it materializes the surface during frame submission. The graphics context then queues presentation and releases that retained reference exactly once, returning every drawable to `CAMetalLayer` for reuse.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Request one sample for the macOS Skia Metal surface until configurable MSAA is introduced.
+  Rationale: One is Metal's valid single-sample value for this Skia build; zero fails pipeline creation despite the older public API describing it as disabling MSAA.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.

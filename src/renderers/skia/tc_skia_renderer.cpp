@@ -57,12 +57,11 @@ static sk_sp<SkSurface> gl_surface(TcSkiaRenderer* state, TcGraphicsContext* con
 extern "C" int tc_metal_context_retain_handles(TcGraphicsContext*, void**, void**);
 extern "C" void tc_metal_context_release_handles(void*, void*);
 extern "C" void* tc_metal_context_get_layer(TcGraphicsContext*);
-extern "C" int tc_metal_context_set_drawable(TcGraphicsContext*, void*);
+extern "C" const void** tc_metal_context_get_drawable_slot(TcGraphicsContext*);
 static sk_sp<SkSurface> metal_surface(TcSkiaRenderer* state, TcGraphicsContext* context) {
-    GrMTLHandle drawable = nullptr;
-    sk_sp<SkSurface> surface = SkSurface::MakeFromCAMetalLayer(state->metal_context.get(), tc_metal_context_get_layer(context), kTopLeft_GrSurfaceOrigin, 0, kBGRA_8888_SkColorType, nullptr, nullptr, &drawable);
-    if (!surface || tc_metal_context_set_drawable(context, (void*)drawable) != TC_OK) return nullptr;
-    return surface;
+    const void** drawable_slot = tc_metal_context_get_drawable_slot(context);
+    if (!drawable_slot) return nullptr;
+    return SkSurface::MakeFromCAMetalLayer(state->metal_context.get(), tc_metal_context_get_layer(context), kTopLeft_GrSurfaceOrigin, 1, kBGRA_8888_SkColorType, nullptr, nullptr, drawable_slot);
 }
 #endif
 
