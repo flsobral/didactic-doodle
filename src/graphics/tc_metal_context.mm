@@ -84,4 +84,11 @@ extern "C" int tc_metal_context_retain_handles(TcGraphicsContext* context, void*
 }
 extern "C" void tc_metal_context_release_handles(void* device, void* queue) { [(id<MTLCommandQueue>)queue release]; [(id<MTLDevice>)device release]; }
 extern "C" void* tc_metal_context_get_layer(TcGraphicsContext* context) { TcMetalContext* metal = tc_metal(context); return metal ? metal->layer : NULL; }
-extern "C" int tc_metal_context_set_drawable(TcGraphicsContext* context, void* drawable) { TcMetalContext* metal = tc_metal(context); if (!metal || !drawable) return TC_ERROR_INVALID_ARGUMENT; [metal->drawable release]; metal->drawable = [(id<CAMetalDrawable>)drawable retain]; return TC_OK; }
+extern "C" int tc_metal_context_set_drawable(TcGraphicsContext* context, void* drawable) {
+    TcMetalContext* metal = tc_metal(context);
+    if (!metal || !drawable) return TC_ERROR_INVALID_ARGUMENT;
+    [metal->drawable release];
+    /* MakeFromCAMetalLayer transfers the output drawable's retained reference. */
+    metal->drawable = (id<CAMetalDrawable>)drawable;
+    return TC_OK;
+}

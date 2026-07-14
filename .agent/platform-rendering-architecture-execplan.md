@@ -114,6 +114,9 @@ Record unexpected implementation facts here.
 - Observation: the r4 macOS archive enables both Ganesh OpenGL and Metal, even when the application selects only Metal.
   Evidence: its published macOS arm64 build manifest sets both `skia_use_gl=true` and `skia_use_metal=true`; those backend macros alter public Ganesh value-type layouts and therefore must be defined together by consumers.
 
+- Observation: `MakeFromCAMetalLayer` transfers a retained drawable to its output parameter.
+  Evidence: Skia's own non-ARC Metal window context stores that handle directly and releases it once after queuing presentation. Retaining it again leaks every drawable and exhausts the layer's drawable pool after a few frames.
+
 ## Decision Log
 
 - Decision: SDL3 + Skia is the default implementation path.
@@ -207,6 +210,10 @@ Record unexpected implementation facts here.
 
 - Decision: Schedule each macOS Metal drawable's presentation in a command buffer from the queue shared with Skia.
   Rationale: Metal command queues are ordered. Committing the presentation command after `flushAndSubmit` makes the drawable visible only after Skia's rendering commands, avoiding an otherwise-racy black frame.
+  Date/Author: 2026-07-13 / Codex.
+
+- Decision: Transfer the drawable ownership returned by `MakeFromCAMetalLayer` into the private Metal context.
+  Rationale: The context releases that retained reference exactly once after queuing presentation, so every frame returns its drawable to `CAMetalLayer` for reuse.
   Date/Author: 2026-07-13 / Codex.
 
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.
