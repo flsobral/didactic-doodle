@@ -13,6 +13,8 @@ int main(void) {
     DemoScene scene; demo_scene_init(&scene, backend_config.width, backend_config.height);
 #if TC_DEMO_GRAPHICS_OPENGL
     const TcGraphicsApi graphics_api = TC_GRAPHICS_OPENGL; const char* graphics_name = "opengl";
+#elif TC_DEMO_GRAPHICS_METAL
+    const TcGraphicsApi graphics_api = TC_GRAPHICS_METAL; const char* graphics_name = "metal";
 #else
     const TcGraphicsApi graphics_api = TC_GRAPHICS_CPU; const char* graphics_name = "cpu";
 #endif

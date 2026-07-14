@@ -10,7 +10,7 @@ A small, C-first application runtime that keeps platform, scheduler, graphics, r
 
 ## Current status
 
-The public C API, event/frame runtime, SDL3 event adapter, CPU and OpenGL graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU and OpenGL ES 3; iOS UIKit supports CPU and an OpenGL ES simulator path. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, Metal, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
+The public C API, event/frame runtime, SDL3 event adapter, CPU, OpenGL, and macOS Metal graphics contexts, Skia adapters, and generic-canvas demo are implemented. Android-native supports CPU and OpenGL ES 3; iOS UIKit supports CPU and an OpenGL ES simulator path. The default build requires externally supplied SDL3 and Skia CMake packages; neither dependency is vendored. Web, GLFW, other renderers, Vulkan, winit, and Vello are intentional stubs and CMake explains when one is selected.
 
 ## Build the CPU demo
 
@@ -44,11 +44,23 @@ cmake --build build-sdl-skia-gl
 ./build-sdl-skia-gl/examples/demo/tc_demo
 ```
 
+## Build the Metal demo (macOS)
+
+The r4 macOS archive includes Ganesh Metal support. The same demo uses SDL's private `CAMetalLayer` and acquires a Skia surface per frame:
+
+```sh
+cmake -S . -B build-sdl-skia-metal \
+  -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=METAL \
+  -DTC_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
+cmake --build build-sdl-skia-metal
+./build-sdl-skia-metal/examples/demo/tc_demo
+```
+
 ## Planned configurations
 
 `TC_PLATFORM` accepts `DESKTOP`, `ANDROID`, `IOS`, and `WEB`; `TC_BACKEND` accepts `SDL`, `ANDROID_NATIVE`, `IOS_NATIVE`, `GLFW`, and `WINIT`; `TC_GRAPHICS` accepts `CPU`, `OPENGL`, `METAL`, and `VULKAN`; and `TC_RENDERER` accepts `SKIA`, `NANOVG`, `BLEND2D`, and `VELLO`.
 
-`DESKTOP + SDL + CPU + SKIA` and `DESKTOP + SDL + OPENGL + SKIA` are implemented. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. The Emscripten demo remains the next milestone.
+`DESKTOP + SDL + CPU + SKIA`, `DESKTOP + SDL + OPENGL + SKIA`, and macOS `DESKTOP + SDL + METAL + SKIA` are implemented. The other selections fail clearly at CMake configuration time, rather than compiling incomplete adapters. The Emscripten demo remains the next milestone.
 
 The private Android-native adapter translates lifecycle and pointer events and requires Android API 24 or newer. It uses `AChoreographer` directly. The default APK uses the CPU raster path; the same shared demo can be built with EGL/OpenGL ES 3 and Skia Ganesh when the selected Skia archive exports GL support.
 

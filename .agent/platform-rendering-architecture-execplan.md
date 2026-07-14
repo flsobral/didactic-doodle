@@ -40,10 +40,11 @@ The architecture must already be prepared for Android native, iOS native, GLFW, 
 - [x] Build the iOS UIKit demo bundle for the arm64 simulator with CPU and OpenGL ES graphics paths.
 - [x] Implement OpenGL graphics context.
 - [x] Implement SDL3 + Skia OpenGL demo path.
+- [x] Implement the macOS SDL3 + Skia Metal demo path.
 - [x] Implement demo application using only generic canvas/event/runtime APIs.
 - [ ] Add Web/Emscripten demo target.
 - [x] Add GitHub Actions workflow scaffolds for Linux, Windows, macOS, Android, iOS, and Web.
-- [x] Add clear stubs for Android native, iOS native, GLFW, winit, NanoVG, Blend2D, Vello, Metal, and Vulkan where not yet implemented.
+- [x] Add clear stubs for Android native, iOS native, GLFW, winit, NanoVG, Blend2D, Vello, and Vulkan where not yet implemented.
 - [x] Document supported and unsupported combinations.
 
 ## Surprises & Discoveries
@@ -103,6 +104,9 @@ Record unexpected implementation facts here.
 
 - Observation: r4's public Ganesh value types have feature-dependent layouts, so consumers must define every GPU backend compiled into their platform archive.
   Evidence: the iOS OpenGL simulator app built without `SK_METAL` aborted in `gl_surface` with a stack-protector failure. Defining `SK_METAL=1` for Apple and `SK_VULKAN=1` for the Android archive aligns consumer headers with the r4 library configuration.
+
+- Observation: a macOS Metal drawable is not reliably available while the SDL window is being constructed.
+  Evidence: `SkSurface::MakeFromCAMetalLayer` returned no surface during renderer creation, while an LLDB breakpoint at `tc_metal_context_set_drawable` was hit from the first `tc_renderer_begin_frame` after the SDL event loop started.
 
 ## Decision Log
 
@@ -191,13 +195,17 @@ Record unexpected implementation facts here.
   Rationale: Skia's public backend surface types include feature-specific members. Matching the static library's feature set prevents ABI corruption while retaining build-time selection of CPU, OpenGL, Metal, and Vulkan paths.
   Date/Author: 2026-07-13 / Codex.
 
+- Decision: Implement the macOS Metal path with SDL's `CAMetalLayer` view and Skia's `MakeFromCAMetalLayer` surface factory.
+  Rationale: SDL keeps windowing private, while Skia obtains and submits the native Metal drawable through a per-frame surface. The renderer delays drawable acquisition until `begin_frame`, so its public C API remains free of Metal types and the normal SDL scheduler controls frame timing.
+  Date/Author: 2026-07-13 / Codex.
+
 - Decision: Carry the CPU target's private RGBA/BGRA format through the graphics context and construct each Skia raster surface explicitly from it.
   Rationale: native CPU surfaces vary by backend. Keeping this implementation detail private prevents platform types from leaking into public APIs and avoids assuming Skia's N32 format matches every destination.
   Date/Author: 2026-07-13 / Codex.
 
 ## Outcomes & Retrospective
 
-The SDL3 + Skia CPU and SDL3 + Skia OpenGL desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for both paths; the OpenGL demo created an SDL OpenGL 3.2 core context and completed its frame loop. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU and an arm64 simulator OpenGL ES path; the latter displayed the animated Skia demo through its `CAEAGLLayer` framebuffer.
+The SDL3 + Skia CPU, SDL3 + Skia OpenGL, and macOS SDL3 + Skia Metal desktop vertical slices are implemented and validated locally. A 2026-07-13 build using the pinned TotalCross Skia release compiled successfully for all three paths; the Metal demo created an SDL `CAMetalLayer`, initialized Ganesh Metal, and acquired its first drawable from the scheduled frame callback. Public headers passed standalone C11 syntax validation. The Android NativeActivity supports both CPU and EGL/OpenGL ES 3 Skia paths; the arm64 API 34 emulator displayed the OpenGL demo correctly. The iOS UIKit demo supports CPU and an arm64 simulator OpenGL ES path; the latter displayed the animated Skia demo through its `CAEAGLLayer` framebuffer.
 
 Web remains the next execution milestone. Its CMake selection deliberately fails clearly while its adapter is incomplete, avoiding an apparently successful but unusable build.
 

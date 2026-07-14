@@ -10,11 +10,16 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkSurface.h"
-#if TC_BUILD_GRAPHICS_OPENGL
+#if TC_BUILD_GRAPHICS_OPENGL || TC_BUILD_GRAPHICS_METAL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
+#endif
+#if TC_BUILD_GRAPHICS_OPENGL
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/gpu/gl/GrGLTypes.h"
+#endif
+#if TC_BUILD_GRAPHICS_METAL
+#include "include/gpu/mtl/GrMtlTypes.h"
 #endif
 #include <memory>
 #include <new>
@@ -23,6 +28,9 @@ struct TcSkiaRenderer {
     sk_sp<SkSurface> surface;
 #if TC_BUILD_GRAPHICS_OPENGL
     sk_sp<GrDirectContext> gl_context;
+#endif
+#if TC_BUILD_GRAPHICS_METAL
+    sk_sp<GrDirectContext> metal_context;
 #endif
     TcCanvas2D canvas;
 };
@@ -45,6 +53,18 @@ static sk_sp<SkSurface> gl_surface(TcSkiaRenderer* state, TcGraphicsContext* con
     return SkSurface::MakeFromBackendRenderTarget(state->gl_context.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr);
 }
 #endif
+#if TC_BUILD_GRAPHICS_METAL
+extern "C" int tc_metal_context_retain_handles(TcGraphicsContext*, void**, void**);
+extern "C" void tc_metal_context_release_handles(void*, void*);
+extern "C" void* tc_metal_context_get_layer(TcGraphicsContext*);
+extern "C" int tc_metal_context_set_drawable(TcGraphicsContext*, void*);
+static sk_sp<SkSurface> metal_surface(TcSkiaRenderer* state, TcGraphicsContext* context) {
+    GrMTLHandle drawable = nullptr;
+    sk_sp<SkSurface> surface = SkSurface::MakeFromCAMetalLayer(state->metal_context.get(), tc_metal_context_get_layer(context), kTopLeft_GrSurfaceOrigin, 0, kBGRA_8888_SkColorType, nullptr, nullptr, &drawable);
+    if (!surface || tc_metal_context_set_drawable(context, (void*)drawable) != TC_OK) return nullptr;
+    return surface;
+}
+#endif
 
 extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D** out_renderer) {
     if (!context || !out_renderer) return TC_ERROR_INVALID_ARGUMENT;
@@ -61,7 +81,20 @@ extern "C" int tc_skia_renderer_create(TcGraphicsContext* context, TcRenderer2D*
         if (state->gl_context) state->surface = gl_surface(state, context, context->width, context->height);
     }
 #endif
-    if (!state->surface) { delete renderer; delete state; return TC_ERROR_RENDERER; }
+#if TC_BUILD_GRAPHICS_METAL
+    else if (context->api == TC_GRAPHICS_METAL && context->surface) {
+        void* device = nullptr; void* queue = nullptr;
+        if (tc_metal_context_retain_handles(context, &device, &queue) == TC_OK) {
+            state->metal_context = GrDirectContext::MakeMetal(device, queue);
+            if (!state->metal_context) tc_metal_context_release_handles(device, queue);
+        }
+    }
+#endif
+    if (!state->surface
+#if TC_BUILD_GRAPHICS_METAL
+        && !(context->api == TC_GRAPHICS_METAL && state->metal_context)
+#endif
+    ) { delete renderer; delete state; return TC_ERROR_RENDERER; }
     state->canvas.implementation = state; renderer->context = context; renderer->implementation = state; renderer->canvas = &state->canvas; *out_renderer = renderer;
     return TC_OK;
 }
@@ -74,10 +107,24 @@ extern "C" int tc_renderer_resize(TcRenderer2D* renderer, int width, int height,
 #if TC_BUILD_GRAPHICS_OPENGL
     else if (context->api == TC_GRAPHICS_OPENGL && state->gl_context) state->surface = gl_surface(state, context, width, height);
 #endif
+#if TC_BUILD_GRAPHICS_METAL
+    else if (context->api == TC_GRAPHICS_METAL && state->metal_context) state->surface.reset();
+#endif
     else return TC_ERROR_UNAVAILABLE;
-    return state->surface ? TC_OK : TC_ERROR_RENDERER;
+    return state->surface
+#if TC_BUILD_GRAPHICS_METAL
+        || (context->api == TC_GRAPHICS_METAL && state->metal_context)
+#endif
+        ? TC_OK : TC_ERROR_RENDERER;
 }
-extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) { return renderer ? renderer->canvas : nullptr; }
+extern "C" TcCanvas2D* tc_renderer_begin_frame(TcRenderer2D* renderer) {
+    if (!renderer) return nullptr;
+    TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation);
+#if TC_BUILD_GRAPHICS_METAL
+    if (renderer->context && renderer->context->api == TC_GRAPHICS_METAL && state && state->metal_context) state->surface = metal_surface(state, renderer->context);
+#endif
+    return state && state->surface ? renderer->canvas : nullptr;
+}
 extern "C" int tc_renderer_end_frame(TcRenderer2D* renderer) { if (!renderer) return TC_ERROR_INVALID_ARGUMENT; TcSkiaRenderer* state = static_cast<TcSkiaRenderer*>(renderer->implementation); if (!state || !state->surface) return TC_ERROR_RENDERER; state->surface->flushAndSubmit(); tc_graphics_context_present(renderer->context); return TC_OK; }
 extern "C" void tc_renderer_destroy(TcRenderer2D* renderer) { if (!renderer) return; delete static_cast<TcSkiaRenderer*>(renderer->implementation); delete renderer; }
 
