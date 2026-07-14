@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: copyright
+
+on: [push, pull_request]
+
+jobs:
+  validate-copyright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate copyright headers
+        run: python3 scripts/check_copyright.py
+      - name: Test copyright validator
+        run: python3 scripts/test_check_copyright.py

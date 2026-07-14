@@ -6,6 +6,12 @@ Created and maintained by [Fabio Sobral](https://github.com/flsobral).
 
 Copyright © 2026 Amalgam Solucoes em TI Ltda.
 
+## License and contributions
+
+This project is licensed under LGPL-2.1-only; see [LICENSE](LICENSE). See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the required SPDX headers and local
+validation command.
+
 A small, C-first application runtime that keeps platform, scheduler, graphics, renderer, and canvas APIs independent. The initial implementation targets are SDL3 + Skia CPU and SDL3 + Skia OpenGL. Application code, including the demo, never includes SDL or Skia headers.
 
 ## Current status
