@@ -11,3 +11,5 @@ Magic Metal standalone tests: 100% passed against installed Board
 Doodle Skia standalone tests: 100% passed against installed Magic Metal
 iOS simulator CPU demo: built for iphonesimulator/arm64, installed, launched, and captured at artifacts/final/ios-cpu-simulator.png
 iOS Board → Magic CPU → Doodle Skia packages: built independently and consumed from build/install-ios
+iOS OpenGL ES demo: built for iphonesimulator/arm64, installed, launched, and captured at artifacts/final/ios-opengl-simulator.png
+iOS Board → Magic OpenGL → Doodle Skia packages: built independently through build/install-ios-opengl

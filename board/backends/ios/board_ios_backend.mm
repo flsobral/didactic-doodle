@@ -3,8 +3,21 @@
 #include "../../src/board_internal.h"
 #include <board/board_ios.h>
 #import <UIKit/UIKit.h>
+#if BOARD_BUILD_IOS_OPENGL
+#import <QuartzCore/CAEAGLLayer.h>
+#import <OpenGLES/EAGL.h>
+#import <OpenGLES/ES3/gl.h>
+#endif
 
-typedef struct BoardIosState { BoardBackend *backend; void *view; } BoardIosState;
+typedef struct BoardIosState { BoardBackend *backend; void *view;
+#if BOARD_BUILD_IOS_OPENGL
+    void *active_gl;
+#endif
+} BoardIosState;
+#if BOARD_BUILD_IOS_OPENGL
+typedef struct BoardIosOpenGLContext { void *eagl; GLuint framebuffer, colorbuffer; uint32_t width, height; float scale; } BoardIosOpenGLContext;
+static BoardResult board_ios_gl_rebuild(BoardIosState *state, BoardIosOpenGLContext *gl, uint32_t width, uint32_t height, float scale);
+#endif
 
 static uint64_t board_ios_timestamp(CFTimeInterval seconds) {
     return (uint64_t)(seconds * 1000000000.0);
@@ -22,6 +35,9 @@ static BoardResult board_ios_resize(BoardBackend *backend, uint32_t width, uint3
     backend->height = height;
     backend->stride = width * 4u;
     backend->scale = scale > 0 ? scale : 1.0f;
+#if BOARD_BUILD_IOS_OPENGL
+    { BoardIosState *state = (BoardIosState *)backend->implementation; if (state && state->active_gl) { BoardResult result = board_ios_gl_rebuild(state, (BoardIosOpenGLContext *)state->active_gl, width, height, backend->scale); if (result != BOARD_OK) return result; } }
+#endif
     event.timestamp_ns = board_ios_timestamp(CACurrentMediaTime());
     event.data.resize.width = width;
     event.data.resize.height = height;
@@ -53,6 +69,13 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 @end
 
 @implementation BoardIosView
++ (Class)layerClass {
+#if BOARD_BUILD_IOS_OPENGL
+    return CAEAGLLayer.class;
+#else
+    return CALayer.class;
+#endif
+}
 - (instancetype)initWithBackend:(BoardBackend *)backend frame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
@@ -60,6 +83,10 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
         self.opaque = YES;
         self.contentScaleFactor = UIScreen.mainScreen.scale;
         self.multipleTouchEnabled = YES;
+#if BOARD_BUILD_IOS_OPENGL
+        ((CAEAGLLayer *)self.layer).opaque = YES;
+        ((CAEAGLLayer *)self.layer).drawableProperties = @{kEAGLDrawablePropertyColorFormat: kEAGLColorFormatRGBA8, kEAGLDrawablePropertyRetainedBacking: @NO};
+#endif
     }
     return self;
 }
@@ -98,6 +125,10 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; for (UITouch *touch in touches) [self emitTouch:touch type:BOARD_EVENT_POINTER_UP]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { (void)event; for (UITouch *touch in touches) [self emitTouch:touch type:BOARD_EVENT_POINTER_CANCEL]; }
 - (void)drawRect:(CGRect)rect {
+#if BOARD_BUILD_IOS_OPENGL
+    (void)rect;
+    return;
+#else
     BoardBackend *backend = _board_backend;
     CGColorSpaceRef color_space;
     CGDataProviderRef provider;
@@ -117,8 +148,70 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
     CGImageRelease(image);
     CGDataProviderRelease(provider);
     CGColorSpaceRelease(color_space);
+#endif
 }
 @end
+
+#if BOARD_BUILD_IOS_OPENGL
+static EAGLContext *board_ios_gl_eagl(BoardIosOpenGLContext *gl) { return (__bridge EAGLContext *)gl->eagl; }
+static BoardResult board_ios_gl_rebuild(BoardIosState *state, BoardIosOpenGLContext *gl, uint32_t width, uint32_t height, float scale) {
+    EAGLContext *eagl = board_ios_gl_eagl(gl);
+    CAEAGLLayer *layer = (CAEAGLLayer *)((__bridge BoardIosView *)state->view).layer;
+    GLint drawable_width = 0, drawable_height = 0;
+    if (![EAGLContext setCurrentContext:eagl]) return BOARD_ERROR_PLATFORM;
+    layer.contentsScale = scale;
+    if (gl->framebuffer) glDeleteFramebuffers(1, &gl->framebuffer);
+    if (gl->colorbuffer) glDeleteRenderbuffers(1, &gl->colorbuffer);
+    glGenFramebuffers(1, &gl->framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gl->framebuffer);
+    glGenRenderbuffers(1, &gl->colorbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, gl->colorbuffer);
+    if (![eagl renderbufferStorage:GL_RENDERBUFFER fromDrawable:layer]) return BOARD_ERROR_PLATFORM;
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, gl->colorbuffer);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) return BOARD_ERROR_PLATFORM;
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &drawable_width);
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &drawable_height);
+    gl->width = drawable_width > 0 ? (uint32_t)drawable_width : width;
+    gl->height = drawable_height > 0 ? (uint32_t)drawable_height : height;
+    gl->scale = scale;
+    state->backend->width = gl->width;
+    state->backend->height = gl->height;
+    state->backend->scale = scale;
+    glViewport(0, 0, gl->width, gl->height);
+    return BOARD_OK;
+}
+static BoardResult board_ios_gl_create(void *data, void **out_context) {
+    BoardIosState *state = (BoardIosState *)data;
+    BoardIosOpenGLContext *gl;
+    EAGLContext *eagl;
+    if (!state || !out_context || state->active_gl) return BOARD_ERROR_INVALID_ARGUMENT;
+    gl = (BoardIosOpenGLContext *)calloc(1, sizeof(*gl));
+    if (!gl) return BOARD_ERROR_OUT_OF_MEMORY;
+    eagl = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    if (!eagl) { free(gl); return BOARD_ERROR_UNAVAILABLE; }
+    gl->eagl = (void *)CFBridgingRetain(eagl);
+    state->active_gl = gl;
+    if (board_ios_gl_rebuild(state, gl, state->backend->width, state->backend->height, state->backend->scale) != BOARD_OK) { CFBridgingRelease(gl->eagl); state->active_gl = NULL; free(gl); return BOARD_ERROR_PLATFORM; }
+    *out_context = gl;
+    return BOARD_OK;
+}
+static void board_ios_gl_destroy(void *data, void *context) {
+    BoardIosState *state = (BoardIosState *)data;
+    BoardIosOpenGLContext *gl = (BoardIosOpenGLContext *)context;
+    if (!gl) return;
+    [EAGLContext setCurrentContext:board_ios_gl_eagl(gl)];
+    if (gl->framebuffer) glDeleteFramebuffers(1, &gl->framebuffer);
+    if (gl->colorbuffer) glDeleteRenderbuffers(1, &gl->colorbuffer);
+    [EAGLContext setCurrentContext:nil];
+    CFBridgingRelease(gl->eagl);
+    if (state && state->active_gl == gl) state->active_gl = NULL;
+    free(gl);
+}
+static BoardResult board_ios_gl_make_current(void *data, void *context) { BoardIosState *state = (BoardIosState *)data; BoardIosOpenGLContext *gl = (BoardIosOpenGLContext *)context; if (!state || !gl || state->active_gl != gl) return BOARD_ERROR_INVALID_ARGUMENT; return [EAGLContext setCurrentContext:board_ios_gl_eagl(gl)] ? BOARD_OK : BOARD_ERROR_PLATFORM; }
+static void *board_ios_gl_get_proc(void *data, const char *name) { (void)data; (void)name; return NULL; }
+static BoardResult board_ios_gl_drawable_size(void *data, uint32_t *width, uint32_t *height, float *scale) { BoardIosState *state = (BoardIosState *)data; BoardIosOpenGLContext *gl = state ? (BoardIosOpenGLContext *)state->active_gl : NULL; if (!gl || !width || !height || !scale) return BOARD_ERROR_INVALID_ARGUMENT; *width = gl->width; *height = gl->height; *scale = gl->scale; return BOARD_OK; }
+static BoardResult board_ios_gl_swap(void *data) { BoardIosState *state = (BoardIosState *)data; BoardIosOpenGLContext *gl = state ? (BoardIosOpenGLContext *)state->active_gl : NULL; if (!gl || ![EAGLContext setCurrentContext:board_ios_gl_eagl(gl)]) return BOARD_ERROR_PLATFORM; glBindRenderbuffer(GL_RENDERBUFFER, gl->colorbuffer); return [board_ios_gl_eagl(gl) presentRenderbuffer:GL_RENDERBUFFER] ? BOARD_OK : BOARD_ERROR_PLATFORM; }
+#endif
 
 static BoardResult board_ios_present(void *data) {
     BoardIosState *state = (BoardIosState *)data;
@@ -135,6 +228,9 @@ static BoardResult board_ios_start(BoardBackend *backend) {
 static void board_ios_dispose(BoardBackend *backend) {
     BoardIosState *state = backend ? (BoardIosState *)backend->implementation : NULL;
     if (!state) return;
+#if BOARD_BUILD_IOS_OPENGL
+    if (state->active_gl) board_ios_gl_destroy(state, state->active_gl);
+#endif
     [(__bridge BoardIosView *)state->view stopFrames];
     CFBridgingRelease(state->view);
     free(state);
@@ -161,6 +257,9 @@ extern "C" BoardResult board_ios_backend_init(BoardBackend *backend, const Board
     state->view = (void *)CFBridgingRetain(view);
     backend->implementation = state;
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_ios_map, board_ios_present};
+#if BOARD_BUILD_IOS_OPENGL
+    backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_ios_gl_create, board_ios_gl_destroy, board_ios_gl_make_current, board_ios_gl_get_proc, board_ios_gl_drawable_size, board_ios_gl_swap};
+#endif
     backend->start = board_ios_start;
     backend->dispose = board_ios_dispose;
     return BOARD_OK;

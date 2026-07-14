@@ -40,7 +40,11 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
 @implementation MagicDoodleBoardViewController
 - (void)viewDidLoad {
     BoardBackendConfig backend_config;
+#if MDB_IOS_OPENGL
+    MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_OPENGL, 1};
+#else
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_CPU, 1};
+#endif
     DoodleRendererConfig renderer_config = {sizeof(DoodleRendererConfig), DOODLE_ABI_VERSION, 0};
     BoardAppCallbacks callbacks = {sizeof(BoardAppCallbacks), BOARD_ABI_VERSION, NULL, ios_demo_event, ios_demo_update, ios_demo_frame, NULL};
     BoardAppConfig app_config;

@@ -3,4 +3,5 @@ BOARD_BACKEND=SDL3 + MAGIC_BACKEND=CPU + DOODLE_RENDERER=SKIA on macOS: demo bui
 BOARD_BACKEND=SDL3 + MAGIC_BACKEND=OPENGL + DOODLE_RENDERER=SKIA on macOS: demo renders three frames and exits 0
 BOARD_BACKEND=SDL3 + MAGIC_BACKEND=METAL + DOODLE_RENDERER=SKIA on macOS: demo renders three frames and exits 0
 BOARD_BACKEND=IOS_NATIVE + MAGIC_BACKEND=CPU + DOODLE_RENDERER=SKIA in iOS simulator: app installs, launches, and renders the shared scene
+BOARD_BACKEND=IOS_NATIVE + MAGIC_BACKEND=OPENGL + DOODLE_RENDERER=SKIA in iOS simulator: app installs, launches, and renders the shared scene through OpenGL ES
 DOODLE_RENDERER=VELLO: configuration fails clearly as unimplemented
