@@ -19,12 +19,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core.
-- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; add the headless backend.
+- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless and SDL3 CPU hosting are complete, while mobile, Web, GLFW, and winit remain.
 - [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for the Headless path; GPU and platform-specific implementations remain to be moved.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views.
-- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets.
+- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The macOS SDL3 CPU + Skia demo now uses only Board, Magic, and Doodle public headers; the common cross-platform scene remains to be extracted.
 - [ ] Replace old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; add compatibility validation and standalone layer builds.
 - [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
@@ -108,6 +108,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: This replaces the monolithic Magic context state with a backend operation table and verifies the Board-to-Magic boundary on the deterministic path. Each GPU migration can now add its provider without exposing backend state to Doodle.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Complete the desktop CPU milestone by adding an SDL3 Board provider rather than retaining the old monolithic SDL graphics context.
+  Rationale: Board owns SDL window/event-loop details and exposes a CPU presentation callback; Magic then remains unaware of SDL while Doodle receives only Magic CPU frame interop.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
@@ -121,6 +125,13 @@ All three packages install and are consumable in dependency order. Existing
 monolithic sources, GPU Skia paths, desktop/mobile/web backends, shared demos,
 and legacy-name removal remain outstanding; this work deliberately does not
 represent those as complete.
+
+2026-07-14: Board SDL3 now owns a native macOS window, SDL event conversion,
+the private desktop loop, and CPU pixel presentation. The desktop demo composes
+Board, Magic, and Doodle entirely through public APIs and was run for three
+seconds after configuration with `BOARD_BACKEND=SDL3`, `MAGIC_BACKEND=CPU`, and
+`DOODLE_RENDERER=SKIA`. It printed its running confirmation and created the
+native frame loop; closing the window remains the normal exit mechanism.
 
 Validation recorded on 2026-07-14:
 

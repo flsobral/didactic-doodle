@@ -17,11 +17,11 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 ## Current implementation status
 
 The repository is in the architectural migration described below. The currently
-executable, independently installable rendering path is **Board Headless +
-Magic CPU + Doodle Skia**. Board exposes a deterministic headless CPU surface,
-Magic acquires and presents CPU frames through Board's versioned surface
-interface, and the Skia provider binds Canvas operations exclusively through
-`MagicCpuInterop`.
+executable rendering paths are **Board Headless + Magic CPU + Doodle Skia** and
+**Board SDL3 + Magic CPU + Doodle Skia on macOS**. Board exposes either a
+deterministic headless CPU surface or an SDL3 window surface; Magic acquires
+and presents CPU frames through Board's versioned surface interface, and the
+Skia provider binds Canvas operations exclusively through `MagicCpuInterop`.
 
 Configure Skia with an artifact downloaded by
 `bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64`:
@@ -33,10 +33,22 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-SDL3, OpenGL, Metal, Vulkan, Web, Android, iOS, and the remaining Doodle
-providers are declared migration targets, not working selections in this
-revision. Selecting one fails during CMake configuration with an explicit
-diagnostic; no backend is silently substituted.
+OpenGL, Metal, Vulkan, Web, Android, iOS, and the remaining Doodle providers
+beyond the SDL3 CPU path are declared migration targets, not working selections
+in this revision. Selecting one fails during CMake configuration with an
+explicit diagnostic; no backend is silently substituted.
+
+Run the macOS desktop demo with:
+
+```sh
+cmake -S . -B build/desktop-cpu \
+  -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU \
+  -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4" \
+  -DMDB_BUILD_EXAMPLES=ON
+cmake --build build/desktop-cpu --parallel
+build/desktop-cpu/examples/desktop/magic_doodle_board_demo
+```
 
 The name is both a product metaphor and an architectural map:
 

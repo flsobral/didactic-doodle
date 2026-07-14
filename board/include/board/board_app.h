@@ -13,6 +13,7 @@ typedef struct BoardAppConfig { uint32_t struct_size; uint32_t abi_version; Boar
 BoardResult board_app_create(const BoardAppConfig *config, BoardApp **out_app);
 void board_app_destroy(BoardApp *app);
 BoardResult board_app_start(BoardApp *app);
+BoardResult board_app_run(BoardApp *app);
 void board_app_request_quit(BoardApp *app);
 BoardResult board_app_step(BoardApp *app, uint64_t timestamp_ns);
 #ifdef __cplusplus

@@ -3,3 +3,4 @@ Magic standalone tests: 100% passed
 Doodle Skia standalone tests: 100% passed
 Consumer configure: found Board, Magic, Doodle from build/install
 Root Headless + CPU + Skia test suite: 100% passed
+macOS SDL3 + CPU + Skia demo: built and ran for three seconds
