@@ -17,17 +17,26 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 ## Current implementation status
 
 The repository is in the architectural migration described below. The currently
-executable, independently installable path is **Board Headless + Magic CPU +
-Doodle core/provider-contract tests**. Board exposes a deterministic headless
-CPU surface, Magic acquires and presents CPU frames through Board's versioned
-surface interface, and Doodle validates its renderer-provider lifecycle with a
-fake provider.
+executable, independently installable rendering path is **Board Headless +
+Magic CPU + Doodle Skia**. Board exposes a deterministic headless CPU surface,
+Magic acquires and presents CPU frames through Board's versioned surface
+interface, and the Skia provider binds Canvas operations exclusively through
+`MagicCpuInterop`.
 
-SDL3, OpenGL, Metal, Vulkan, Web, Android, iOS, and real Doodle renderer
-providers (including Skia) are declared migration targets, not working
-selections in this revision. Selecting one fails during CMake configuration
-with an explicit diagnostic. This is intentional: no backend is silently
-substituted.
+Configure Skia with an artifact downloaded by
+`bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64`:
+
+```sh
+cmake -S . -B build/headless-skia \
+  -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU \
+  -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
+```
+
+SDL3, OpenGL, Metal, Vulkan, Web, Android, iOS, and the remaining Doodle
+providers are declared migration targets, not working selections in this
+revision. Selecting one fails during CMake configuration with an explicit
+diagnostic; no backend is silently substituted.
 
 The name is both a product metaphor and an architectural map:
 

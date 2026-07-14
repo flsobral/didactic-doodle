@@ -49,8 +49,8 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: The local development environment has SDL3 available but no configured Skia package or TotalCross Skia archive.
   Evidence: `cmake -S . -B build/baseline-desktop-cpu -DTC_PLATFORM=DESKTOP -DTC_BACKEND=SDL -DTC_GRAPHICS=CPU -DTC_RENDERER=SKIA` stops at the existing Skia package check.
 
-- Observation: Several local Skia archives exist outside this repository, but the matching public header tree is not present in their distribution directory.
-  Evidence: `/Users/flsobral/repos/totalcross-skia-build/dist` contains macOS and Linux archives but no `headers/modules/skia/.../SkCanvas.h`; it cannot satisfy the existing or planned external Skia dependency contract.
+- Observation: `scripts/fetch-totalcross-skia.sh` downloads the matching pinned Skia headers and library to an ignored cache directory.
+  Evidence: `bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64` produced `headers/modules/skia/include/core/SkCanvas.h` and `libskia-macos-arm64.a`; the Headless + CPU + Skia integration test then linked and passed.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -100,17 +100,21 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: Naming a fallback renderer as Skia would be a silent backend substitution and would make configuration claims false. The real `DOODLE_RENDERER=SKIA` remains an explicit configuration failure until the external dependency is valid.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Implement the initial Skia provider for Magic CPU frames, sourced from the pinned artifact downloaded by `scripts/fetch-totalcross-skia.sh`.
+  Rationale: The provider can make raster-direct Skia surfaces from `MagicCpuInterop` without accessing Magic private state. GPU Skia paths remain deferred until their corresponding Magic interop is implemented.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
 implements a versioned headless CPU surface and deterministic coalescing frame
 scheduler. `magic_core` consumes only Board's installed surface API and exposes
-versioned CPU frame interop. `doodle_core` consumes only Magic's public API and
-proves provider lifecycle negotiation with a fake provider. All three packages
-install and are consumable in dependency order. Existing monolithic sources,
-the actual Skia provider, desktop/mobile/web backends, shared demos, and legacy
-name removal remain outstanding; this work deliberately does not represent
-those as complete.
+versioned CPU frame interop. `doodle_core` consumes only Magic's public API;
+`doodle_renderer_skia` creates raster-direct Skia surfaces from that interop.
+All three packages install and are consumable in dependency order. Existing
+monolithic sources, GPU Skia paths, desktop/mobile/web backends, shared demos,
+and legacy-name removal remain outstanding; this work deliberately does not
+represent those as complete.
 
 Validation recorded on 2026-07-14:
 
@@ -120,8 +124,11 @@ Validation recorded on 2026-07-14:
     cmake -S . -B build/root -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=NONE && ctest --test-dir build/root
 
 All of the listed CTest runs passed. The installed packages were also consumed
-by `tests/integration/consumer`. `DOODLE_RENDERER=VELLO` was confirmed to fail
-configuration with the required explicit unimplemented diagnostic.
+by `tests/integration/consumer`; the Skia package consumer passed
+`-DDoodle_SKIA_ROOT=$PWD/.cache/skia-158dc9d7-r4`. The Headless + CPU + Skia
+composition drew deterministically with hash `bff7964c10eaa55f`.
+`DOODLE_RENDERER=VELLO` was confirmed to fail configuration with the required
+explicit unimplemented diagnostic.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 

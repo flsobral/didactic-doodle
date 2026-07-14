@@ -1,5 +1,5 @@
 Board standalone tests: 100% passed
 Magic standalone tests: 100% passed
-Doodle standalone tests: 100% passed
+Doodle Skia standalone tests: 100% passed
 Consumer configure: found Board, Magic, Doodle from build/install
-Root headless/core test suite: 100% passed
+Root Headless + CPU + Skia test suite: 100% passed
