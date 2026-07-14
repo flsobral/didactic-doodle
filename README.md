@@ -17,9 +17,11 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 ## Current implementation status
 
 The repository is in the architectural migration described below. The currently
-executable rendering paths are **Board Headless + Magic CPU + Doodle Skia** and
-**Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**. Board exposes either a
-deterministic headless CPU surface or an SDL3 window surface; Magic acquires
+executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
+**Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
+**Board iOS native + Magic CPU + Doodle Skia in the iOS simulator**. Board exposes
+either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
+iOS native view; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
 Skia provider binds Canvas operations through the selected versioned Magic
 interop table.
@@ -34,8 +36,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Vulkan, Web, Android, iOS, and the remaining Doodle providers beyond the SDL3
-CPU/OpenGL/Metal paths are declared migration targets, not working selections
+Vulkan, Web, Android, iOS OpenGL ES/Metal, and the remaining Doodle providers
+beyond the SDL3 CPU/OpenGL/Metal and iOS CPU paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -54,6 +56,25 @@ build/desktop-cpu/examples/desktop/magic_doodle_board_demo
 For the OpenGL or macOS Metal variants, change the build directory and pass
 `-DMAGIC_BACKEND=OPENGL` or `-DMAGIC_BACKEND=METAL`; `--frames 3` runs a finite
 three-frame smoke test. Metal requires macOS.
+
+Run the iOS CPU demo in an arm64 simulator after making the matching external
+Skia, libpng, and zlib artifacts available (the paths below are ignored caches):
+
+```sh
+bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 ios-simulator-arm64
+cmake -S . -B build/ios-cpu \
+  -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DBOARD_BACKEND=IOS_NATIVE -DMAGIC_BACKEND=CPU \
+  -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4" \
+  -DDOODLE_IOS_PNG_ROOT="$PWD/.cache/libpng-ios-sim/libpng/ios-simulator/arm64" \
+  -DDOODLE_IOS_ZLIB_ROOT="$PWD/.cache/zlib-ng-ios-sim/zlib-ng/ios-simulator/arm64" \
+  -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
+cmake --build build/ios-cpu --parallel
+xcrun simctl install booted build/ios-cpu/magic_doodle_board_ios_demo.app
+xcrun simctl launch booted com.amalgam.magicdoodleboard.demo
+```
 
 The name is both a product metaphor and an architectural map:
 

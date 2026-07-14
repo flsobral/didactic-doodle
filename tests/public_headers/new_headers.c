@@ -3,6 +3,7 @@
 #include <board/board_app.h>
 #include <board/board_backend.h>
 #include <board/board_event.h>
+#include <board/board_ios.h>
 #include <board/board_scheduler.h>
 #include <board/board_surface.h>
 #include <magic/magic_context.h>

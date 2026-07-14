@@ -19,12 +19,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
-- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless and SDL3 CPU hosting are complete, while mobile, Web, GLFW, and winit remain.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless and SDL3; SDL3 OpenGL and Metal are complete on macOS; Vulkan, Web, and mobile OpenGL ES remain.
+- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, and the iOS native CPU view are complete, while Android, Web, GLFW, and winit remain.
+- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, and iOS; SDL3 OpenGL and Metal are complete on macOS; Vulkan, Web, and mobile OpenGL ES remain.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
-- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views.
-- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The macOS SDL3 CPU + Skia demo now uses only Board, Magic, and Doodle public headers; the common cross-platform scene remains to be extracted.
+- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. iOS fullscreen-owned CPU hosting is complete; embedded and hybrid-overlay modes remain.
+- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The SDL3 and iOS demos now compose only Board, Magic, and Doodle public headers around `examples/common/magic_doodle_board_scene.c`; other entry points remain.
 - [ ] Replace old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; add compatibility validation and standalone layer builds.
 - [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
@@ -54,6 +54,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: An installed Board package built with SDL3 must find SDL3 before importing its exported targets.
   Evidence: configuring standalone Magic Metal against the initial SDL3 Board install failed because `SDL3::SDL3-shared` was absent. `BoardConfig.cmake` now calls `find_dependency(SDL3 CONFIG)` for SDL3 exports, and the standalone Board → Magic Metal → Doodle Skia chain configures and tests successfully.
+
+- Observation: The pinned iOS simulator Skia archive references external libpng and zlib symbols.
+  Evidence: linking `libskia-ios-simulator-arm64.a` initially failed on `_png_*`; the matching arm64 simulator libpng and zlib artifacts resolve those symbols through explicit `DOODLE_IOS_PNG_ROOT` and `DOODLE_IOS_ZLIB_ROOT` CMake inputs.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -123,6 +126,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: The SDL Metal view is host-surface state, while GPU resources and presentation synchronization belong to Magic. Doodle Skia receives the opaque layer/device/queue/drawable-slot values only through `MagicMetalInterop`.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Implement the initial iOS host as a reusable opaque Board view that owns a CPU pixel buffer and a `CADisplayLink` scheduler.
+  Rationale: UIKit details remain private to Board while the application receives ordinary Board events and frame callbacks. Magic continues to consume only the versioned CPU surface table and Doodle sees only `MagicCpuInterop`.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
@@ -159,6 +166,16 @@ three-frame smoke test with `BOARD_BACKEND=SDL3`, `MAGIC_BACKEND=METAL`, and
 `DOODLE_RENDERER=SKIA`; the matching CTest configuration passed all 8 tests.
 Board SDL3 Metal, Magic Metal, and Doodle Skia also configured and tested as
 separate packages through an installed `build/install-metal` prefix.
+
+2026-07-14: The iOS native CPU milestone adds a reusable Board view privately
+implemented with `UIView` and `CADisplayLink`. It owns the CPU pixel buffer,
+dispatches resize and touch events, and presents CPU frames through Core
+Graphics. The iOS demo composes that Board backend with Magic CPU and Doodle
+Skia around the same common scene used by the SDL3 demo. It was built for the
+arm64 iOS simulator, installed on iPhone 15 Pro, launched successfully, and
+captured in `artifacts/final/ios-cpu-simulator.png`.
+The Board iOS, Magic CPU, and Doodle Skia packages also build separately and
+their installed CMake packages configure a simulator consumer.
 
 Validation recorded on 2026-07-14:
 
