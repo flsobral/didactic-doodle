@@ -18,9 +18,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Recorded the source and legacy-symbol baseline under `artifacts/baseline/`; desktop configuration was attempted and its missing Skia artifact recorded as an environment limitation.
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
-- [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core.
+- [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
 - [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless and SDL3 CPU hosting are complete, while mobile, Web, GLFW, and winit remain.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless and SDL3; SDL3 OpenGL is complete on macOS; Metal, Vulkan, Web, and mobile OpenGL ES remain.
+- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless and SDL3; SDL3 OpenGL and Metal are complete on macOS; Vulkan, Web, and mobile OpenGL ES remain.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views.
@@ -51,6 +51,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: `scripts/fetch-totalcross-skia.sh` downloads the matching pinned Skia headers and library to an ignored cache directory.
   Evidence: `bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64` produced `headers/modules/skia/include/core/SkCanvas.h` and `libskia-macos-arm64.a`; the Headless + CPU + Skia integration test then linked and passed.
+
+- Observation: An installed Board package built with SDL3 must find SDL3 before importing its exported targets.
+  Evidence: configuring standalone Magic Metal against the initial SDL3 Board install failed because `SDL3::SDL3-shared` was absent. `BoardConfig.cmake` now calls `find_dependency(SDL3 CONFIG)` for SDL3 exports, and the standalone Board → Magic Metal → Doodle Skia chain configures and tests successfully.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -116,6 +119,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: SDL context creation, current-context control, procedure lookup, drawable sizing, and swapping remain Board-private callbacks. Magic and Doodle exchange only opaque OpenGL context/framebuffer values through their versioned public interop tables.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Add an SDL3 Metal layer capability to Board; keep Metal device, queue, drawable acquisition, and presentation in Magic.
+  Rationale: The SDL Metal view is host-surface state, while GPU resources and presentation synchronization belong to Magic. Doodle Skia receives the opaque layer/device/queue/drawable-slot values only through `MagicMetalInterop`.
+  Date/Author: 2026-07-14 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
@@ -143,6 +150,15 @@ publishes its default framebuffer through `MagicOpenGLInterop`, and Doodle
 Skia binds it as a backend render target. The three-frame desktop demo smoke
 test exited successfully with code 0. The pinned macOS Skia archive requires
 both `SK_GL` and `SK_METAL` private layout macros even for the OpenGL path.
+
+2026-07-14: The macOS SDL3 Metal path now creates an SDL Metal view in Board,
+while Magic owns the `CAMetalLayer` device, command queue, drawable lifecycle,
+and presentation. Doodle Skia consumes only opaque `MagicMetalInterop` values
+to create its layer-backed frame surface. The composed demo completed its
+three-frame smoke test with `BOARD_BACKEND=SDL3`, `MAGIC_BACKEND=METAL`, and
+`DOODLE_RENDERER=SKIA`; the matching CTest configuration passed all 8 tests.
+Board SDL3 Metal, Magic Metal, and Doodle Skia also configured and tested as
+separate packages through an installed `build/install-metal` prefix.
 
 Validation recorded on 2026-07-14:
 
@@ -840,6 +856,22 @@ Desktop SDL3 plus OpenGL:
     ./build/desktop-opengl/examples/desktop/magic_doodle_board_demo
 
 The displayed scene and interaction must match the CPU path. Logs may report selected backend names but must not expose implementation types to the application.
+
+Desktop SDL3 plus Metal on macOS:
+
+    cmake -S . -B build/desktop-metal \
+      -DBOARD_BACKEND=SDL3 \
+      -DMAGIC_BACKEND=METAL \
+      -DDOODLE_RENDERER=SKIA \
+      -DDOODLE_SKIA_ROOT=$PWD/.cache/skia-158dc9d7-r4 \
+      -DMDB_BUILD_TESTS=ON \
+      -DMDB_BUILD_EXAMPLES=ON
+    cmake --build build/desktop-metal --parallel
+    ctest --test-dir build/desktop-metal --output-on-failure
+    ./build/desktop-metal/examples/desktop/magic_doodle_board_demo --frames 3
+
+The demo must open the SDL3 Metal window, render the shared scene for three
+frames, and exit with status 0. This combination is macOS-only.
 
 Web:
 

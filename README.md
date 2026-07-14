@@ -18,10 +18,11 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 
 The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia** and
-**Board SDL3 + Magic CPU/OpenGL + Doodle Skia on macOS**. Board exposes either a
+**Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**. Board exposes either a
 deterministic headless CPU surface or an SDL3 window surface; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
-Skia provider binds Canvas operations exclusively through `MagicCpuInterop`.
+Skia provider binds Canvas operations through the selected versioned Magic
+interop table.
 
 Configure Skia with an artifact downloaded by
 `bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64`:
@@ -33,8 +34,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-OpenGL, Metal, Vulkan, Web, Android, iOS, and the remaining Doodle providers
-beyond the SDL3 CPU path are declared migration targets, not working selections
+Vulkan, Web, Android, iOS, and the remaining Doodle providers beyond the SDL3
+CPU/OpenGL/Metal paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -50,8 +51,9 @@ cmake --build build/desktop-cpu --parallel
 build/desktop-cpu/examples/desktop/magic_doodle_board_demo
 ```
 
-For the OpenGL variant, change the build directory and pass
-`-DMAGIC_BACKEND=OPENGL`; `--frames 3` runs a finite three-frame smoke test.
+For the OpenGL or macOS Metal variants, change the build directory and pass
+`-DMAGIC_BACKEND=OPENGL` or `-DMAGIC_BACKEND=METAL`; `--frames 3` runs a finite
+three-frame smoke test. Metal requires macOS.
 
 The name is both a product metaphor and an architectural map:
 

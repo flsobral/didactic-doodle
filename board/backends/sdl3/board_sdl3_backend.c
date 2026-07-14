@@ -2,9 +2,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "../../src/board_internal.h"
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_metal.h>
 #include <stdlib.h>
 
-typedef struct BoardSdl3Backend { SDL_Window *window; } BoardSdl3Backend;
+typedef struct BoardSdl3Backend { SDL_Window *window; SDL_MetalView metal_view; } BoardSdl3Backend;
 static BoardSdl3Backend *board_sdl3(BoardBackend *backend) { return backend ? backend->implementation : NULL; }
 static BoardPointerButton board_sdl3_button(Uint8 button) { if (button == SDL_BUTTON_LEFT) return BOARD_POINTER_BUTTON_LEFT; if (button == SDL_BUTTON_MIDDLE) return BOARD_POINTER_BUTTON_MIDDLE; if (button == SDL_BUTTON_RIGHT) return BOARD_POINTER_BUTTON_RIGHT; return BOARD_POINTER_BUTTON_NONE; }
 static BoardResult board_sdl3_map(void *data, void **pixels, uint32_t *width, uint32_t *height, uint32_t *stride, BoardPixelFormat *format, float *scale) {
@@ -37,10 +38,21 @@ static void board_sdl3_event(BoardBackend *backend, const SDL_Event *native, Boa
     if (event.type != BOARD_EVENT_NONE) sink(data, &event);
 }
 static BoardResult board_sdl3_run(BoardBackend *backend, BoardEventSink sink, void *data) { SDL_Event event; uint64_t last = SDL_GetTicksNS(); if (!backend || !sink) return BOARD_ERROR_INVALID_ARGUMENT; while (backend->scheduler.running) { while (SDL_PollEvent(&event)) board_sdl3_event(backend, &event, sink, data); uint64_t now = SDL_GetTicksNS(); if (now - last >= 16666667ULL) { board_scheduler_request_frame(&backend->scheduler); board_scheduler_step(&backend->scheduler, now); last = now; } else SDL_Delay(1); } return BOARD_OK; }
-static void board_sdl3_dispose(BoardBackend *backend) { BoardSdl3Backend *state = board_sdl3(backend); if (state) { SDL_DestroyWindow(state->window); free(state); } backend->implementation = NULL; SDL_Quit(); }
+static void board_sdl3_dispose(BoardBackend *backend) { BoardSdl3Backend *state = board_sdl3(backend); if (state) { if (state->metal_view) SDL_Metal_DestroyView(state->metal_view); SDL_DestroyWindow(state->window); free(state); } backend->implementation = NULL; SDL_Quit(); }
 BoardResult board_sdl3_backend_init(BoardBackend *backend, const BoardBackendConfig *config) { BoardSdl3Backend *state; Uint64 flags = config->resizable ? SDL_WINDOW_RESIZABLE : 0; if (!backend || !config || !SDL_Init(SDL_INIT_VIDEO)) return BOARD_ERROR_PLATFORM;
 #if BOARD_BUILD_SDL3_OPENGL
     flags |= SDL_WINDOW_OPENGL;
     if (!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2) || !SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) || !SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) || !SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8) || !SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8)) { SDL_Quit(); return BOARD_ERROR_PLATFORM; }
 #endif
-    state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return BOARD_ERROR_OUT_OF_MEMORY; } state->window = SDL_CreateWindow(config->title ? config->title : "Magic Doodle Board", (int)config->width, (int)config->height, flags); if (!state->window) { free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; } backend->implementation = state; backend->width = config->width; backend->height = config->height; backend->scale = config->scale > 0 ? config->scale : 1.0f; backend->surface.cpu = (BoardSurfaceCpuInterface){ sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, backend, board_sdl3_map, board_sdl3_present }; backend->surface.opengl = (BoardSurfaceOpenGLInterface){ sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, backend, board_sdl3_gl_create, board_sdl3_gl_destroy, board_sdl3_gl_make_current, board_sdl3_gl_get_proc, board_sdl3_gl_drawable_size, board_sdl3_gl_swap }; backend->run = board_sdl3_run; backend->dispose = board_sdl3_dispose; return BOARD_OK; }
+#if BOARD_BUILD_SDL3_METAL
+    flags |= SDL_WINDOW_METAL;
+#endif
+    state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return BOARD_ERROR_OUT_OF_MEMORY; } state->window = SDL_CreateWindow(config->title ? config->title : "Magic Doodle Board", (int)config->width, (int)config->height, flags); if (!state->window) { free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
+#if BOARD_BUILD_SDL3_METAL
+    state->metal_view = SDL_Metal_CreateView(state->window); if (!state->metal_view) { SDL_DestroyWindow(state->window); free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
+#endif
+    backend->implementation = state; backend->width = config->width; backend->height = config->height; backend->scale = config->scale > 0 ? config->scale : 1.0f; backend->surface.cpu = (BoardSurfaceCpuInterface){ sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, backend, board_sdl3_map, board_sdl3_present }; backend->surface.opengl = (BoardSurfaceOpenGLInterface){ sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, backend, board_sdl3_gl_create, board_sdl3_gl_destroy, board_sdl3_gl_make_current, board_sdl3_gl_get_proc, board_sdl3_gl_drawable_size, board_sdl3_gl_swap };
+#if BOARD_BUILD_SDL3_METAL
+    backend->surface.metal = (BoardSurfaceMetalInterface){ sizeof(BoardSurfaceMetalInterface), BOARD_ABI_VERSION, SDL_Metal_GetLayer(state->metal_view), config->width, config->height, backend->scale };
+#endif
+    backend->run = board_sdl3_run; backend->dispose = board_sdl3_dispose; return BOARD_OK; }
