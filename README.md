@@ -96,9 +96,13 @@ adb shell am start -n com.amalgam.magicdoodleboard.demo/android.app.NativeActivi
 ```
 
 For the OpenGL ES variant, add `-PmdbAndroidMagicBackend=OPENGL` to the Gradle
-command. Board keeps its private EGL surface and OpenGL ES context callbacks;
-Magic drives the context through the versioned Board capability table and Doodle
-Skia renders through `MagicOpenGLInterop`.
+command. For Vulkan, use `-PmdbAndroidMagicBackend=VULKAN` and a Skia archive
+downloaded by the current `scripts/fetch-totalcross-skia.sh` release, which
+includes Ganesh Vulkan support. Board keeps its private EGL surface and OpenGL
+ES context callbacks; for Vulkan it exposes only opaque Android-surface
+creation callbacks. Magic owns the Vulkan instance, device, swapchain,
+synchronization, and presentation, while Doodle Skia consumes the versioned
+`MagicVulkanInterop` frame data.
 
 The Android app has `minSdk 24`. Board keeps the NativeActivity, `ANativeWindow`,
 input conversion, and `AChoreographer` frame loop private; Magic CPU presents

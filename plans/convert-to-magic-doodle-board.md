@@ -20,7 +20,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
 - [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, Android native CPU/OpenGL ES, and the iOS native CPU/OpenGL ES/Metal view are complete, while Web, GLFW, and winit remain.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan, Vulkan, and Web remain.
+- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan is complete; desktop Vulkan and Web remain.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Android NativeActivity and iOS fullscreen-owned CPU hosting are complete; embedded and hybrid-overlay modes remain.
@@ -69,6 +69,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: Android OpenGL ES 3 can use the existing Board OpenGL surface capability without placing EGL types in any public header.
   Evidence: Board privately created and rebuilt the EGL window surface and opaque context callbacks, Magic published the default framebuffer through `MagicOpenGLInterop`, and the Pixel 3a API 34 emulator rendered the Skia scene.
+
+- Observation: only the current `skia-158dc9d7-r4` Android archive contains the Ganesh Vulkan symbols required by the Skia provider.
+  Evidence: `llvm-nm .cache/skia-android-r4/libskia-android-arm64-v8a.a` reports `GrDirectContext::MakeVulkan`, while the older local `skia-android` cache does not; the Vulkan APK linked successfully with the current archive.
+
+- Observation: Android API 24 does not export `vkGetPhysicalDeviceFeatures2` as a linkable loader symbol, and Skia must receive the exact feature structure enabled on the Magic-owned device.
+  Evidence: the original Android Vulkan implementation obtains the function through `vkGetInstanceProcAddr`, passes that structure through `VkDeviceCreateInfo::pNext`, and gives the same pointer to `GrVkBackendContext`; Magic now preserves that contract through an opaque interop field.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -240,6 +246,17 @@ installed and launched on the Pixel 3a API 34 emulator, and captured in
 `artifacts/final/android-opengl-emulator.png`. The Android Board → Magic
 OpenGL → Doodle Skia packages also build independently and their installed
 packages configure an arm64 consumer through `build/install-android-opengl`.
+
+2026-07-14: The Android native Vulkan milestone adds a versioned Board Vulkan
+surface capability whose callbacks use only opaque values. Magic owns the
+Android Vulkan instance, physical-device selection, queue, swapchain image
+acquisition, semaphores, resize/recreation, and presentation. Doodle Skia
+creates a Vulkan Ganesh context from `MagicVulkanInterop`, waits for Magic's
+acquire semaphore, signals Magic's present semaphore, and never owns the
+swapchain. The arm64 APK and root Android composition both build with Android
+API 24 and the current pinned Skia archive; interactive emulator capture must
+be rerun when the local AVD is available because the active AVD process exited
+during this session.
 
 Validation recorded on 2026-07-14:
 

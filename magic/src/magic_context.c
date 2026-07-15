@@ -11,6 +11,9 @@ static const MagicBackendOps magic_opengl_ops = { magic_opengl_backend_create, m
 #if MAGIC_BUILD_METAL
 static const MagicBackendOps magic_metal_ops = { magic_metal_backend_create, magic_metal_backend_destroy, magic_metal_backend_resize, magic_metal_backend_begin_frame, magic_metal_backend_end_frame };
 #endif
+#if MAGIC_BUILD_VULKAN
+static const MagicBackendOps magic_vulkan_ops = { magic_vulkan_backend_create, magic_vulkan_backend_destroy, magic_vulkan_backend_resize, magic_vulkan_backend_begin_frame, magic_vulkan_backend_end_frame };
+#endif
 MagicResult magic_context_create(BoardNativeSurface *surface, const MagicConfig *config, MagicContext **out_context) {
     MagicContext *context;
     if (!surface || !config || !out_context || config->struct_size < sizeof(*config) || config->abi_version != MAGIC_ABI_VERSION) return MAGIC_ERROR_INVALID_ARGUMENT;
@@ -20,6 +23,9 @@ MagicResult magic_context_create(BoardNativeSurface *surface, const MagicConfig 
 #endif
 #if MAGIC_BUILD_METAL
         && config->backend != MAGIC_BACKEND_METAL
+#endif
+#if MAGIC_BUILD_VULKAN
+        && config->backend != MAGIC_BACKEND_VULKAN
 #endif
     ) return MAGIC_ERROR_UNAVAILABLE;
     context = calloc(1, sizeof(*context)); if (!context) return MAGIC_ERROR_OUT_OF_MEMORY;
@@ -32,6 +38,12 @@ MagicResult magic_context_create(BoardNativeSurface *surface, const MagicConfig 
     } else if (config->backend == MAGIC_BACKEND_METAL) {
 #if MAGIC_BUILD_METAL
         context->backend = MAGIC_BACKEND_METAL; context->ops = &magic_metal_ops;
+#else
+        free(context); return MAGIC_ERROR_UNAVAILABLE;
+#endif
+    } else if (config->backend == MAGIC_BACKEND_VULKAN) {
+#if MAGIC_BUILD_VULKAN
+        context->backend = MAGIC_BACKEND_VULKAN; context->ops = &magic_vulkan_ops;
 #else
         free(context); return MAGIC_ERROR_UNAVAILABLE;
 #endif
@@ -52,10 +64,10 @@ MagicResult magic_context_begin_frame(MagicContext *context, MagicFrame **out_fr
 MagicResult magic_context_end_frame(MagicContext *context, MagicFrame *frame) { MagicResult result; if (!context || !frame || context->active != frame || !frame->valid) return MAGIC_ERROR_INVALID_ARGUMENT; result = context->ops->end_frame(context, frame); frame->valid = 0; free(frame); context->active = 0; return result; }
 MagicBackend magic_context_backend(const MagicContext *context) { return context ? context->backend : MAGIC_BACKEND_AUTO; }
 int magic_context_is_device_lost(const MagicContext *context) { (void)context; return 0; }
-uint32_t magic_frame_width(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.width : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.width : frame->cpu.width) : 0; }
-uint32_t magic_frame_height(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.height : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.height : frame->cpu.height) : 0; }
+uint32_t magic_frame_width(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.width : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.width : frame->context->backend == MAGIC_BACKEND_VULKAN ? frame->vulkan.width : frame->cpu.width) : 0; }
+uint32_t magic_frame_height(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.height : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.height : frame->context->backend == MAGIC_BACKEND_VULKAN ? frame->vulkan.height : frame->cpu.height) : 0; }
 uint32_t magic_frame_stride(const MagicFrame *frame) { return frame ? frame->cpu.stride : 0; }
-float magic_frame_scale(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.scale : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.scale : frame->cpu.scale) : 0; }
+float magic_frame_scale(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.scale : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.scale : frame->context->backend == MAGIC_BACKEND_VULKAN ? frame->vulkan.scale : frame->cpu.scale) : 0; }
 uint64_t magic_frame_sequence(const MagicFrame *frame) { return frame ? frame->sequence : 0; }
 int magic_frame_is_valid(const MagicFrame *frame) { return frame && frame->valid; }
-MagicResult magic_frame_query_interop(MagicFrame *frame, MagicInteropId id, uint32_t version, void *out, size_t size) { if (!frame || !out || !frame->valid) return MAGIC_ERROR_INVALID_ARGUMENT; if (version != MAGIC_ABI_VERSION) return MAGIC_ERROR_VERSION; if (id == MAGIC_INTEROP_CPU && frame->context->backend == MAGIC_BACKEND_CPU) { if (size < sizeof(MagicCpuInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->cpu, sizeof(frame->cpu)); return MAGIC_OK; } if (id == MAGIC_INTEROP_OPENGL && frame->context->backend == MAGIC_BACKEND_OPENGL) { if (size < sizeof(MagicOpenGLInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->opengl, sizeof(frame->opengl)); return MAGIC_OK; } if (id == MAGIC_INTEROP_METAL && frame->context->backend == MAGIC_BACKEND_METAL) { if (size < sizeof(MagicMetalInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->metal, sizeof(frame->metal)); return MAGIC_OK; } return MAGIC_ERROR_UNAVAILABLE; }
+MagicResult magic_frame_query_interop(MagicFrame *frame, MagicInteropId id, uint32_t version, void *out, size_t size) { if (!frame || !out || !frame->valid) return MAGIC_ERROR_INVALID_ARGUMENT; if (version != MAGIC_ABI_VERSION) return MAGIC_ERROR_VERSION; if (id == MAGIC_INTEROP_CPU && frame->context->backend == MAGIC_BACKEND_CPU) { if (size < sizeof(MagicCpuInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->cpu, sizeof(frame->cpu)); return MAGIC_OK; } if (id == MAGIC_INTEROP_OPENGL && frame->context->backend == MAGIC_BACKEND_OPENGL) { if (size < sizeof(MagicOpenGLInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->opengl, sizeof(frame->opengl)); return MAGIC_OK; } if (id == MAGIC_INTEROP_METAL && frame->context->backend == MAGIC_BACKEND_METAL) { if (size < sizeof(MagicMetalInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->metal, sizeof(frame->metal)); return MAGIC_OK; } if (id == MAGIC_INTEROP_VULKAN && frame->context->backend == MAGIC_BACKEND_VULKAN) { if (size < sizeof(MagicVulkanInterop)) return MAGIC_ERROR_INVALID_ARGUMENT; memcpy(out, &frame->vulkan, sizeof(frame->vulkan)); return MAGIC_OK; } return MAGIC_ERROR_UNAVAILABLE; }

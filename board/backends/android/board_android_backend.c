@@ -8,6 +8,10 @@
 #if BOARD_BUILD_ANDROID_OPENGL
 #include <EGL/egl.h>
 #endif
+#if BOARD_BUILD_ANDROID_VULKAN
+#define VK_USE_PLATFORM_ANDROID_KHR
+#include <vulkan/vulkan.h>
+#endif
 #include <android_native_app_glue.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +25,27 @@ typedef struct BoardAndroidState {
     void *active_gl;
 #endif
 } BoardAndroidState;
+
+#if BOARD_BUILD_ANDROID_VULKAN
+static const char *const *board_android_vk_extensions(void *data, uint32_t *count) {
+    static const char *const extensions[] = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME };
+    (void)data;
+    if (!count) return NULL;
+    *count = (uint32_t)(sizeof(extensions) / sizeof(extensions[0]));
+    return extensions;
+}
+
+static BoardResult board_android_vk_create_surface(void *data, void *instance, uint64_t *out_surface) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    VkAndroidSurfaceCreateInfoKHR info = { VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    if (!state || !state->window || !instance || !out_surface) return BOARD_ERROR_UNAVAILABLE;
+    info.window = state->window;
+    if (vkCreateAndroidSurfaceKHR((VkInstance)instance, &info, NULL, &surface) != VK_SUCCESS) return BOARD_ERROR_PLATFORM;
+    *out_surface = (uint64_t)(uintptr_t)surface;
+    return BOARD_OK;
+}
+#endif
 
 #if BOARD_BUILD_ANDROID_OPENGL
 typedef struct BoardAndroidOpenGLContext { EGLDisplay display; EGLConfig config; EGLContext context; EGLSurface surface; uint32_t width, height; float scale; } BoardAndroidOpenGLContext;
@@ -306,6 +331,9 @@ BoardResult board_android_backend_init(BoardBackend *backend, const BoardBackend
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_android_map, board_android_present};
 #if BOARD_BUILD_ANDROID_OPENGL
     backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_android_gl_create, board_android_gl_destroy, board_android_gl_make_current, board_android_gl_get_proc, board_android_gl_drawable_size, board_android_gl_swap};
+#endif
+#if BOARD_BUILD_ANDROID_VULKAN
+    backend->surface.vulkan = (BoardSurfaceVulkanInterface){sizeof(BoardSurfaceVulkanInterface), BOARD_ABI_VERSION, state, board_android_vk_extensions, board_android_vk_create_surface};
 #endif
     backend->start = board_android_start;
     backend->run = board_android_run;

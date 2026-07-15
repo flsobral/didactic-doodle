@@ -5,7 +5,7 @@
 #include <board/board_app.h>
 
 struct BoardFrameScheduler { BoardFrameCallback callback; void *user_data; uint64_t previous_timestamp_ns; unsigned running : 1; unsigned requested : 1; };
-struct BoardNativeSurface { BoardSurfaceCpuInterface cpu; BoardSurfaceOpenGLInterface opengl; BoardSurfaceMetalInterface metal; };
+struct BoardNativeSurface { BoardSurfaceCpuInterface cpu; BoardSurfaceOpenGLInterface opengl; BoardSurfaceMetalInterface metal; BoardSurfaceVulkanInterface vulkan; BoardSurfaceWebInterface web; };
 typedef BoardResult (*BoardBackendRun)(BoardBackend *backend, BoardEventSink sink, void *user_data);
 typedef BoardResult (*BoardBackendStart)(BoardBackend *backend);
 typedef void (*BoardBackendDispose)(BoardBackend *backend);

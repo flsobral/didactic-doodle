@@ -44,6 +44,8 @@ void android_main(struct android_app *native_app) {
     BoardBackendConfig backend_config = {sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_ANDROID, "Magic Doodle Board", 1280, 720, 1.0f, 0};
 #if MDB_ANDROID_OPENGL
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_OPENGL, 1};
+#elif MDB_ANDROID_VULKAN
+    MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_VULKAN, 1};
 #else
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_CPU, 1};
 #endif
