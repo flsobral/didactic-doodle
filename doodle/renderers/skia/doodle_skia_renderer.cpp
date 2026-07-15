@@ -37,6 +37,19 @@ static SkColor4f skia_color(DoodleColor color) { return { color.r, color.g, colo
 static SkPaint skia_paint(DoodlePaint paint) { SkPaint result; result.setColor4f(skia_color(paint.color), nullptr); result.setStyle(paint.style == DOODLE_PAINT_STROKE ? SkPaint::kStroke_Style : SkPaint::kFill_Style); result.setStrokeWidth(paint.stroke_width); result.setAntiAlias(true); return result; }
 static DoodleResult skia_create(MagicContext *, const DoodleRendererConfig *, void **out_state) { DoodleSkiaState *state = new (std::nothrow) DoodleSkiaState{}; if (!state) return DOODLE_ERROR_OUT_OF_MEMORY; *out_state = state; return DOODLE_OK; }
 static void skia_destroy(void *state) { delete static_cast<DoodleSkiaState *>(state); }
+static sk_sp<SkSurface> skia_gl_surface(DoodleSkiaState *state, uint32_t framebuffer, uint32_t width, uint32_t height) {
+  sk_sp<const GrGLInterface> gl;
+  GrGLFramebufferInfo info;
+  GrBackendRenderTarget target;
+  if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
+  if (!state->opengl) return nullptr;
+  state->opengl->resetContext(); gl = GrGLMakeNativeInterface();
+  if (!gl || !gl->fFunctions.fBindFramebuffer) return nullptr;
+  gl->fFunctions.fBindFramebuffer(0x8D40, (GrGLint)framebuffer);
+  info = { (GrGLuint)framebuffer, 0x8058 };
+  target = GrBackendRenderTarget((int)width, (int)height, 0, 0, info);
+  return SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr);
+}
 #if defined(SK_VULKAN)
 static PFN_vkVoidFunction skia_vk_get_proc(const char *name, VkInstance instance, VkDevice device) { return device != VK_NULL_HANDLE ? vkGetDeviceProcAddr(device, name) : vkGetInstanceProcAddr(instance, name); }
 #endif
@@ -47,11 +60,9 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
     SkColorType format = pixels.format == MAGIC_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
     state->surface = SkSurface::MakeRasterDirect(SkImageInfo::Make((int)pixels.width, (int)pixels.height, format, kPremul_SkAlphaType), pixels.pixels, pixels.stride);
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_OPENGL, MAGIC_ABI_VERSION, &opengl, sizeof(opengl)) == MAGIC_OK) {
-    if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
-    if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)opengl.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)opengl.width, (int)opengl.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
+    state->surface = skia_gl_surface(state, opengl.framebuffer, opengl.width, opengl.height);
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_WEB, MAGIC_ABI_VERSION, &web, sizeof(web)) == MAGIC_OK) {
-    if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
-    if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)web.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)web.width, (int)web.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
+    state->surface = skia_gl_surface(state, web.framebuffer, web.width, web.height);
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_METAL, MAGIC_ABI_VERSION, &metal, sizeof(metal)) == MAGIC_OK) {
 #if defined(SK_METAL)
     if (!state->metal) state->metal = GrDirectContext::MakeMetal(metal.device, metal.command_queue);

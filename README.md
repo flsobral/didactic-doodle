@@ -123,7 +123,8 @@ emrun --browser safari build/web-skia/examples/web/magic_doodle_board_web_demo.h
 ```
 
 Board owns browser animation-frame scheduling plus mouse, touch, keyboard, and
-resize conversion. Magic privately owns the WebGL2 context and frame commit;
+resize conversion. Magic privately owns the WebGL2 context; presentation is
+implicit in the browser frame callback;
 Doodle Skia consumes only `MagicWebInterop` and renders the shared scene.
 
 ## Backend-matrix test scripts

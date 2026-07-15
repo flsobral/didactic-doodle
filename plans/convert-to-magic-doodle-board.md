@@ -78,8 +78,8 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: Android API 24 does not export `vkGetPhysicalDeviceFeatures2` as a linkable loader symbol, and Skia must receive the exact feature structure enabled on the Magic-owned device.
   Evidence: the original Android Vulkan implementation obtains the function through `vkGetInstanceProcAddr`, passes that structure through `VkDeviceCreateInfo::pNext`, and gives the same pointer to `GrVkBackendContext`; Magic now preserves that contract through an opaque interop field.
 
-- Observation: the pinned Emscripten 2.0.6 API takes no context argument for `emscripten_webgl_commit_frame`.
-  Evidence: its `html5_webgl.h` declares `emscripten_webgl_commit_frame(void)`; Magic stores the opaque context only for creation/current-context/buffer-size operations and commits the currently bound context.
+- Observation: Emscripten's current WebGL glue rejects contexts requested with `explicitSwapControl`.
+  Evidence: its generated `_emscripten_webgl_do_create_context` returns zero when that attribute is true because browser explicit swap was removed. Magic must request the normal implicit browser presentation path and treat end-frame as successful after Doodle flushes the current context.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -174,7 +174,7 @@ Update this section whenever implementation inspection reveals a fact that chang
   Date/Author: 2026-07-14 / Codex.
 
 - Decision: implement the initial Magic Web provider with a private WebGL2 context and expose a versioned `MagicWebInterop` table to Doodle.
-  Rationale: the pinned wasm32 Skia artifact contains the Ganesh OpenGL implementation. Board exposes only the browser canvas selector, Magic owns WebGL2 creation/current-context/commit, and Doodle creates its Skia backend render target from opaque frame values without including browser headers.
+  Rationale: the pinned wasm32 Skia artifact contains the Ganesh OpenGL implementation. Board exposes only the browser canvas selector, Magic owns WebGL2 creation/current-context setup and browser-implicit presentation, and Doodle creates its Skia backend render target from opaque frame values without including browser headers.
   Date/Author: 2026-07-14 / Codex.
 
 ## Outcomes & Retrospective
@@ -291,7 +291,8 @@ explicit unimplemented diagnostic.
 2026-07-14: The Web milestone makes `BOARD_BACKEND=WEB` and
 `MAGIC_BACKEND=WEB` real selections under the Emscripten 2.0.6 toolchain.
 Board privately adapts browser resize, mouse, touch, keyboard, and animation
-frames to its public callbacks. Magic owns the WebGL2 context and publishes a
+frames to its public callbacks. Magic owns the WebGL2 context and the browser's
+implicit presentation boundary, and publishes a
 versioned opaque Web frame table; Doodle Skia binds the default framebuffer
 through that table. The common scene linked against the pinned wasm32 Skia
 archive, producing `magic_doodle_board_web_demo.html`, `.js`, and `.wasm`.

@@ -20,7 +20,7 @@ MagicResult magic_web_backend_create(MagicContext *context, BoardNativeSurface *
     result = board_surface_query_interface(surface, BOARD_SURFACE_INTERFACE_WEB, BOARD_ABI_VERSION, &backend->surface, sizeof(backend->surface));
     if (result != BOARD_OK) { free(backend); return magic_web_board_result(result); }
     emscripten_webgl_init_context_attributes(&attributes);
-    attributes.alpha = EM_TRUE; attributes.antialias = EM_TRUE; attributes.explicitSwapControl = EM_TRUE; attributes.majorVersion = 2;
+    attributes.alpha = EM_TRUE; attributes.antialias = EM_TRUE; attributes.explicitSwapControl = EM_FALSE; attributes.majorVersion = 2;
     backend->context = emscripten_webgl_create_context(backend->surface.canvas_selector, &attributes);
     if (backend->context <= 0) { free(backend); return MAGIC_ERROR_SURFACE; }
     if (emscripten_webgl_make_context_current(backend->context) != EMSCRIPTEN_RESULT_SUCCESS) { emscripten_webgl_destroy_context(backend->context); free(backend); return MAGIC_ERROR_SURFACE; }
@@ -49,4 +49,4 @@ MagicResult magic_web_backend_begin_frame(MagicContext *context, MagicFrame *fra
     return MAGIC_OK;
 }
 
-MagicResult magic_web_backend_end_frame(MagicContext *context, MagicFrame *frame) { (void)frame; if (!context || !context->backend_data) return MAGIC_ERROR_INVALID_ARGUMENT; return emscripten_webgl_commit_frame() == EMSCRIPTEN_RESULT_SUCCESS ? MAGIC_OK : MAGIC_ERROR_SURFACE; }
+MagicResult magic_web_backend_end_frame(MagicContext *context, MagicFrame *frame) { (void)frame; return context && context->backend_data ? MAGIC_OK : MAGIC_ERROR_INVALID_ARGUMENT; }
