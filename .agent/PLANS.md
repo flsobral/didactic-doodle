@@ -57,6 +57,8 @@ Validation is not optional. Include instructions to run tests, start the system 
 
 Capture evidence. When steps produce terminal output, short diffs, logs, benchmarks, screenshots, generated files, or other evidence, include concise examples in the plan. Prefer small excerpts that prove success over large output dumps.
 
+When an ExecPlan defines a build matrix, specify one deterministic output-path convention that encodes the platform and selected implementations. Record the exact paths for generated executables, packages, or application artifacts, and ensure matrix scripts preserve separately built variants instead of overwriting a shared output name. Treat a build-only aggregate command as compilation evidence only; keep launch, installation, and visual smoke checks explicit and separate.
+
 Capture editorial evidence as the work proceeds. When a discovery changes the implementation, a rejected alternative clarifies a trade-off, a benchmark produces a meaningful result, or an unexpected failure leads to a useful lesson, record it immediately in the living sections. The final `Editorial Report` should synthesize those records rather than reconstructing the project from memory at the end.
 
 ## Milestones
