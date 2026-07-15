@@ -71,9 +71,9 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
 #if defined(SK_VULKAN)
     VkInstance instance = (VkInstance)(uintptr_t)vulkan.instance; VkPhysicalDevice physical_device = (VkPhysicalDevice)(uintptr_t)vulkan.physical_device; VkDevice device = (VkDevice)(uintptr_t)vulkan.device;
     if (!state->vulkan) {
-      const char *instance_extensions[] = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME}; const char *device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-      if (!vulkan.device_features) return DOODLE_ERROR_UNAVAILABLE;
-      state->vulkan_extensions.init(skia_vk_get_proc, instance, physical_device, 2, instance_extensions, 1, device_extensions);
+      const char *device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+      if (!vulkan.device_features || !vulkan.instance_extensions || !vulkan.instance_extension_count) return DOODLE_ERROR_UNAVAILABLE;
+      state->vulkan_extensions.init(skia_vk_get_proc, instance, physical_device, vulkan.instance_extension_count, vulkan.instance_extensions, 1, device_extensions);
       GrVkBackendContext backend{}; backend.fInstance = instance; backend.fPhysicalDevice = physical_device; backend.fDevice = device; backend.fQueue = (VkQueue)(uintptr_t)vulkan.queue; backend.fGraphicsQueueIndex = vulkan.queue_family; backend.fMaxAPIVersion = VK_API_VERSION_1_1; backend.fVkExtensions = &state->vulkan_extensions; backend.fDeviceFeatures2 = static_cast<VkPhysicalDeviceFeatures2 *>(vulkan.device_features); backend.fGetProc = skia_vk_get_proc;
       state->vulkan = GrDirectContext::MakeVulkan(backend);
     }

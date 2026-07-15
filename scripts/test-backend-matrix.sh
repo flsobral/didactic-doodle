@@ -29,11 +29,33 @@ desktop() {
   local backend=$1
   local build="$build_root/desktop-$backend"
   local skia_root=${MDB_DESKTOP_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
+  local vulkan_sdk validation_log
   [[ $backend != METAL || $(uname) == Darwin ]] || fail "desktop Metal requires macOS"
+  if [[ $backend == VULKAN ]]; then
+    [[ $(uname) == Darwin ]] || fail "desktop Vulkan smoke validation is currently available only on macOS; Windows and Linux still require their own runners"
+    vulkan_sdk=${MDB_VULKAN_SDK:-${VULKAN_SDK:-}}
+    [[ -n $vulkan_sdk ]] || fail "desktop Vulkan requires MDB_VULKAN_SDK or VULKAN_SDK"
+    require_directory "$vulkan_sdk"
+    require_file "$vulkan_sdk/bin/vulkaninfo"
+    require_file "$vulkan_sdk/share/vulkan/icd.d/MoltenVK_icd.json"
+    skia_root=${MDB_DESKTOP_VULKAN_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r5"}
+    export VULKAN_SDK="$vulkan_sdk"
+    export DYLD_LIBRARY_PATH="$vulkan_sdk/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+    export VK_ICD_FILENAMES="${MDB_VULKAN_ICD:-$vulkan_sdk/share/vulkan/icd.d/MoltenVK_icd.json}"
+    export VK_LAYER_PATH="${MDB_VULKAN_LAYER_PATH:-$vulkan_sdk/share/vulkan/explicit_layer.d}"
+    export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
+    "$vulkan_sdk/bin/vulkaninfo" --summary >/dev/null
+  fi
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND="$backend" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_EXAMPLES=ON -DMDB_BUILD_TESTS=ON
   cmake --build "$build" --parallel
-  "$build/examples/desktop/magic_doodle_board_demo" --frames 3
+  if [[ $backend == VULKAN ]]; then
+    validation_log="$build/vulkan-validation.log"
+    "$build/examples/desktop/magic_doodle_board_demo" --frames 3 2>"$validation_log"
+    if rg -q 'Validation Error|\bERROR\b' "$validation_log"; then cat "$validation_log" >&2; fail "Vulkan validation reported an error"; fi
+  else
+    "$build/examples/desktop/magic_doodle_board_demo" --frames 3
+  fi
 }
 
 headless() {
@@ -155,6 +177,7 @@ case "$combination" in
   desktop-cpu-skia) desktop CPU ;;
   desktop-opengl-skia) desktop OPENGL ;;
   desktop-metal-skia) desktop METAL ;;
+  desktop-vulkan-skia) desktop VULKAN ;;
   ios-cpu-skia) ios CPU ;;
   ios-opengl-skia) ios OPENGL ;;
   ios-metal-skia) ios METAL ;;
@@ -162,5 +185,5 @@ case "$combination" in
   android-opengl-skia) android OPENGL ;;
   android-vulkan-skia) android VULKAN ;;
   web-skia) web ;;
-  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia|web-skia}" ;;
+  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|desktop-vulkan-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia|web-skia}" ;;
 esac

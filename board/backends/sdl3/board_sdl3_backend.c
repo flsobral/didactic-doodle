@@ -3,9 +3,13 @@
 #include "../../src/board_internal.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_metal.h>
+#if BOARD_BUILD_SDL3_VULKAN
+#include <vulkan/vulkan.h>
+#include <SDL3/SDL_vulkan.h>
+#endif
 #include <stdlib.h>
 
-typedef struct BoardSdl3Backend { SDL_Window *window; SDL_MetalView metal_view; } BoardSdl3Backend;
+typedef struct BoardSdl3Backend { SDL_Window *window; SDL_MetalView metal_view; unsigned vulkan_library_loaded : 1; } BoardSdl3Backend;
 static BoardSdl3Backend *board_sdl3(BoardBackend *backend) { return backend ? backend->implementation : NULL; }
 static BoardPointerButton board_sdl3_button(Uint8 button) { if (button == SDL_BUTTON_LEFT) return BOARD_POINTER_BUTTON_LEFT; if (button == SDL_BUTTON_MIDDLE) return BOARD_POINTER_BUTTON_MIDDLE; if (button == SDL_BUTTON_RIGHT) return BOARD_POINTER_BUTTON_RIGHT; return BOARD_POINTER_BUTTON_NONE; }
 static BoardResult board_sdl3_map(void *data, void **pixels, uint32_t *width, uint32_t *height, uint32_t *stride, BoardPixelFormat *format, float *scale) {
@@ -24,6 +28,11 @@ static BoardResult board_sdl3_gl_make_current(void *data, void *context) { Board
 static void *board_sdl3_gl_get_proc(void *data, const char *name) { (void)data; return name ? SDL_GL_GetProcAddress(name) : NULL; }
 static BoardResult board_sdl3_gl_drawable_size(void *data, uint32_t *width, uint32_t *height, float *scale) { BoardBackend *backend = data; BoardSdl3Backend *state = board_sdl3(backend); int drawable_width = 0, drawable_height = 0; if (!state || !width || !height || !scale || !SDL_GetWindowSizeInPixels(state->window, &drawable_width, &drawable_height) || drawable_width <= 0 || drawable_height <= 0) return BOARD_ERROR_PLATFORM; backend->width = (uint32_t)drawable_width; backend->height = (uint32_t)drawable_height; *width = backend->width; *height = backend->height; *scale = backend->scale; return BOARD_OK; }
 static BoardResult board_sdl3_gl_swap(void *data) { BoardBackend *backend = data; BoardSdl3Backend *state = board_sdl3(backend); return state && SDL_GL_SwapWindow(state->window) ? BOARD_OK : BOARD_ERROR_PLATFORM; }
+#if BOARD_BUILD_SDL3_VULKAN
+static const char *const *board_sdl3_vk_extensions(void *data, uint32_t *count) { Uint32 extension_count = 0; const char *const *extensions; (void)data; if (!count) return NULL; extensions = SDL_Vulkan_GetInstanceExtensions(&extension_count); if (!extensions || !extension_count) return NULL; *count = (uint32_t)extension_count; return extensions; }
+static BoardResult board_sdl3_vk_create_surface(void *data, void *instance, uint64_t *out_surface) { BoardBackend *backend = data; BoardSdl3Backend *state = board_sdl3(backend); VkSurfaceKHR surface = VK_NULL_HANDLE; if (!state || !instance || !out_surface || !SDL_Vulkan_CreateSurface(state->window, (VkInstance)instance, NULL, &surface)) return BOARD_ERROR_PLATFORM; *out_surface = (uint64_t)(uintptr_t)surface; return BOARD_OK; }
+static void board_sdl3_vk_destroy_surface(void *data, void *instance, uint64_t surface) { BoardBackend *backend = data; BoardSdl3Backend *state = board_sdl3(backend); if (state && instance && surface) SDL_Vulkan_DestroySurface((VkInstance)instance, (VkSurfaceKHR)(uintptr_t)surface, NULL); }
+#endif
 static void board_sdl3_event(BoardBackend *backend, const SDL_Event *native, BoardEventSink sink, void *data) {
     BoardEvent event = { sizeof(BoardEvent), BOARD_ABI_VERSION, BOARD_EVENT_NONE, SDL_GetTicksNS(), {{0}} };
     switch (native->type) {
@@ -38,7 +47,11 @@ static void board_sdl3_event(BoardBackend *backend, const SDL_Event *native, Boa
     if (event.type != BOARD_EVENT_NONE) sink(data, &event);
 }
 static BoardResult board_sdl3_run(BoardBackend *backend, BoardEventSink sink, void *data) { SDL_Event event; uint64_t last = SDL_GetTicksNS(); if (!backend || !sink) return BOARD_ERROR_INVALID_ARGUMENT; while (backend->scheduler.running) { while (SDL_PollEvent(&event)) board_sdl3_event(backend, &event, sink, data); uint64_t now = SDL_GetTicksNS(); if (now - last >= 16666667ULL) { board_scheduler_request_frame(&backend->scheduler); board_scheduler_step(&backend->scheduler, now); last = now; } else SDL_Delay(1); } return BOARD_OK; }
-static void board_sdl3_dispose(BoardBackend *backend) { BoardSdl3Backend *state = board_sdl3(backend); if (state) { if (state->metal_view) SDL_Metal_DestroyView(state->metal_view); SDL_DestroyWindow(state->window); free(state); } backend->implementation = NULL; SDL_Quit(); }
+static void board_sdl3_dispose(BoardBackend *backend) { BoardSdl3Backend *state = board_sdl3(backend); if (state) { if (state->metal_view) SDL_Metal_DestroyView(state->metal_view); SDL_DestroyWindow(state->window);
+#if BOARD_BUILD_SDL3_VULKAN
+    if (state->vulkan_library_loaded) SDL_Vulkan_UnloadLibrary();
+#endif
+    free(state); } backend->implementation = NULL; SDL_Quit(); }
 BoardResult board_sdl3_backend_init(BoardBackend *backend, const BoardBackendConfig *config) { BoardSdl3Backend *state; Uint64 flags = config->resizable ? SDL_WINDOW_RESIZABLE : 0; if (!backend || !config || !SDL_Init(SDL_INIT_VIDEO)) return BOARD_ERROR_PLATFORM;
 #if BOARD_BUILD_SDL3_OPENGL
     flags |= SDL_WINDOW_OPENGL;
@@ -47,12 +60,35 @@ BoardResult board_sdl3_backend_init(BoardBackend *backend, const BoardBackendCon
 #if BOARD_BUILD_SDL3_METAL
     flags |= SDL_WINDOW_METAL;
 #endif
-    state = calloc(1, sizeof(*state)); if (!state) { SDL_Quit(); return BOARD_ERROR_OUT_OF_MEMORY; } state->window = SDL_CreateWindow(config->title ? config->title : "Magic Doodle Board", (int)config->width, (int)config->height, flags); if (!state->window) { free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
+#if BOARD_BUILD_SDL3_VULKAN
+    flags |= SDL_WINDOW_VULKAN;
+    if (!SDL_Vulkan_LoadLibrary(NULL)) { SDL_Quit(); return BOARD_ERROR_PLATFORM; }
+#endif
+    state = calloc(1, sizeof(*state)); if (!state) {
+#if BOARD_BUILD_SDL3_VULKAN
+        SDL_Vulkan_UnloadLibrary();
+#endif
+        SDL_Quit(); return BOARD_ERROR_OUT_OF_MEMORY; }
+#if BOARD_BUILD_SDL3_VULKAN
+    state->vulkan_library_loaded = 1;
+#endif
+    state->window = SDL_CreateWindow(config->title ? config->title : "Magic Doodle Board", (int)config->width, (int)config->height, flags); if (!state->window) {
+#if BOARD_BUILD_SDL3_VULKAN
+        SDL_Vulkan_UnloadLibrary();
+#endif
+        free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
 #if BOARD_BUILD_SDL3_METAL
-    state->metal_view = SDL_Metal_CreateView(state->window); if (!state->metal_view) { SDL_DestroyWindow(state->window); free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
+    state->metal_view = SDL_Metal_CreateView(state->window); if (!state->metal_view) { SDL_DestroyWindow(state->window);
+#if BOARD_BUILD_SDL3_VULKAN
+        if (state->vulkan_library_loaded) SDL_Vulkan_UnloadLibrary();
+#endif
+        free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
 #endif
     backend->implementation = state; backend->width = config->width; backend->height = config->height; backend->scale = config->scale > 0 ? config->scale : 1.0f; backend->surface.cpu = (BoardSurfaceCpuInterface){ sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, backend, board_sdl3_map, board_sdl3_present }; backend->surface.opengl = (BoardSurfaceOpenGLInterface){ sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, backend, board_sdl3_gl_create, board_sdl3_gl_destroy, board_sdl3_gl_make_current, board_sdl3_gl_get_proc, board_sdl3_gl_drawable_size, board_sdl3_gl_swap };
 #if BOARD_BUILD_SDL3_METAL
     backend->surface.metal = (BoardSurfaceMetalInterface){ sizeof(BoardSurfaceMetalInterface), BOARD_ABI_VERSION, SDL_Metal_GetLayer(state->metal_view), config->width, config->height, backend->scale };
+#endif
+#if BOARD_BUILD_SDL3_VULKAN
+    backend->surface.vulkan = (BoardSurfaceVulkanInterface){ sizeof(BoardSurfaceVulkanInterface), BOARD_ABI_VERSION, backend, board_sdl3_vk_extensions, board_sdl3_vk_create_surface, board_sdl3_vk_destroy_surface };
 #endif
     backend->run = board_sdl3_run; backend->dispose = board_sdl3_dispose; return BOARD_OK; }

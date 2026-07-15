@@ -6,9 +6,9 @@ set -euo pipefail
 
 # Downloads an externally published, pinned Skia build. It intentionally keeps
 # generated headers and libraries outside version control.
-destination=${1:-"$PWD/.cache/skia-158dc9d7-r4"}
+destination=${1:-"$PWD/.cache/skia-158dc9d7-r5"}
 platform=${2:-macos-arm64}
-release=https://github.com/TotalCross/totalcross-depot-tools/releases/download/skia-158dc9d7-r4
+release=https://github.com/TotalCross/totalcross-depot-tools/releases/download/skia-158dc9d7-r5
 font=https://raw.githubusercontent.com/google/skia/158dc9d7d4c/resources/fonts/Roboto-Regular.ttf
 
 case "$platform" in

@@ -108,6 +108,11 @@ static BoardResult board_android_vk_create_surface(void *data, void *instance, u
     *out_surface = (uint64_t)(uintptr_t)surface;
     return BOARD_OK;
 }
+
+static void board_android_vk_destroy_surface(void *data, void *instance, uint64_t surface) {
+    (void)data;
+    if (instance && surface) vkDestroySurfaceKHR((VkInstance)instance, (VkSurfaceKHR)(uintptr_t)surface, NULL);
+}
 #endif
 
 #if BOARD_BUILD_ANDROID_OPENGL
@@ -401,7 +406,7 @@ BoardResult board_android_backend_init(BoardBackend *backend, const BoardBackend
     backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_android_gl_create, board_android_gl_destroy, board_android_gl_make_current, board_android_gl_get_proc, board_android_gl_drawable_size, board_android_gl_swap};
 #endif
 #if BOARD_BUILD_ANDROID_VULKAN
-    backend->surface.vulkan = (BoardSurfaceVulkanInterface){sizeof(BoardSurfaceVulkanInterface), BOARD_ABI_VERSION, state, board_android_vk_extensions, board_android_vk_create_surface};
+    backend->surface.vulkan = (BoardSurfaceVulkanInterface){sizeof(BoardSurfaceVulkanInterface), BOARD_ABI_VERSION, state, board_android_vk_extensions, board_android_vk_create_surface, board_android_vk_destroy_surface};
 #endif
     backend->start = board_android_start;
     backend->run = board_android_run;

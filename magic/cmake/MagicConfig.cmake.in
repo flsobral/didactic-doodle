@@ -1,4 +1,7 @@
 @PACKAGE_INIT@
 include(CMakeFindDependencyMacro)
 find_dependency(Board CONFIG)
+if("@MAGIC_BACKEND@" STREQUAL "VULKAN" AND NOT "@CMAKE_SYSTEM_NAME@" STREQUAL "Android")
+  find_dependency(Vulkan)
+endif()
 include("${CMAKE_CURRENT_LIST_DIR}/MagicTargets.cmake")

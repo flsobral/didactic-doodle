@@ -9,6 +9,10 @@ macOS SDL3 + Metal + Skia demo: rendered three frames and exited 0
 Board SDL3 Metal standalone tests: 100% passed and exported SDL3 dependency
 Magic Metal standalone tests: 100% passed against installed Board
 Doodle Skia standalone tests: 100% passed against installed Magic Metal
+Board SDL3 Vulkan standalone tests: 100% passed and exported SDL3/Vulkan dependencies
+Magic Vulkan standalone tests: 100% passed against installed Board SDL3 Vulkan
+Doodle Skia Vulkan standalone tests: 100% passed against installed Magic Vulkan
+Desktop Vulkan consumer: configured, linked, and exited 0 against build/install-desktop-vulkan
 iOS simulator CPU demo: built for iphonesimulator/arm64, installed, launched, and captured at artifacts/final/ios-cpu-simulator.png
 iOS Board → Magic CPU → Doodle Skia packages: built independently and consumed from build/install-ios
 iOS OpenGL ES demo: built for iphonesimulator/arm64, installed, launched, and captured at artifacts/final/ios-opengl-simulator.png

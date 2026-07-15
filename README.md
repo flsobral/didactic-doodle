@@ -18,7 +18,7 @@ Magic Doodle Board is a small, C-first, cross-platform runtime for 2D applicatio
 
 The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
-**Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
+**Board SDL3 + Magic CPU/OpenGL/Metal/Vulkan + Doodle Skia on macOS**, and
 **Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**, and
 **Board Android native + Magic CPU/OpenGL ES/Vulkan + Doodle Skia in an Android emulator**, and
 **Board Web + Magic WebGL2 + Doodle Skia in a browser**. Board exposes either a
@@ -57,6 +57,19 @@ build/desktop-cpu/examples/desktop/magic_doodle_board_demo
 For the OpenGL or macOS Metal variants, change the build directory and pass
 `-DMAGIC_BACKEND=OPENGL` or `-DMAGIC_BACKEND=METAL`; `--frames 3` runs a finite
 three-frame smoke test. Metal requires macOS.
+
+For macOS Vulkan, install the Vulkan SDK and run the named smoke test with the
+Skia r5 archive:
+
+```sh
+export VULKAN_SDK="$HOME/Library/VulkanSDK/1.4.350.1/macOS"
+bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r5 macos-arm64
+VULKAN_SDK="$VULKAN_SDK" ./scripts/test-desktop-vulkan-skia.sh
+```
+
+The wrapper uses the SDK's MoltenVK implementation and
+`VK_LAYER_KHRONOS_validation`. Windows and Linux require separate runner
+validation before they are documented as supported.
 
 Run the iOS CPU demo in an arm64 simulator after making the matching external
 Skia, libpng, and zlib artifacts available (the paths below are ignored caches):
@@ -144,6 +157,7 @@ scripts/test-headless-cpu-skia.sh
 scripts/test-desktop-cpu-skia.sh
 scripts/test-desktop-opengl-skia.sh
 scripts/test-desktop-metal-skia.sh
+scripts/test-desktop-vulkan-skia.sh
 scripts/test-ios-cpu-skia.sh
 scripts/test-ios-opengl-skia.sh
 scripts/test-ios-metal-skia.sh
@@ -163,6 +177,12 @@ to select another browser, visible run duration, or server port.
 Android wrappers wait up to 60 seconds for a connected, fully booted emulator
 before failing clearly; set `MDB_ANDROID_BOOT_TIMEOUT_SECONDS` or `ADB` when
 using a different timeout or device bridge.
+
+The desktop Vulkan wrapper requires a Vulkan SDK through `VULKAN_SDK` or
+`MDB_VULKAN_SDK`, a Vulkan-enabled macOS Skia r5 cache, and a visible desktop
+session. It runs the demo with `VK_LAYER_KHRONOS_validation`; set
+`MDB_DESKTOP_VULKAN_SKIA_ROOT`, `MDB_VULKAN_ICD`, or
+`MDB_VULKAN_LAYER_PATH` to select non-default artifacts or SDK paths.
 
 The `ios/` source directory is a convenience entry point for an iOS-only
 consumer. It selects the same public composition as the root project rather
@@ -763,6 +783,7 @@ The first complete migration preserves these known paths:
 Board SDL3          + Magic CPU      + Doodle Skia
 Board SDL3          + Magic OpenGL   + Doodle Skia
 Board SDL3 on macOS + Magic Metal    + Doodle Skia
+Board SDL3 on macOS + Magic Vulkan   + Doodle Skia
 Board Android       + Magic CPU      + Doodle Skia
 Board Android       + Magic OpenGL ES+ Doodle Skia
 Board Android       + Magic Vulkan   + Doodle Skia

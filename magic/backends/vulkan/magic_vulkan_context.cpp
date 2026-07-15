@@ -1,8 +1,8 @@
 /* SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda. */
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "../../src/magic_context_private.h"
-#define VK_USE_PLATFORM_ANDROID_KHR
 #include <vulkan/vulkan.h>
+#include <cstring>
 #include <vector>
 
 struct MagicVulkanState {
@@ -17,6 +17,7 @@ struct MagicVulkanState {
     VkImageUsageFlags usage = 0;
     VkExtent2D extent{};
     VkPhysicalDeviceFeatures2 features{};
+    std::vector<const char *> instance_extensions;
     uint32_t queue_family = 0;
     std::vector<VkImage> images;
     std::vector<VkSemaphore> render_semaphores;
@@ -27,6 +28,15 @@ struct MagicVulkanState {
 
 static MagicVulkanState *magic_vk(MagicContext *context) { return context ? static_cast<MagicVulkanState *>(context->backend_data) : nullptr; }
 static uint64_t magic_vk_handle(const void *value) { return (uint64_t)(uintptr_t)value; }
+static int magic_vk_has_extension(const std::vector<const char *> &extensions, const char *name) { for (const char *extension : extensions) if (!std::strcmp(extension, name)) return 1; return 0; }
+static int magic_vk_extension_available(const std::vector<VkExtensionProperties> &extensions, const char *name) { for (const VkExtensionProperties &extension : extensions) if (!std::strcmp(extension.extensionName, name)) return 1; return 0; }
+
+static void magic_vk_destroy_surface(MagicVulkanState *state) {
+    if (!state || state->surface == VK_NULL_HANDLE) return;
+    if (state->board.destroy_surface) state->board.destroy_surface(state->board.user_data, state->instance, (uint64_t)(uintptr_t)state->surface);
+    else vkDestroySurfaceKHR(state->instance, state->surface, nullptr);
+    state->surface = VK_NULL_HANDLE;
+}
 
 static void magic_vk_destroy_swapchain(MagicVulkanState *state) {
     if (!state || state->device == VK_NULL_HANDLE) return;
@@ -96,8 +106,18 @@ extern "C" MagicResult magic_vulkan_backend_create(MagicContext *context, BoardN
     if (!state || board_surface_query_interface(surface, BOARD_SURFACE_INTERFACE_VULKAN, BOARD_ABI_VERSION, &board, sizeof(board)) != BOARD_OK) { delete state; return MAGIC_ERROR_UNAVAILABLE; }
     extensions = board.required_instance_extensions(board.user_data, &extension_count);
     if (!extensions || !extension_count) { delete state; return MAGIC_ERROR_UNAVAILABLE; }
+    state->instance_extensions.assign(extensions, extensions + extension_count);
+    {
+        uint32_t available_count = 0;
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &available_count, nullptr) != VK_SUCCESS) { delete state; return MAGIC_ERROR_SURFACE; }
+        std::vector<VkExtensionProperties> available(available_count);
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &available_count, available.data()) != VK_SUCCESS) { delete state; return MAGIC_ERROR_SURFACE; }
+        if (magic_vk_extension_available(available, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) && !magic_vk_has_extension(state->instance_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) state->instance_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        if (magic_vk_extension_available(available, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) && !magic_vk_has_extension(state->instance_extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) state->instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    }
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO}; app.apiVersion = VK_API_VERSION_1_1;
-    VkInstanceCreateInfo instance_info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO}; instance_info.pApplicationInfo = &app; instance_info.enabledExtensionCount = extension_count; instance_info.ppEnabledExtensionNames = extensions;
+    VkInstanceCreateInfo instance_info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO}; instance_info.pApplicationInfo = &app; instance_info.enabledExtensionCount = (uint32_t)state->instance_extensions.size(); instance_info.ppEnabledExtensionNames = state->instance_extensions.data();
+    if (magic_vk_has_extension(state->instance_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) instance_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     if (vkCreateInstance(&instance_info, nullptr, &state->instance) != VK_SUCCESS) { delete state; return MAGIC_ERROR_SURFACE; }
     state->board = board;
     if (magic_vk_create_surface(state) != MAGIC_OK || vkEnumeratePhysicalDevices(state->instance, &device_count, nullptr) != VK_SUCCESS || !device_count) goto failure;
@@ -126,17 +146,17 @@ extern "C" MagicResult magic_vulkan_backend_create(MagicContext *context, BoardN
     if (magic_vk_create_swapchain(state) != MAGIC_OK) goto failure;
     context->backend_data = state; return MAGIC_OK;
 failure:
-    magic_vk_destroy_swapchain(state); if (state->surface != VK_NULL_HANDLE) vkDestroySurfaceKHR(state->instance, state->surface, nullptr); if (state->device != VK_NULL_HANDLE) vkDestroyDevice(state->device, nullptr); if (state->instance != VK_NULL_HANDLE) vkDestroyInstance(state->instance, nullptr); delete state; return MAGIC_ERROR_SURFACE;
+    magic_vk_destroy_swapchain(state); magic_vk_destroy_surface(state); if (state->device != VK_NULL_HANDLE) vkDestroyDevice(state->device, nullptr); if (state->instance != VK_NULL_HANDLE) vkDestroyInstance(state->instance, nullptr); delete state; return MAGIC_ERROR_SURFACE;
 }
 
 extern "C" void magic_vulkan_backend_destroy(MagicContext *context) {
     MagicVulkanState *state = magic_vk(context); if (!state) return;
-    magic_vk_destroy_swapchain(state); if (state->surface != VK_NULL_HANDLE) vkDestroySurfaceKHR(state->instance, state->surface, nullptr); if (state->device != VK_NULL_HANDLE) vkDestroyDevice(state->device, nullptr); if (state->instance != VK_NULL_HANDLE) vkDestroyInstance(state->instance, nullptr); delete state; context->backend_data = nullptr;
+    magic_vk_destroy_swapchain(state); magic_vk_destroy_surface(state); if (state->device != VK_NULL_HANDLE) vkDestroyDevice(state->device, nullptr); if (state->instance != VK_NULL_HANDLE) vkDestroyInstance(state->instance, nullptr); delete state; context->backend_data = nullptr;
 }
 
 extern "C" MagicResult magic_vulkan_backend_resize(MagicContext *context, uint32_t, uint32_t, float) {
     MagicVulkanState *state = magic_vk(context); if (!state) return MAGIC_ERROR_INVALID_ARGUMENT;
-    magic_vk_destroy_swapchain(state); if (state->surface != VK_NULL_HANDLE) vkDestroySurfaceKHR(state->instance, state->surface, nullptr); state->surface = VK_NULL_HANDLE;
+    magic_vk_destroy_swapchain(state); magic_vk_destroy_surface(state);
     if (magic_vk_create_surface(state) != MAGIC_OK) return MAGIC_ERROR_SURFACE;
     return magic_vk_create_swapchain(state);
 }
@@ -150,7 +170,9 @@ extern "C" MagicResult magic_vulkan_backend_begin_frame(MagicContext *context, M
     if (result == VK_ERROR_OUT_OF_DATE_KHR) { vkDestroySemaphore(state->device, acquire, nullptr); if (magic_vk_create_swapchain(state) != MAGIC_OK) return MAGIC_ERROR_SURFACE; return MAGIC_ERROR_SURFACE; }
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { vkDestroySemaphore(state->device, acquire, nullptr); return MAGIC_ERROR_SURFACE; }
     state->active_image = image;
-    frame->vulkan = {sizeof(MagicVulkanInterop), MAGIC_ABI_VERSION, magic_vk_handle(state->instance), magic_vk_handle(state->physical_device), magic_vk_handle(state->device), magic_vk_handle(state->queue), (uint64_t)state->images[image], (uint64_t)acquire, (uint64_t)state->render_semaphores[state->frame_slot], state->surface_generation, &state->features, state->queue_family, (uint32_t)state->format, (uint32_t)state->usage, state->extent.width, state->extent.height, 1.0f};
+    MagicVulkanInterop interop{};
+    interop.struct_size = sizeof(interop); interop.abi_version = MAGIC_ABI_VERSION; interop.instance = magic_vk_handle(state->instance); interop.physical_device = magic_vk_handle(state->physical_device); interop.device = magic_vk_handle(state->device); interop.queue = magic_vk_handle(state->queue); interop.image = (uint64_t)state->images[image]; interop.acquire_semaphore = (uint64_t)acquire; interop.render_complete_semaphore = (uint64_t)state->render_semaphores[state->frame_slot]; interop.surface_generation = state->surface_generation; interop.device_features = &state->features; interop.queue_family = state->queue_family; interop.image_format = (uint32_t)state->format; interop.image_usage = (uint32_t)state->usage; interop.width = state->extent.width; interop.height = state->extent.height; interop.scale = 1.0f; interop.instance_extensions = state->instance_extensions.data(); interop.instance_extension_count = (uint32_t)state->instance_extensions.size();
+    frame->vulkan = interop;
     return MAGIC_OK;
 }
 
