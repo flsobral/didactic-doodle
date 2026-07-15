@@ -17,6 +17,7 @@ typedef struct BoardIosState { BoardBackend *backend; void *view;
     void *active_gl;
 #endif
 } BoardIosState;
+typedef struct BoardIosNativeViewSlot { void *container; } BoardIosNativeViewSlot;
 #if BOARD_BUILD_IOS_OPENGL
 typedef struct BoardIosOpenGLContext { void *eagl; GLuint framebuffer, colorbuffer; uint32_t width, height; float scale; } BoardIosOpenGLContext;
 static BoardResult board_ios_gl_rebuild(BoardIosState *state, BoardIosOpenGLContext *gl, uint32_t width, uint32_t height, float scale);
@@ -66,10 +67,21 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
     return BOARD_OK;
 }
 
+@interface BoardIosOverlayView : UIView
+@end
+
+@implementation BoardIosOverlayView
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    return hit == self ? nil : hit;
+}
+@end
+
 @interface BoardIosView : UIView {
 @public
     BoardBackend *_board_backend;
     CADisplayLink *_display_link;
+    BoardIosOverlayView *_native_overlay;
 }
 - (instancetype)initWithBackend:(BoardBackend *)backend frame:(CGRect)frame;
 - (void)startFrames;
@@ -93,6 +105,9 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
         self.opaque = YES;
         self.contentScaleFactor = UIScreen.mainScreen.scale;
         self.multipleTouchEnabled = YES;
+        _native_overlay = [[BoardIosOverlayView alloc] initWithFrame:self.bounds];
+        _native_overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [self addSubview:_native_overlay];
 #if BOARD_BUILD_IOS_OPENGL
         ((CAEAGLLayer *)self.layer).opaque = YES;
         ((CAEAGLLayer *)self.layer).drawableProperties = @{kEAGLDrawablePropertyColorFormat: kEAGLColorFormatRGBA8, kEAGLDrawablePropertyRetainedBacking: @NO};
@@ -164,6 +179,64 @@ static BoardResult board_ios_map(void *data, void **pixels, uint32_t *width, uin
 #endif
 }
 @end
+
+static BoardIosNativeViewSlot *board_ios_slot(BoardNativeViewSlot *slot) { return slot ? (BoardIosNativeViewSlot *)slot->implementation : NULL; }
+
+static BoardResult board_ios_slot_apply(BoardNativeViewSlot *slot) {
+    BoardIosNativeViewSlot *native_slot = board_ios_slot(slot);
+    UIView *container;
+    UIView *view;
+    CGRect frame;
+    if (!slot || !slot->backend || !native_slot || !native_slot->container || slot->z_order != BOARD_NATIVE_VIEW_ABOVE_RENDERER || ![NSThread isMainThread]) return BOARD_ERROR_UNAVAILABLE;
+    container = (__bridge UIView *)native_slot->container;
+    view = container.subviews.firstObject;
+    if (!view) return BOARD_ERROR_PLATFORM;
+    frame = CGRectMake(slot->frame.x, slot->frame.y, slot->frame.width, slot->frame.height);
+    container.hidden = !slot->visible;
+    if (slot->clip_enabled) {
+        container.frame = CGRectMake(slot->clip.x, slot->clip.y, slot->clip.width, slot->clip.height);
+        container.clipsToBounds = YES;
+        view.frame = CGRectMake(frame.origin.x - container.frame.origin.x, frame.origin.y - container.frame.origin.y, frame.size.width, frame.size.height);
+    } else {
+        container.frame = frame;
+        container.clipsToBounds = NO;
+        view.frame = container.bounds;
+    }
+    [container.superview bringSubviewToFront:container];
+    return BOARD_OK;
+}
+
+static BoardResult board_ios_slot_create(BoardBackend *backend, const BoardNativeViewSlotConfig *config, BoardNativeViewSlot *slot) {
+    BoardIosState *state = backend ? (BoardIosState *)backend->implementation : NULL;
+    BoardIosNativeViewSlot *native_slot;
+    BoardIosView *host;
+    UIView *view;
+    UIView *container;
+    if (!state || !state->view || !config || !slot || ![NSThread isMainThread]) return BOARD_ERROR_INVALID_ARGUMENT;
+    if (config->z_order != BOARD_NATIVE_VIEW_ABOVE_RENDERER) return BOARD_ERROR_UNAVAILABLE;
+    view = (__bridge UIView *)config->native_view;
+    if (![view isKindOfClass:UIView.class]) return BOARD_ERROR_INVALID_ARGUMENT;
+    host = (__bridge BoardIosView *)state->view;
+    native_slot = (BoardIosNativeViewSlot *)calloc(1, sizeof(*native_slot));
+    if (!native_slot) return BOARD_ERROR_OUT_OF_MEMORY;
+    container = [[UIView alloc] initWithFrame:CGRectZero];
+    [container addSubview:view];
+    [host->_native_overlay addSubview:container];
+    native_slot->container = (void *)CFBridgingRetain(container);
+    slot->implementation = native_slot;
+    return board_ios_slot_apply(slot);
+}
+
+static void board_ios_slot_destroy(BoardNativeViewSlot *slot) {
+    BoardIosNativeViewSlot *native_slot = board_ios_slot(slot);
+    if (!native_slot) return;
+    if (native_slot->container) {
+        UIView *container = (__bridge_transfer UIView *)native_slot->container;
+        [container removeFromSuperview];
+    }
+    free(native_slot);
+    slot->implementation = NULL;
+}
 
 #if BOARD_BUILD_IOS_OPENGL
 static EAGLContext *board_ios_gl_eagl(BoardIosOpenGLContext *gl) { return (__bridge EAGLContext *)gl->eagl; }
@@ -269,6 +342,9 @@ extern "C" BoardResult board_ios_backend_init(BoardBackend *backend, const Board
     state->backend = backend;
     state->view = (void *)CFBridgingRetain(view);
     backend->implementation = state;
+    backend->native_slot_create = board_ios_slot_create;
+    backend->native_slot_destroy = board_ios_slot_destroy;
+    backend->native_slot_apply = board_ios_slot_apply;
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_ios_map, board_ios_present};
 #if BOARD_BUILD_IOS_OPENGL
     backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_ios_gl_create, board_ios_gl_destroy, board_ios_gl_make_current, board_ios_gl_get_proc, board_ios_gl_drawable_size, board_ios_gl_swap};

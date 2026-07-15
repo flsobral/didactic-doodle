@@ -4,7 +4,9 @@
 #include <board/board_android.h>
 #include <board/board_backend.h>
 #include <board/board_event.h>
+#include <board/board_host.h>
 #include <board/board_ios.h>
+#include <board/board_native_view.h>
 #include <board/board_scheduler.h>
 #include <board/board_surface.h>
 #include <magic/magic_context.h>

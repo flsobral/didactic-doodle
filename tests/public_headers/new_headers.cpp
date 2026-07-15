@@ -3,7 +3,9 @@
 extern "C" {
 #include <board/board_app.h>
 #include <board/board_android.h>
+#include <board/board_host.h>
 #include <board/board_ios.h>
+#include <board/board_native_view.h>
 #include <magic/magic_context.h>
 #include <doodle/doodle_renderer.h>
 }

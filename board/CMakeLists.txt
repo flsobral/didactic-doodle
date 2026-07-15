@@ -14,7 +14,7 @@ option(BOARD_ANDROID_ENABLE_VULKAN "Create Android Board hosts with Vulkan surfa
 if(NOT BOARD_BACKEND STREQUAL "HEADLESS" AND NOT BOARD_BACKEND STREQUAL "SDL3" AND NOT BOARD_BACKEND STREQUAL "WEB" AND NOT BOARD_BACKEND STREQUAL "ANDROID_NATIVE" AND NOT BOARD_BACKEND STREQUAL "IOS_NATIVE")
   message(FATAL_ERROR "BOARD_BACKEND=${BOARD_BACKEND} is declared but not implemented for this repository revision; select HEADLESS, SDL3, WEB, ANDROID_NATIVE, or IOS_NATIVE.")
 endif()
-set(BOARD_SOURCES src/board_core.c backends/headless/board_headless_backend.c)
+set(BOARD_SOURCES src/board_core.c src/board_host.c backends/headless/board_headless_backend.c)
 if(BOARD_BACKEND STREQUAL "SDL3")
   find_package(SDL3 CONFIG REQUIRED)
   list(APPEND BOARD_SOURCES backends/sdl3/board_sdl3_backend.c)

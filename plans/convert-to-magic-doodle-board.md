@@ -24,7 +24,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan and WebGL2 are complete; desktop Vulkan remains.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
-- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Android NativeActivity and iOS fullscreen-owned CPU hosting are complete; embedded and hybrid-overlay modes remain.
+- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. The iOS Board view now supports embedded hybrid overlays above the renderer; Android NativeActivity remains fullscreen-owned until its reusable BoardView host is implemented.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
@@ -121,6 +121,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 
 - Decision: Remove the retired monolithic runtime, duplicate demos, and renderer placeholder files once the iOS convenience entry no longer used them.
   Rationale: Every supported platform now composes the shared scene through Board, Magic, and Doodle. Keeping unreferenced duplicate implementations would preserve obsolete public names and invite an accidental bypass of the layer boundaries. The architecture checker now rejects those names in active source and build files.
+  Date/Author: 2026-07-15 / Codex.
+
+- Decision: Add the host-mode and native-slot C ABI before the Android reusable view, and initially implement slots only above the iOS renderer.
+  Rationale: The public API needs stable, native-type-free ownership and geometry rules before each platform can provide it. iOS can host an overlay container inside its existing reusable Board view; placing a control below its render layer would require a separate rendering sibling, so that order returns `BOARD_ERROR_UNAVAILABLE` rather than silently changing z-order.
   Date/Author: 2026-07-15 / Codex.
 
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
@@ -343,6 +347,15 @@ ExecPlan and baseline artifacts, where they document the completed migration.
 documentation alone. The root CTest case configures a disposable valid
 Headless + CPU build and verifies clear failures for a Headless GPU request,
 the GLFW stub, the Vello stub, and a Web request outside Emscripten.
+
+2026-07-15: Board now exposes native-type-free host modes, lifecycle and UI
+dispatch values, plus opaque native-view slots. The existing iOS Board view
+contains an overlay container; hybrid hosts can attach an above-renderer
+UIKit control with frame, visibility, and rectangular clipping managed by a
+slot. The iOS demo embeds that Board view between native controls and adds an
+interactive native overlay button. Android has no misleading slot success
+path: it reports the capability as unavailable until its reusable BoardView
+is implemented.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 

@@ -574,6 +574,14 @@ Board host view
 
 A `BoardNativeViewSlot` controls native view position, size, visibility, rectangular clipping, and a documented above-or-below-surface z-order. Arbitrary Doodle filters, perspective transforms, and path clipping do not apply to native controls.
 
+Use `BOARD_HOST_MODE_HYBRID_OVERLAY` in `BoardBackendConfig` before creating
+slots. The portable API deliberately receives the native control as an opaque
+pointer, so no UIKit or Android types enter public headers. Slot frame and
+clip values are logical host coordinates, and all slot operations must run on
+the platform UI thread. The iOS host currently supports controls above the
+renderer; requesting below-renderer order or requesting a slot from an
+unimplemented host returns `BOARD_ERROR_UNAVAILABLE`.
+
 ## Target repository structure
 
 ```text

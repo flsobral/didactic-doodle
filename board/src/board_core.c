@@ -3,6 +3,7 @@
 #include "board_internal.h"
 #include <board/board_android.h>
 #include <board/board_ios.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,8 +14,9 @@ void board_scheduler_stop(BoardFrameScheduler *scheduler) { if (scheduler) sched
 BoardResult board_scheduler_step(BoardFrameScheduler *scheduler, uint64_t timestamp_ns) { double delta; if (!scheduler || !scheduler->running) return BOARD_ERROR_INVALID_ARGUMENT; if (!scheduler->requested) return BOARD_OK; delta = scheduler->previous_timestamp_ns ? (double)(timestamp_ns - scheduler->previous_timestamp_ns) / 1000000000.0 : 0.0; scheduler->previous_timestamp_ns = timestamp_ns; scheduler->requested = 0; scheduler->callback(scheduler->user_data, timestamp_ns, delta); return BOARD_OK; }
 BoardResult board_backend_create(const BoardBackendConfig *config, BoardBackend **out_backend) {
     BoardBackend *backend; BoardResult result;
-    if (!config || !out_backend || config->struct_size < sizeof(*config) || config->abi_version != BOARD_ABI_VERSION || !config->width || !config->height) return BOARD_ERROR_INVALID_ARGUMENT;
-    backend = calloc(1, sizeof(*backend)); if (!backend) return BOARD_ERROR_OUT_OF_MEMORY; backend->kind = config->kind;
+    if (!config || !out_backend || config->struct_size < offsetof(BoardBackendConfig, host_mode) || config->abi_version != BOARD_ABI_VERSION || !config->width || !config->height) return BOARD_ERROR_INVALID_ARGUMENT;
+    backend = calloc(1, sizeof(*backend)); if (!backend) return BOARD_ERROR_OUT_OF_MEMORY; backend->kind = config->kind; backend->host_mode = config->struct_size >= sizeof(*config) ? config->host_mode : BOARD_HOST_MODE_FULLSCREEN_OWNED;
+    if (backend->host_mode != BOARD_HOST_MODE_FULLSCREEN_OWNED && backend->host_mode != BOARD_HOST_MODE_EMBEDDED && backend->host_mode != BOARD_HOST_MODE_HYBRID_OVERLAY) { free(backend); return BOARD_ERROR_INVALID_ARGUMENT; }
     if (config->kind == BOARD_BACKEND_HEADLESS) result = board_headless_backend_init(backend, config);
 #if BOARD_BUILD_SDL3
     else if (config->kind == BOARD_BACKEND_SDL3) result = board_sdl3_backend_init(backend, config);
