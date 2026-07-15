@@ -18,6 +18,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Recorded the source and legacy-symbol baseline under `artifacts/baseline/`; desktop configuration was attempted and its missing Skia artifact recorded as an environment limitation.
 - [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
+- [x] (2026-07-15) Added root configuration-matrix tests that confirm the valid Headless + CPU selection and explicit diagnostics for unsupported backend or renderer selections.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
 - [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, Android native CPU/OpenGL ES, the iOS native CPU/OpenGL ES/Metal view, and Web are complete, while GLFW and winit remain.
 - [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan and WebGL2 are complete; desktop Vulkan remains.
@@ -337,6 +338,11 @@ old iOS convenience CMake file still referenced them. The architecture checker
 now treats retired naming in active Board, Magic, Doodle, example, Android,
 iOS, and root-CMake sources as a failure. Historical names remain only in this
 ExecPlan and baseline artifacts, where they document the completed migration.
+
+2026-07-15: Configuration validation is now executable rather than relying on
+documentation alone. The root CTest case configures a disposable valid
+Headless + CPU build and verifies clear failures for a Headless GPU request,
+the GLFW stub, the Vello stub, and a Web request outside Emscripten.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
