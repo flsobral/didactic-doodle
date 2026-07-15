@@ -100,13 +100,17 @@ android() {
   local skia_root=${MDB_ANDROID_SKIA_ROOT:-"$root/.cache/skia-android-r4"}
   local png_root=${MDB_ANDROID_PNG_ROOT:-"$root/.cache/libpng-android/libpng/android/arm64-v8a"}
   local zlib_root=${MDB_ANDROID_ZLIB_ROOT:-"$root/.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"}
+  local artifact_directory artifact_name
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
   require_directory "$zlib_root"
-  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then
-    (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
-    return
-  fi
+  (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
+  artifact_directory="$build_root/android-$backend"
+  artifact_name="magic_doodle_board_android_$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')_demo.apk"
+  mkdir -p "$artifact_directory"
+  cp "$root/android/app/build/outputs/apk/debug/app-debug.apk" "$artifact_directory/$artifact_name"
+  printf 'Android %s APK: %s\n' "$backend" "$artifact_directory/$artifact_name"
+  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
   require_file "$adb"
   [[ $boot_timeout =~ ^[0-9]+$ ]] && ((boot_timeout > 0)) || fail "MDB_ANDROID_BOOT_TIMEOUT_SECONDS must be a positive number of seconds"
   local deadline=$(( $(date +%s) + boot_timeout ))
@@ -115,7 +119,6 @@ android() {
     sleep 1
   done
   [[ $("$adb" get-state 2>/dev/null || true) == device ]] && [[ $("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]] || fail "no fully booted Android emulator was detected within ${boot_timeout}s; start an AVD or set ADB"
-  (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
   "$adb" install -r "$root/android/app/build/outputs/apk/debug/app-debug.apk"
   "$adb" shell am force-stop com.amalgam.magicdoodleboard.demo
   "$adb" shell am start -n com.amalgam.magicdoodleboard.demo/.MagicDoodleBoardActivity

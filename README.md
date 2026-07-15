@@ -335,6 +335,9 @@ VULKAN_SDK="$HOME/Library/VulkanSDK/1.4.350.1/macOS" \
 
 The command still requires each platform toolchain and external Skia artifact;
 use an individual named command when a build should also run its smoke test.
+Android APKs are preserved per backend under
+`build/backend-matrix/android-{CPU,OPENGL,VULKAN}/` instead of leaving only the
+last Gradle output in `android/app/build/outputs/apk/debug/`.
 
 ## Layer 1: Board
 
