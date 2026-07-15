@@ -127,7 +127,9 @@ python3 -m http.server 8080 --bind 127.0.0.1
 Board owns browser animation-frame scheduling plus mouse, touch, keyboard, and
 resize conversion. Magic privately owns the WebGL2 context; presentation is
 implicit in the browser frame callback;
-Doodle Skia consumes only `MagicWebInterop` and renders the shared scene.
+Doodle Skia consumes only `MagicWebInterop` and renders the shared scene. The
+preparation script also fetches Roboto, which the Web build preloads into
+Emscripten's virtual font directory so Skia text is available in the browser.
 
 ## Backend-matrix test scripts
 

@@ -311,6 +311,12 @@ Magic already makes the WebGL context current and records its currently bound
 framebuffer before Doodle begins the frame, so Doodle now consumes that value
 without invoking the incompatible wrapper.
 
+2026-07-15: The published wasm32 Skia archive includes FreeType and a custom
+directory font manager, but the browser's Emscripten filesystem starts without
+the `/usr/share/fonts` directory that its default manager scans. The Web demo
+therefore preloads an externally fetched Roboto font at that path; text remains
+owned by Doodle's Skia renderer and requires no browser-specific Canvas API.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Context and Orientation

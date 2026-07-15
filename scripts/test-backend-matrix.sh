@@ -91,7 +91,7 @@ web() {
   local browser=${MDB_WEB_BROWSER:-safari}
   local timeout=${MDB_WEB_TIMEOUT_SECONDS:-8}
   local port=${MDB_WEB_PORT:-}
-  local html js wasm web_directory url
+  local html js wasm data font web_directory url
   if [[ ! -x "$emcmake" ]]; then emcmake=$(command -v emcmake || true); fi
   [[ -n "$emcmake" ]] || fail "Emscripten emcmake is required; set EMCMAKE or install the pinned Emscripten 2.0.6 toolchain"
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
@@ -100,7 +100,9 @@ web() {
   html="$build/examples/web/magic_doodle_board_web_demo.html"
   js="$build/examples/web/magic_doodle_board_web_demo.js"
   wasm="$build/examples/web/magic_doodle_board_web_demo.wasm"
-  require_file "$html"; require_file "$js"; require_file "$wasm"
+  data="$build/examples/web/magic_doodle_board_web_demo.data"
+  font="$skia_root/Roboto-Regular.ttf"
+  require_file "$html"; require_file "$js"; require_file "$wasm"; require_file "$data"; require_file "$font"
   command -v python3 >/dev/null || fail "python3 is required to serve the Web demo"
   command -v curl >/dev/null || fail "curl is required to verify the local Web server"
   if [[ -n $port ]]; then
@@ -136,6 +138,7 @@ web() {
     printf 'magic_doodle_board_web_demo.html: %s bytes\n' "$(wc -c < "$html")"
     printf 'magic_doodle_board_web_demo.js: %s bytes\n' "$(wc -c < "$js")"
     printf 'magic_doodle_board_web_demo.wasm: %s bytes\n' "$(wc -c < "$wasm")"
+    printf 'magic_doodle_board_web_demo.data: %s bytes\n' "$(wc -c < "$data")"
   } > "$root/artifacts/final/web-skia-artifacts.txt"
 }
 
