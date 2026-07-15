@@ -365,7 +365,8 @@ is implemented.
 SurfaceView that creates, starts, resizes, and destroys the private native
 Board/Magic/Doodle composition from its surface lifecycle. The demo Activity
 places the BoardView between Android controls and the Android CPU APK builds
-successfully. A visible AVD run remains required to validate each renderer;
+successfully. The OpenGL ES and Vulkan APK variants also compile with the same
+BoardView entry point. A visible AVD run remains required to validate each renderer;
 Android native overlay slots are deliberately unavailable pending their own
 surface/container implementation.
 
