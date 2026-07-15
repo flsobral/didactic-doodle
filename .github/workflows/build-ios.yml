@@ -4,9 +4,12 @@
 name: build-ios
 on: [push, pull_request]
 jobs:
-  stubs:
+  layout:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Record stub status
-        run: test -f src/backends/ios/tc_ios_backend.c
+      - name: Verify native iOS composition sources
+        run: |
+          test -f board/backends/ios/board_ios_backend.mm
+          test -f magic/backends/metal/magic_metal_context.mm
+          test -f examples/ios/magic_doodle_board_ios_demo.mm

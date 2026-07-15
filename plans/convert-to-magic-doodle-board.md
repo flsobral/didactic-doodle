@@ -24,9 +24,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [ ] Replace the existing application draw callback with explicit application composition of Board frame callbacks, Magic frames, and Doodle canvases.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Android NativeActivity and iOS fullscreen-owned CPU hosting are complete; embedded and hybrid-overlay modes remain.
-- [ ] Convert the shared demo and all platform entry points to the new public APIs and preserve one common scene across targets. The SDL3, Android, iOS, and Web demos now compose only Board, Magic, and Doodle public headers around `examples/common/magic_doodle_board_scene.c`; other entry points remain.
-- [ ] Replace old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; add compatibility validation and standalone layer builds.
-- [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
+- [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
+- [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
+- [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
@@ -117,6 +117,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 - Decision: Use additive APIs and temporary compatibility adapters during migration, then remove all framework-owned `tc_`, `Tc...`, and `TC_...` names before completion.
   Rationale: Large source moves and symbol renames are safer when current builds remain runnable between milestones. The temporary bridge is not part of the final installed API.
   Date/Author: 2026-07-14 / initial architecture plan.
+
+- Decision: Remove the retired monolithic runtime, duplicate demos, and renderer placeholder files once the iOS convenience entry no longer used them.
+  Rationale: Every supported platform now composes the shared scene through Board, Magic, and Doodle. Keeping unreferenced duplicate implementations would preserve obsolete public names and invite an accidental bypass of the layer boundaries. The architecture checker now rejects those names in active source and build files.
+  Date/Author: 2026-07-15 / Codex.
 
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
   Rationale: Public configuration must describe the actual implementation. The Magic Web provider may initially use WebGL 2 privately and later add WebGPU without changing the Board contract.
@@ -325,6 +329,14 @@ retaining a second app implementation that included `src/graphics/` and the
 legacy public headers. The CPU simulator bundle configured and built with
 `cmake -S ios` using the same cached Skia, libpng, and zlib prefixes as the
 backend-matrix smoke script.
+
+2026-07-15: The retired monolithic headers and implementation directories,
+their duplicate desktop, Android, and iOS demos, and inactive renderer
+placeholder files were removed after a repository search showed that only the
+old iOS convenience CMake file still referenced them. The architecture checker
+now treats retired naming in active Board, Magic, Doodle, example, Android,
+iOS, and root-CMake sources as a failure. Historical names remain only in this
+ExecPlan and baseline artifacts, where they document the completed migration.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 

@@ -7,6 +7,8 @@ import sys
 root = pathlib.Path(sys.argv[1])
 violations = []
 foreign = re.compile(r"\b(SDL|GLFW|Emscripten|JNIEnv|jobject|UIKit|UIView|CAMetal|MTL[A-Z]|Vk[A-Z]|GL[A-Z]|Sk[A-Z]|std::|rust::)")
+legacy = re.compile(r"\b(?:Tc[A-Za-z0-9_]*|tc_[A-Za-z0-9_]*|TC_[A-Z][A-Z0-9_]*)")
+generated_directories = {"build", ".cxx", "intermediates", ".gradle"}
 for layer in ("board", "magic", "doodle"):
     for path in (root / layer / "include" / layer).glob("*.h"):
         if foreign.search(path.read_text()):
@@ -25,6 +27,17 @@ for path in (root / "doodle").rglob("*"):
     source = path.read_text()
     if "#include <board/" in source or "../magic/" in source or "magic/src/" in source:
         violations.append(f"boundary violation: {path.relative_to(root)} includes Board or Magic private code")
+for directory in ("board", "magic", "doodle", "examples", "android", "ios"):
+    for path in (root / directory).rglob("*"):
+        if generated_directories.intersection(path.relative_to(root).parts):
+            continue
+        if path.suffix not in {".c", ".cc", ".cpp", ".mm", ".h", ".cmake", ".txt"}:
+            continue
+        if legacy.search(path.read_text()):
+            violations.append(f"legacy naming violation: {path.relative_to(root)}")
+for path in (root / "CMakeLists.txt",):
+    if legacy.search(path.read_text()):
+        violations.append(f"legacy naming violation: {path.relative_to(root)}")
 if violations:
     print("\n".join(violations))
     sys.exit(1)

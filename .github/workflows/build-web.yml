@@ -21,6 +21,7 @@ jobs:
           test -f build-web/examples/web/magic_doodle_board_web_demo.html
           test -f build-web/examples/web/magic_doodle_board_web_demo.js
           test -f build-web/examples/web/magic_doodle_board_web_demo.wasm
+          test -f build-web/examples/web/magic_doodle_board_web_demo.data
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

@@ -789,37 +789,13 @@ Additional rules:
 - keep symbols hidden by default and export only the documented C API;
 - compile public-header smoke tests as C11 and C++17 or newer.
 
-## Migration from the current layout
+## Completed legacy migration
 
-The current `tc_` runtime is split by ownership:
-
-```text
-TcApp, TcPlatformBackend, TcFrameScheduler, TcEvent
-    -> BoardApp, BoardBackend, BoardFrameScheduler, BoardEvent
-
-TcGraphicsContext and graphics frame/surface operations
-    -> MagicContext, MagicFrame, Magic interop APIs
-
-TcRenderer2D, TcCanvas2D, paints, paths, images, fonts
-    -> DoodleRenderer, DoodleCanvas, and Doodle resources
-```
-
-File and function prefixes follow the same ownership rule:
-
-```text
-tc_app.h              -> board_app.h
-tc_event.h            -> board_event.h
-tc_scheduler.h        -> board_scheduler.h
-tc_backend.h          -> board_backend.h
-tc_graphics.h         -> magic_context.h and magic_frame.h
-tc_renderer.h         -> doodle_renderer.h
-tc_canvas.h           -> doodle_canvas.h
-
-tc_app_*              -> board_app_*
-tc_graphics_*         -> magic_context_* or magic_frame_*
-tc_renderer_*         -> doodle_renderer_*
-tc_canvas_*           -> doodle_canvas_*
-```
+The former monolithic runtime and its duplicate platform demos have been
+removed. Applications now compose `BoardApp`, `MagicContext`, and
+`DoodleRenderer` explicitly through the installed public headers. Board owns
+hosting and scheduling, Magic owns frame acquisition and presentation, and
+Doodle owns the Canvas API and renderer providers.
 
 The detailed, incremental conversion is specified in [`plans/convert-to-magic-doodle-board.md`](plans/convert-to-magic-doodle-board.md).
 

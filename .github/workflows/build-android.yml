@@ -4,9 +4,12 @@
 name: build-android
 on: [push, pull_request]
 jobs:
-  stubs:
+  layout:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Record stub status
-        run: test -f src/backends/android/tc_android_backend.c
+      - name: Verify native Android composition sources
+        run: |
+          test -f board/backends/android/board_android_backend.c
+          test -f magic/backends/vulkan/magic_vulkan_context.cpp
+          test -f examples/android/magic_doodle_board_android_demo.c
