@@ -26,7 +26,8 @@ stop_web_server() {
 }
 
 desktop() {
-  local backend=$1 build="$build_root/desktop-$backend"
+  local backend=$1
+  local build="$build_root/desktop-$backend"
   local skia_root=${MDB_DESKTOP_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
   [[ $backend != METAL || $(uname) == Darwin ]] || fail "desktop Metal requires macOS"
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
@@ -45,7 +46,8 @@ headless() {
 }
 
 ios() {
-  local backend=$1 build="$build_root/ios-$backend"
+  local backend=$1
+  local build="$build_root/ios-$backend"
   local skia_root=${MDB_IOS_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
   local png_root=${MDB_IOS_PNG_ROOT:-"$root/.cache/libpng-ios-sim/libpng/ios-simulator/arm64"}
   local zlib_root=${MDB_IOS_ZLIB_ROOT:-"$root/.cache/zlib-ng-ios-sim/zlib-ng/ios-simulator/arm64"}
