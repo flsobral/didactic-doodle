@@ -5,7 +5,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 combination=${1:-}
-build_root=${MDB_MATRIX_BUILD_ROOT:-"$root/build/backend-matrix"}
+build_root=${MDB_MATRIX_BUILD_ROOT:-"$root/build"}
 mobile_delay=${MDB_MOBILE_DELAY_SECONDS:-3}
 web_server_pid=
 web_server_log=
@@ -27,7 +27,9 @@ stop_web_server() {
 
 desktop() {
   local backend=$1
-  local build="$build_root/desktop-$backend"
+  local backend_name
+  backend_name=$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')
+  local build="$build_root/desktop/sdl3-$backend_name-skia"
   local skia_root=${MDB_DESKTOP_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
   local vulkan_sdk validation_log runtime_log
   [[ $backend != METAL || $(uname) == Darwin ]] || fail "desktop Metal requires macOS"
@@ -63,7 +65,7 @@ desktop() {
 }
 
 headless() {
-  local build="$build_root/headless-cpu"
+  local build="$build_root/headless/headless-cpu-skia"
   local skia_root=${MDB_DESKTOP_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_TESTS=ON -DMDB_BUILD_EXAMPLES=OFF
@@ -74,7 +76,9 @@ headless() {
 
 ios() {
   local backend=$1
-  local build="$build_root/ios-$backend"
+  local backend_name
+  backend_name=$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')
+  local build="$build_root/ios/native-$backend_name-skia"
   local skia_root=${MDB_IOS_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
   local png_root=${MDB_IOS_PNG_ROOT:-"$root/.cache/libpng-ios-sim/libpng/ios-simulator/arm64"}
   local zlib_root=${MDB_IOS_ZLIB_ROOT:-"$root/.cache/zlib-ng-ios-sim/zlib-ng/ios-simulator/arm64"}
@@ -100,13 +104,14 @@ android() {
   local skia_root=${MDB_ANDROID_SKIA_ROOT:-"$root/.cache/skia-android-r4"}
   local png_root=${MDB_ANDROID_PNG_ROOT:-"$root/.cache/libpng-android/libpng/android/arm64-v8a"}
   local zlib_root=${MDB_ANDROID_ZLIB_ROOT:-"$root/.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"}
-  local artifact_directory artifact_name
+  local backend_name artifact_directory artifact_name
+  backend_name=$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
   require_directory "$zlib_root"
   (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
-  artifact_directory="$build_root/android-$backend"
-  artifact_name="magic_doodle_board_android_$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')_demo.apk"
+  artifact_directory="$build_root/android/native-$backend_name-skia"
+  artifact_name="magic_doodle_board_android_${backend_name}_demo.apk"
   mkdir -p "$artifact_directory"
   cp "$root/android/app/build/outputs/apk/debug/app-debug.apk" "$artifact_directory/$artifact_name"
   printf 'Android %s APK: %s\n' "$backend" "$artifact_directory/$artifact_name"
@@ -128,7 +133,7 @@ android() {
 }
 
 web() {
-  local build="$build_root/web-skia"
+  local build="$build_root/web/web-web-skia"
   local skia_root=${MDB_WEB_SKIA_ROOT:-"$root/.cache/skia-wasm32-r4"}
   local emcmake=${EMCMAKE:-"$root/.cache/emsdk-main/upstream/emscripten/emcmake"}
   local browser=${MDB_WEB_BROWSER:-safari}

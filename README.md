@@ -32,7 +32,7 @@ Configure Skia with an artifact downloaded by
 `bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64`:
 
 ```sh
-cmake -S . -B build/headless-skia \
+cmake -S . -B build/headless/headless-cpu-skia \
   -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU \
   -DDOODLE_RENDERER=SKIA \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
@@ -45,13 +45,13 @@ diagnostic; no backend is silently substituted.
 Run the macOS desktop demo with:
 
 ```sh
-cmake -S . -B build/desktop-cpu \
+cmake -S . -B build/desktop/sdl3-cpu-skia \
   -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU \
   -DDOODLE_RENDERER=SKIA \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4" \
   -DMDB_BUILD_EXAMPLES=ON
-cmake --build build/desktop-cpu --parallel
-build/desktop-cpu/examples/desktop/magic_doodle_board_demo
+cmake --build build/desktop/sdl3-cpu-skia --parallel
+build/desktop/sdl3-cpu-skia/examples/desktop/magic_doodle_board_demo
 ```
 
 For the OpenGL or macOS Metal variants, change the build directory and pass
@@ -76,7 +76,7 @@ Skia, libpng, and zlib artifacts available (the paths below are ignored caches):
 
 ```sh
 bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 ios-simulator-arm64
-cmake -S . -B build/ios-cpu \
+cmake -S . -B build/ios/native-cpu-skia \
   -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
   -DBOARD_BACKEND=IOS_NATIVE -DMAGIC_BACKEND=CPU \
@@ -85,14 +85,15 @@ cmake -S . -B build/ios-cpu \
   -DDOODLE_IOS_PNG_ROOT="$PWD/.cache/libpng-ios-sim/libpng/ios-simulator/arm64" \
   -DDOODLE_IOS_ZLIB_ROOT="$PWD/.cache/zlib-ng-ios-sim/zlib-ng/ios-simulator/arm64" \
   -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
-cmake --build build/ios-cpu --parallel
-xcrun simctl install booted build/ios-cpu/magic_doodle_board_ios_demo.app
+cmake --build build/ios/native-cpu-skia --parallel
+xcrun simctl install booted build/ios/native-cpu-skia/magic_doodle_board_ios_demo.app
 xcrun simctl launch booted com.amalgam.magicdoodleboard.demo
 ```
 
 For the OpenGL ES or Metal simulator variants, use
 `-DMAGIC_BACKEND=OPENGL` or `-DMAGIC_BACKEND=METAL` with a separate build
-directory such as `build/ios-opengl` or `build/ios-metal`. The native Board
+directory such as `build/ios/native-opengl-skia` or
+`build/ios/native-metal-skia`. The native Board
 view uses a private `CAEAGLLayer` or `CAMetalLayer`; Magic owns the GPU context
 or Metal device, queue, drawable, and presentation.
 
@@ -126,13 +127,13 @@ Run the Web demo with the pinned wasm32 Skia archive and Emscripten 2.0.6:
 
 ```sh
 bash scripts/fetch-totalcross-skia.sh .cache/skia-wasm32-r4 wasm32
-emcmake cmake -S . -B build/web-skia \
+emcmake cmake -S . -B build/web/web-web-skia \
   -DBOARD_BACKEND=WEB -DMAGIC_BACKEND=WEB \
   -DDOODLE_RENDERER=SKIA \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4" \
   -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
-cmake --build build/web-skia --parallel
-cd build/web-skia/examples/web
+cmake --build build/web/web-web-skia --parallel
+cd build/web/web-web-skia/examples/web
 python3 -m http.server 8080 --bind 127.0.0.1
 # In another terminal: open http://127.0.0.1:8080/magic_doodle_board_web_demo.html
 ```
@@ -336,7 +337,7 @@ VULKAN_SDK="$HOME/Library/VulkanSDK/1.4.350.1/macOS" \
 The command still requires each platform toolchain and external Skia artifact;
 use an individual named command when a build should also run its smoke test.
 Android APKs are preserved per backend under
-`build/backend-matrix/android-{CPU,OPENGL,VULKAN}/` instead of leaving only the
+`build/android/native-{cpu,opengl,vulkan}-skia/` instead of leaving only the
 last Gradle output in `android/app/build/outputs/apk/debug/`.
 
 ## Layer 1: Board

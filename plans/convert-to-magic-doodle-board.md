@@ -28,7 +28,8 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
 - [x] (2026-07-15) Added public runtime identity queries for the active Board backend, Magic context, and Doodle renderer. The shared scene displays their names and versions without consulting application build macros.
 - [x] (2026-07-15) Added and executed `scripts/test-backend-matrix.sh build-all`, which compiled all 12 supported matrix entries without requiring a booted mobile runner or opening the Web demo; the individual commands retain their launch smoke tests.
-- [x] (2026-07-15) Made Android build artifacts observable in the matrix build directory: each Gradle variant is copied to its own `build/backend-matrix/android-<BACKEND>/magic_doodle_board_android_<backend>_demo.apk` path instead of being overwritten by the next variant.
+- [x] (2026-07-15) Made Android build artifacts observable in the matrix build directory: each Gradle variant is copied to its own `build/android/native-<backend>-skia/magic_doodle_board_android_<backend>_demo.apk` path instead of being overwritten by the next variant.
+- [x] (2026-07-15) Normalized matrix build paths to `build/<platform>/<board>-<magic>-<renderer>` and re-ran `build-all`; for example, desktop Vulkan is `build/desktop/sdl3-vulkan-skia` and iOS Metal is `build/ios/native-metal-skia`.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
@@ -1202,44 +1203,44 @@ The command must report a stable image hash recorded by the approved test. If Sk
 
 Desktop SDL3 plus CPU:
 
-    rm -rf build/desktop-cpu
-    cmake -S . -B build/desktop-cpu \
+    rm -rf build/desktop/sdl3-cpu-skia
+    cmake -S . -B build/desktop/sdl3-cpu-skia \
       -DBOARD_BACKEND=SDL3 \
       -DMAGIC_BACKEND=CPU \
       -DDOODLE_RENDERER=SKIA \
       -DMDB_BUILD_EXAMPLES=ON
-    cmake --build build/desktop-cpu --parallel
-    ctest --test-dir build/desktop-cpu --output-on-failure
-    ./build/desktop-cpu/examples/desktop/magic_doodle_board_demo
+    cmake --build build/desktop/sdl3-cpu-skia --parallel
+    ctest --test-dir build/desktop/sdl3-cpu-skia --output-on-failure
+    ./build/desktop/sdl3-cpu-skia/examples/desktop/magic_doodle_board_demo
 
 Observe a resizable window containing the shared scene. Pointer, key, text, resize, pause or focus where applicable, update timing, and drawing must work.
 
 Desktop SDL3 plus OpenGL:
 
-    rm -rf build/desktop-opengl
-    cmake -S . -B build/desktop-opengl \
+    rm -rf build/desktop/sdl3-opengl-skia
+    cmake -S . -B build/desktop/sdl3-opengl-skia \
       -DBOARD_BACKEND=SDL3 \
       -DMAGIC_BACKEND=OPENGL \
       -DDOODLE_RENDERER=SKIA \
       -DMDB_BUILD_EXAMPLES=ON
-    cmake --build build/desktop-opengl --parallel
-    ctest --test-dir build/desktop-opengl --output-on-failure
-    ./build/desktop-opengl/examples/desktop/magic_doodle_board_demo
+    cmake --build build/desktop/sdl3-opengl-skia --parallel
+    ctest --test-dir build/desktop/sdl3-opengl-skia --output-on-failure
+    ./build/desktop/sdl3-opengl-skia/examples/desktop/magic_doodle_board_demo
 
 The displayed scene and interaction must match the CPU path. Logs may report selected backend names but must not expose implementation types to the application.
 
 Desktop SDL3 plus Metal on macOS:
 
-    cmake -S . -B build/desktop-metal \
+    cmake -S . -B build/desktop/sdl3-metal-skia \
       -DBOARD_BACKEND=SDL3 \
       -DMAGIC_BACKEND=METAL \
       -DDOODLE_RENDERER=SKIA \
       -DDOODLE_SKIA_ROOT=$PWD/.cache/skia-158dc9d7-r4 \
       -DMDB_BUILD_TESTS=ON \
       -DMDB_BUILD_EXAMPLES=ON
-    cmake --build build/desktop-metal --parallel
-    ctest --test-dir build/desktop-metal --output-on-failure
-    ./build/desktop-metal/examples/desktop/magic_doodle_board_demo --frames 3
+    cmake --build build/desktop/sdl3-metal-skia --parallel
+    ctest --test-dir build/desktop/sdl3-metal-skia --output-on-failure
+    ./build/desktop/sdl3-metal-skia/examples/desktop/magic_doodle_board_demo --frames 3
 
 The demo must open the SDL3 Metal window, render the shared scene for three
 frames, and exit with status 0. This combination is macOS-only.
@@ -1251,11 +1252,11 @@ Desktop SDL3 plus Vulkan on macOS:
     VULKAN_SDK="$VULKAN_SDK" ./scripts/test-desktop-vulkan-skia.sh
 
 The wrapper must find the SDK's MoltenVK ICD, configure and build a fresh
-`build/backend-matrix/desktop-VULKAN` directory with Skia r5, run the shared
+`build/desktop/sdl3-vulkan-skia` directory with Skia r5, run the shared
 scene for three frames, report `Board: SDL3 ... | Magic: Vulkan ... | Doodle:
-Skia ...` in `build/backend-matrix/desktop-VULKAN/runtime-identity.log`, and
+Skia ...` in `build/desktop/sdl3-vulkan-skia/runtime-identity.log`, and
 leave no `Validation Error` or `ERROR` line in
-`build/backend-matrix/desktop-VULKAN/vulkan-validation.log`. This is a
+`build/desktop/sdl3-vulkan-skia/vulkan-validation.log`. This is a
 macOS-only validated path; Windows and Linux require separate runner evidence.
 
 Web:
