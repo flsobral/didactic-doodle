@@ -80,6 +80,7 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     outside_button.frame = CGRectMake(16, bounds.size.height - 56, bounds.size.width - 32, 40);
     outside_button.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
     [outside_button setTitle:@"Native control below BoardView" forState:UIControlStateNormal];
+    [outside_button addTarget:self action:@selector(nativeOverlayTapped:) forControlEvents:UIControlEventTouchUpInside];
     [container addSubview:outside_button];
     overlay_button = [UIButton buttonWithType:UIButtonTypeSystem];
     [overlay_button setTitle:@"Native overlay" forState:UIControlStateNormal];
