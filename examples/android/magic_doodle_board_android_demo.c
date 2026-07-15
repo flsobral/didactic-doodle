@@ -14,6 +14,7 @@ typedef struct AndroidDemo {
     BoardApp *app;
     MagicContext *magic;
     DoodleRenderer *renderer;
+    BoardNativeViewSlot *overlay_slot;
     MagicDoodleBoardScene scene;
 } AndroidDemo;
 
@@ -40,6 +41,7 @@ static void android_demo_frame(void *data, uint64_t timestamp_ns, double delta_s
 static void android_demo_destroy(AndroidDemo *demo) {
     if (!demo) return;
     board_app_request_quit(demo->app);
+    board_native_view_slot_destroy(demo->overlay_slot);
     board_app_destroy(demo->app);
     doodle_renderer_destroy(demo->renderer);
     magic_context_destroy(demo->magic);
@@ -47,7 +49,7 @@ static void android_demo_destroy(AndroidDemo *demo) {
     free(demo);
 }
 
-JNIEXPORT jlong JNICALL Java_org_magicdoodle_board_BoardView_nativeCreate(JNIEnv *environment, jclass type, jobject surface, jint width, jint height) {
+JNIEXPORT jlong JNICALL Java_org_magicdoodle_board_BoardView_nativeCreate(JNIEnv *environment, jclass type, jobject host_view, jobject surface, jint width, jint height) {
     AndroidDemo *demo = (AndroidDemo *)calloc(1, sizeof(*demo));
     ANativeWindow *window = NULL;
     BoardBackendConfig backend_config = {sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_ANDROID, "Magic Doodle Board", (uint32_t)width, (uint32_t)height, 1.0f, 0, BOARD_HOST_MODE_EMBEDDED};
@@ -69,7 +71,7 @@ JNIEXPORT jlong JNICALL Java_org_magicdoodle_board_BoardView_nativeCreate(JNIEnv
     (void)type;
     if (!demo || !surface || width <= 0 || height <= 0) goto failure;
     window = ANativeWindow_fromSurface(environment, surface);
-    if (!window || board_backend_create(&backend_config, &demo->backend) != BOARD_OK || board_android_attach_window(demo->backend, window) != BOARD_OK) goto failure;
+    if (!window || board_backend_create(&backend_config, &demo->backend) != BOARD_OK || board_android_attach_window(demo->backend, window) != BOARD_OK || board_android_set_host_view(demo->backend, environment, host_view) != BOARD_OK) goto failure;
     window = NULL;
     if (magic_context_create(board_backend_surface(demo->backend), &magic_config, &demo->magic) != MAGIC_OK || doodle_renderer_create(doodle_skia_provider(), demo->magic, &renderer_config, &demo->renderer) != DOODLE_OK) goto failure;
     if (board_surface_query_interface(board_backend_surface(demo->backend), BOARD_SURFACE_INTERFACE_CPU, BOARD_ABI_VERSION, &pixels, sizeof(pixels)) != BOARD_OK || pixels.map_pixels(pixels.user_data, &memory, &scene_width, &scene_height, &stride, &format, &scale) != BOARD_OK) goto failure;
@@ -94,6 +96,20 @@ JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeResize(JNIEnv 
     AndroidDemo *demo = (AndroidDemo *)(uintptr_t)handle;
     (void)environment; (void)type;
     if (demo) (void)board_android_resize_window(demo->backend);
+}
+
+JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeAttachOverlay(JNIEnv *environment, jclass type, jlong handle, jobject overlay, jfloat x, jfloat y, jfloat width, jfloat height) {
+    AndroidDemo *demo = (AndroidDemo *)(uintptr_t)handle;
+    jobject reference;
+    BoardNativeViewSlotConfig config;
+    (void)type;
+    if (!demo || !overlay) return;
+    board_native_view_slot_destroy(demo->overlay_slot);
+    demo->overlay_slot = NULL;
+    reference = (*environment)->NewGlobalRef(environment, overlay);
+    if (!reference) return;
+    config = (BoardNativeViewSlotConfig){sizeof(BoardNativeViewSlotConfig), BOARD_ABI_VERSION, reference, {x, y, width, height}, {0, 0, width + x, height + y}, 1, 0, BOARD_NATIVE_VIEW_ABOVE_RENDERER};
+    if (board_native_view_slot_create(demo->backend, &config, &demo->overlay_slot) != BOARD_OK) (*environment)->DeleteGlobalRef(environment, reference);
 }
 
 JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeDestroy(JNIEnv *environment, jclass type, jlong handle) {

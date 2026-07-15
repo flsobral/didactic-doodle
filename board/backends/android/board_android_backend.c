@@ -5,6 +5,7 @@
 #include <android/choreographer.h>
 #include <android/input.h>
 #include <android/native_window.h>
+#include <jni.h>
 #if BOARD_BUILD_ANDROID_OPENGL
 #include <EGL/egl.h>
 #endif
@@ -22,10 +23,71 @@ typedef struct BoardAndroidState {
     struct android_app *app;
     ANativeWindow *window;
     uint8_t owns_window;
+    JavaVM *java_vm;
+    jobject host_view;
 #if BOARD_BUILD_ANDROID_OPENGL
     void *active_gl;
 #endif
 } BoardAndroidState;
+
+static JNIEnv *board_android_jni(BoardAndroidState *state, int *detach) {
+    JNIEnv *environment = NULL;
+    if (!state || !state->java_vm || !detach) return NULL;
+    *detach = 0;
+    if ((*state->java_vm)->GetEnv(state->java_vm, (void **)&environment, JNI_VERSION_1_6) != JNI_OK) {
+        if ((*state->java_vm)->AttachCurrentThread(state->java_vm, &environment, NULL) != JNI_OK) return NULL;
+        *detach = 1;
+    }
+    return environment;
+}
+
+static BoardResult board_android_slot_apply(BoardNativeViewSlot *slot) {
+    BoardAndroidState *state = slot && slot->backend ? (BoardAndroidState *)slot->backend->implementation : NULL;
+    JNIEnv *environment;
+    jclass host_class;
+    jmethodID update;
+    int detach;
+    if (!state || !state->host_view || !slot->implementation || slot->z_order != BOARD_NATIVE_VIEW_ABOVE_RENDERER) return BOARD_ERROR_UNAVAILABLE;
+    environment = board_android_jni(state, &detach); if (!environment) return BOARD_ERROR_PLATFORM;
+    host_class = (*environment)->GetObjectClass(environment, state->host_view);
+    update = host_class ? (*environment)->GetMethodID(environment, host_class, "updateNativeOverlay", "(Landroid/view/View;FFFFFFFFZZ)V") : NULL;
+    if (!update) { if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm); return BOARD_ERROR_PLATFORM; }
+    (*environment)->CallVoidMethod(environment, state->host_view, update, (jobject)slot->implementation, slot->frame.x, slot->frame.y, slot->frame.width, slot->frame.height, slot->clip.x, slot->clip.y, slot->clip.width, slot->clip.height, slot->clip_enabled ? JNI_TRUE : JNI_FALSE, slot->visible ? JNI_TRUE : JNI_FALSE);
+    if ((*environment)->ExceptionCheck(environment)) { (*environment)->ExceptionClear(environment); if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm); return BOARD_ERROR_PLATFORM; }
+    if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm);
+    return BOARD_OK;
+}
+
+static BoardResult board_android_slot_create(BoardBackend *backend, const BoardNativeViewSlotConfig *config, BoardNativeViewSlot *slot) {
+    BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
+    JNIEnv *environment;
+    jclass host_class;
+    jmethodID add;
+    int detach;
+    if (!state || !state->host_view || !config || !slot || config->z_order != BOARD_NATIVE_VIEW_ABOVE_RENDERER) return BOARD_ERROR_UNAVAILABLE;
+    environment = board_android_jni(state, &detach); if (!environment) return BOARD_ERROR_PLATFORM;
+    host_class = (*environment)->GetObjectClass(environment, state->host_view);
+    add = host_class ? (*environment)->GetMethodID(environment, host_class, "addNativeOverlay", "(Landroid/view/View;)V") : NULL;
+    if (!add) { if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm); return BOARD_ERROR_PLATFORM; }
+    (*environment)->CallVoidMethod(environment, state->host_view, add, (jobject)config->native_view);
+    if ((*environment)->ExceptionCheck(environment)) { (*environment)->ExceptionClear(environment); if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm); return BOARD_ERROR_PLATFORM; }
+    slot->implementation = config->native_view;
+    if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm);
+    return board_android_slot_apply(slot);
+}
+
+static void board_android_slot_destroy(BoardNativeViewSlot *slot) {
+    BoardAndroidState *state = slot && slot->backend ? (BoardAndroidState *)slot->backend->implementation : NULL;
+    JNIEnv *environment;
+    jclass host_class;
+    jmethodID remove;
+    int detach;
+    if (!state || !slot || !slot->implementation) return;
+    environment = board_android_jni(state, &detach);
+    if (environment && state->host_view) { host_class = (*environment)->GetObjectClass(environment, state->host_view); remove = host_class ? (*environment)->GetMethodID(environment, host_class, "removeNativeOverlay", "(Landroid/view/View;)V") : NULL; if (remove) (*environment)->CallVoidMethod(environment, state->host_view, remove, (jobject)slot->implementation); (*environment)->DeleteGlobalRef(environment, (jobject)slot->implementation); }
+    if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm);
+    slot->implementation = NULL;
+}
 
 #if BOARD_BUILD_ANDROID_VULKAN
 static const char *const *board_android_vk_extensions(void *data, uint32_t *count) {
@@ -312,6 +374,7 @@ static void board_android_dispose(BoardBackend *backend) {
         state->app->onInputEvent = NULL;
     }
     if (state && state->owns_window && state->window) ANativeWindow_release(state->window);
+    if (state && state->host_view) { int detach; JNIEnv *environment = board_android_jni(state, &detach); if (environment) (*environment)->DeleteGlobalRef(environment, state->host_view); if (detach) (*state->java_vm)->DetachCurrentThread(state->java_vm); }
     free(state);
     free(backend->pixels);
     backend->implementation = NULL;
@@ -330,6 +393,9 @@ BoardResult board_android_backend_init(BoardBackend *backend, const BoardBackend
     if (!backend->pixels || !state) { free(backend->pixels); free(state); backend->pixels = NULL; return BOARD_ERROR_OUT_OF_MEMORY; }
     state->backend = backend;
     backend->implementation = state;
+    backend->native_slot_create = board_android_slot_create;
+    backend->native_slot_destroy = board_android_slot_destroy;
+    backend->native_slot_apply = board_android_slot_apply;
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_android_map, board_android_present};
 #if BOARD_BUILD_ANDROID_OPENGL
     backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_android_gl_create, board_android_gl_destroy, board_android_gl_make_current, board_android_gl_get_proc, board_android_gl_drawable_size, board_android_gl_swap};
@@ -372,4 +438,12 @@ BoardResult board_android_resize_window(BoardBackend *backend) {
     BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
     if (!backend || backend->kind != BOARD_BACKEND_ANDROID || !state || !state->window) return BOARD_ERROR_INVALID_ARGUMENT;
     return board_android_resize(state);
+}
+
+BoardResult board_android_set_host_view(BoardBackend *backend, void *jni_environment, void *native_view) {
+    BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
+    JNIEnv *environment = (JNIEnv *)jni_environment;
+    if (!backend || backend->kind != BOARD_BACKEND_ANDROID || !state || !environment || !native_view || state->host_view || (*environment)->GetJavaVM(environment, &state->java_vm) != JNI_OK) return BOARD_ERROR_INVALID_ARGUMENT;
+    state->host_view = (*environment)->NewGlobalRef(environment, (jobject)native_view);
+    return state->host_view ? BOARD_OK : BOARD_ERROR_OUT_OF_MEMORY;
 }

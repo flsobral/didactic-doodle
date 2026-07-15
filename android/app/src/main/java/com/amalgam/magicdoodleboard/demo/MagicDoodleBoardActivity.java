@@ -22,6 +22,9 @@ public final class MagicDoodleBoardActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         host.addView(title, new LinearLayout.LayoutParams(-1, 56));
         BoardView board = new BoardView(this);
+        Button overlay = new Button(this);
+        overlay.setText("Native overlay");
+        board.setNativeOverlay(overlay);
         host.addView(board, new LinearLayout.LayoutParams(-1, 0, 1));
         Button button = new Button(this);
         button.setText("Native control below BoardView");
