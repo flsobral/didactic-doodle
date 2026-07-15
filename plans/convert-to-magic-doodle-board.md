@@ -27,6 +27,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Added provider-owned Blend2D, NanoVG, and Vello stubs under Doodle. Their getters return unavailable, CMake selections fail explicitly, and focused getter/configuration tests prevent a silent no-op renderer.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
 - [x] (2026-07-15) Added public runtime identity queries for the active Board backend, Magic context, and Doodle renderer. The shared scene displays their names and versions without consulting application build macros.
+- [x] (2026-07-15) Added and executed `scripts/test-backend-matrix.sh build-all`, which compiled all 12 supported matrix entries without requiring a booted mobile runner or opening the Web demo; the individual commands retain their launch smoke tests.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
@@ -444,6 +445,13 @@ consumer in dependency order; the consumer linked and exited 0. The new
 `scripts/test-desktop-vulkan-skia.sh` preserves those prerequisites in the
 backend matrix. Windows and Linux have not yet run this script.
 
+2026-07-15: `scripts/test-backend-matrix.sh build-all` compiled the 12 current
+supported entries: Headless CPU; SDL3 CPU, OpenGL, Metal, and Vulkan; iOS CPU,
+OpenGL ES, and Metal; Android CPU, OpenGL ES, and Vulkan; and Web. Build-only
+mode deliberately skipped simulator/AVD startup, APK installation, browser
+launch, and rendering smoke checks, so it supplements rather than replaces
+the named per-combination tests.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Editorial Report
@@ -505,6 +513,8 @@ That run reported 8 of 8 tests passed, including `mdb_public_headers_c`, `mdb_pu
 The recorded Web smoke run served the demo over HTTP in Safari for eight seconds. `artifacts/final/web-skia-artifacts.txt` records 811 bytes for the HTML, 382317 bytes for JavaScript, 4818383 bytes for WebAssembly, and 35408 bytes for the data file. These are generated artifact sizes from that run, not performance measurements. No meaningful frame-time, memory, binary-size comparison, or rendering-performance benchmark has been taken.
 
 With `VULKAN_SDK=/Users/flsobral/Library/VulkanSDK/1.4.350.1/macOS`, `VK_ICD_FILENAMES` set to the SDK MoltenVK JSON, and `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`, the corrected `scripts/test-desktop-vulkan-skia.sh` configured and built a fresh matrix directory, printed `Board: SDL3 3.4.12 | Magic: Vulkan 1.1.334 | Doodle: Skia 158dc9d7-r5`, and completed the three-frame demo without a validation error. `vulkan-validation.log` was empty, and a separate root CTest run reported 10 of 10 tests passed. Standalone Board, Magic, and Doodle Vulkan builds each reported all of their focused tests passed, and the installed consumer linked and exited 0. These are macOS observations only.
+
+`scripts/test-backend-matrix.sh build-all` subsequently completed the build of all 12 currently supported entries in this macOS environment. It is compilation evidence only: the command intentionally does not boot a simulator or AVD, install an APK, launch a browser, or inspect a rendered result.
 
 The plan records builds, launches, and screenshots for the listed iOS and Android simulator/emulator paths under `artifacts/final/`, and three-frame desktop smoke runs for OpenGL and Metal. Because the latest mobile-host changes have not received a final complete visible-device rerun, those earlier captures are historical evidence rather than final acceptance of the current tree.
 

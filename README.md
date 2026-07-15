@@ -325,6 +325,17 @@ The shared demo renders these three labels. SDL, OpenGL/WebGL, and Vulkan
 versions come from their active runtime objects; the Skia label identifies the
 external Skia artifact selected when Doodle was configured.
 
+To compile every currently supported matrix entry without launching devices or
+opening a browser, run:
+
+```sh
+VULKAN_SDK="$HOME/Library/VulkanSDK/1.4.350.1/macOS" \
+  scripts/test-backend-matrix.sh build-all
+```
+
+The command still requires each platform toolchain and external Skia artifact;
+use an individual named command when a build should also run its smoke test.
+
 ## Layer 1: Board
 
 Board owns platform and host integration.

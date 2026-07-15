@@ -49,6 +49,7 @@ desktop() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND="$backend" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_EXAMPLES=ON -DMDB_BUILD_TESTS=ON
   cmake --build "$build" --parallel
+  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
   if [[ $backend == VULKAN ]]; then
     validation_log="$build/vulkan-validation.log"
     runtime_log="$build/runtime-identity.log"
@@ -67,6 +68,7 @@ headless() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_TESTS=ON -DMDB_BUILD_EXAMPLES=OFF
   cmake --build "$build" --parallel
+  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
   ctest --test-dir "$build" --output-on-failure -R '^mdb_headless_skia$'
 }
 
@@ -80,9 +82,10 @@ ios() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
   require_directory "$zlib_root"
-  xcrun simctl bootstatus booted -b
+  if [[ ${MDB_BUILD_ONLY:-0} != 1 ]]; then xcrun simctl bootstatus booted -b; fi
   cmake -S "$root" -B "$build" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 -DBOARD_BACKEND=IOS_NATIVE -DMAGIC_BACKEND="$backend" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DDOODLE_IOS_PNG_ROOT="$png_root" -DDOODLE_IOS_ZLIB_ROOT="$zlib_root" -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
   cmake --build "$build" --parallel
+  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
   xcrun simctl install booted "$build/magic_doodle_board_ios_demo.app"
   xcrun simctl launch booted com.amalgam.magicdoodleboard.demo
   sleep "$mobile_delay"
@@ -97,10 +100,14 @@ android() {
   local skia_root=${MDB_ANDROID_SKIA_ROOT:-"$root/.cache/skia-android-r4"}
   local png_root=${MDB_ANDROID_PNG_ROOT:-"$root/.cache/libpng-android/libpng/android/arm64-v8a"}
   local zlib_root=${MDB_ANDROID_ZLIB_ROOT:-"$root/.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"}
-  require_file "$adb"
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
   require_directory "$zlib_root"
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then
+    (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
+    return
+  fi
+  require_file "$adb"
   [[ $boot_timeout =~ ^[0-9]+$ ]] && ((boot_timeout > 0)) || fail "MDB_ANDROID_BOOT_TIMEOUT_SECONDS must be a positive number of seconds"
   local deadline=$(( $(date +%s) + boot_timeout ))
   while [[ $(date +%s) -lt $deadline ]]; do
@@ -136,6 +143,7 @@ web() {
   data="$build/examples/web/magic_doodle_board_web_demo.data"
   font="$skia_root/Roboto-Regular.ttf"
   require_file "$html"; require_file "$js"; require_file "$wasm"; require_file "$data"; require_file "$font"
+  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
   command -v python3 >/dev/null || fail "python3 is required to serve the Web demo"
   command -v curl >/dev/null || fail "curl is required to verify the local Web server"
   if [[ -n $port ]]; then
@@ -175,6 +183,15 @@ web() {
   } > "$root/artifacts/final/web-skia-artifacts.txt"
 }
 
+build_all() {
+  local supported=(headless-cpu-skia desktop-cpu-skia desktop-opengl-skia desktop-metal-skia desktop-vulkan-skia ios-cpu-skia ios-opengl-skia ios-metal-skia android-cpu-skia android-opengl-skia android-vulkan-skia web-skia)
+  local combination
+  for combination in "${supported[@]}"; do
+    printf '==> building %s\n' "$combination"
+    MDB_BUILD_ONLY=1 "$root/scripts/test-backend-matrix.sh" "$combination"
+  done
+}
+
 case "$combination" in
   headless-cpu-skia) headless ;;
   desktop-cpu-skia) desktop CPU ;;
@@ -188,5 +205,6 @@ case "$combination" in
   android-opengl-skia) android OPENGL ;;
   android-vulkan-skia) android VULKAN ;;
   web-skia) web ;;
-  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|desktop-vulkan-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia|web-skia}" ;;
+  build-all) build_all ;;
+  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|desktop-vulkan-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia|web-skia|build-all}" ;;
 esac
