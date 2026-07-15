@@ -218,6 +218,9 @@ At minimum, preserve:
 - one shared demo scene exercised across supported platform combinations;
 - configuration tests proving unsupported selections fail clearly;
 - platform smoke tests where the relevant SDK and runner are available.
+- Every newly supported Board + Magic + Doodle combination must add a runnable
+  `scripts/test-<combination>.sh` smoke-test script that builds, installs when
+  applicable, runs, and records the observable result.
 
 Run focused tests after each edit. Run the full supported matrix before completing a milestone. Prefer quiet build output and preserve full logs in files when diagnosis is needed.
 

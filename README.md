@@ -20,7 +20,7 @@ The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
 **Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
 **Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**, and
-**Board Android native + Magic CPU/OpenGL ES + Doodle Skia in an Android emulator**. Board exposes
+**Board Android native + Magic CPU/OpenGL ES/Vulkan + Doodle Skia in an Android emulator**. Board exposes
 either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
 iOS native view; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
@@ -37,8 +37,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Vulkan, Web, Android Vulkan, and the remaining Doodle providers beyond the
-SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU/OpenGL ES paths are declared migration targets, not working selections
+Web and the remaining Doodle providers beyond the
+SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU/OpenGL ES/Vulkan paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -108,6 +108,31 @@ The Android app has `minSdk 24`. Board keeps the NativeActivity, `ANativeWindow`
 input conversion, and `AChoreographer` frame loop private; Magic CPU presents
 through the versioned Board CPU surface interface, while Magic OpenGL ES uses
 the Board EGL capability.
+
+## Backend-matrix test scripts
+
+Each supported combination has a smoke-test script that builds, installs where
+needed, runs the shared scene, and records its observable result. The scripts
+expect their platform simulator or emulator to be booted; cache locations can
+be overridden with the `MDB_*_SKIA_ROOT`, `MDB_*_PNG_ROOT`, and
+`MDB_*_ZLIB_ROOT` environment variables.
+
+```sh
+scripts/test-headless-cpu-skia.sh
+scripts/test-desktop-cpu-skia.sh
+scripts/test-desktop-opengl-skia.sh
+scripts/test-desktop-metal-skia.sh
+scripts/test-ios-cpu-skia.sh
+scripts/test-ios-opengl-skia.sh
+scripts/test-ios-metal-skia.sh
+scripts/test-android-cpu-skia.sh
+scripts/test-android-opengl-skia.sh
+scripts/test-android-vulkan-skia.sh
+```
+
+`scripts/test-backend-matrix.sh <combination>` is the shared implementation.
+Adding a supported entry to the backend matrix requires adding its matching
+`scripts/test-<combination>.sh` wrapper in the same change.
 
 The name is both a product metaphor and an architectural map:
 

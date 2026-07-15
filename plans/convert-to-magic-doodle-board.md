@@ -28,6 +28,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Replace old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; add compatibility validation and standalone layer builds.
 - [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
+- [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 
 ## Surprises & Discoveries
 
@@ -162,6 +163,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 
 - Decision: Extend the Android Board host with optional private EGL/OpenGL ES 3 callbacks only when `MAGIC_BACKEND=OPENGL` is selected.
   Rationale: Board retains ownership of the Android window surface and its lifecycle, while Magic drives opaque context creation, binding, sizing, and swapping through the public Board table. Doodle sees only the resulting `MagicOpenGLInterop` values.
+  Date/Author: 2026-07-14 / Codex.
+
+- Decision: Require a runnable backend-matrix smoke-test script for every supported combination.
+  Rationale: A supported configuration is not complete until its build, installation where needed, launch, and observable output can be repeated without reconstructing platform-specific commands. The shared matrix runner centralizes common setup while one named wrapper per combination makes matrix coverage reviewable.
   Date/Author: 2026-07-14 / Codex.
 
 ## Outcomes & Retrospective
