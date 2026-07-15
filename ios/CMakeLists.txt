@@ -2,45 +2,31 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 cmake_minimum_required(VERSION 3.22)
-project(tc_demo_ios LANGUAGES C CXX OBJC OBJCXX)
-set(TC_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
-set(TC_SKIA_ROOT "" CACHE PATH "Unpacked iOS simulator Skia release")
-set(TC_LIBPNG_ROOT "" CACHE PATH "Unpacked iOS simulator libpng release")
-set(TC_ZLIB_NG_ROOT "" CACHE PATH "Unpacked iOS simulator zlib-ng release")
-set(TC_IOS_GRAPHICS "CPU" CACHE STRING "iOS graphics API: CPU, OPENGL, or METAL")
-set_property(CACHE TC_IOS_GRAPHICS PROPERTY STRINGS CPU OPENGL METAL)
-if(NOT TC_IOS_GRAPHICS STREQUAL "CPU" AND NOT TC_IOS_GRAPHICS STREQUAL "OPENGL" AND NOT TC_IOS_GRAPHICS STREQUAL "METAL")
-  message(FATAL_ERROR "TC_IOS_GRAPHICS must be CPU, OPENGL, or METAL")
+project(MagicDoodleBoardIosDemo LANGUAGES C CXX OBJC OBJCXX)
+
+# This is a convenience source directory for iOS-only consumers.  The actual
+# application composition remains in the root project so it always uses the
+# public Board -> Magic -> Doodle boundary, like every other platform entry.
+set(MDB_IOS_MAGIC_BACKEND "CPU" CACHE STRING "iOS Magic backend: CPU, OPENGL, or METAL")
+set_property(CACHE MDB_IOS_MAGIC_BACKEND PROPERTY STRINGS CPU OPENGL METAL)
+set(MDB_IOS_SKIA_ROOT "" CACHE PATH "Root produced by scripts/fetch-totalcross-skia.sh for iOS")
+set(MDB_IOS_PNG_ROOT "" CACHE PATH "iOS libpng prefix containing include/png.h and lib/libpng16.a")
+set(MDB_IOS_ZLIB_ROOT "" CACHE PATH "iOS zlib prefix containing include/zlib.h and lib/libz.a")
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  message(FATAL_ERROR "The ios source directory requires an iOS CMake toolchain (CMAKE_SYSTEM_NAME=iOS).")
 endif()
-if(NOT EXISTS "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" OR NOT EXISTS "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a" OR NOT EXISTS "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
-  message(FATAL_ERROR "Supply matching iOS-simulator-arm64 Skia, libpng, and zlib-ng roots.")
+if(NOT MDB_IOS_MAGIC_BACKEND STREQUAL "CPU" AND NOT MDB_IOS_MAGIC_BACKEND STREQUAL "OPENGL" AND NOT MDB_IOS_MAGIC_BACKEND STREQUAL "METAL")
+  message(FATAL_ERROR "MDB_IOS_MAGIC_BACKEND must be CPU, OPENGL, or METAL.")
 endif()
-add_library(skia STATIC IMPORTED)
-set_target_properties(skia PROPERTIES IMPORTED_LOCATION "${TC_SKIA_ROOT}/libskia-ios-simulator-arm64.a" INTERFACE_INCLUDE_DIRECTORIES "${TC_SKIA_ROOT}/headers/modules/skia")
-add_library(png STATIC IMPORTED)
-set_target_properties(png PROPERTIES IMPORTED_LOCATION "${TC_LIBPNG_ROOT}/libpng/ios-simulator/arm64/lib/libpng16.a")
-add_library(zlib_ng STATIC IMPORTED)
-set_target_properties(zlib_ng PROPERTIES IMPORTED_LOCATION "${TC_ZLIB_NG_ROOT}/zlib-ng/ios-simulator/arm64/lib/libz.a")
-set(TC_IOS_DEMO_SOURCES ${TC_ROOT}/examples/demo_ios/demo_ios_main.mm ${TC_ROOT}/examples/demo/demo_scene.c ${TC_ROOT}/src/renderers/skia/tc_skia_renderer.cpp)
-if(TC_IOS_GRAPHICS STREQUAL "CPU")
-  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_cpu_context.mm)
-elseif(TC_IOS_GRAPHICS STREQUAL "OPENGL")
-  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_gl_context.mm)
-else()
-  list(APPEND TC_IOS_DEMO_SOURCES ${TC_ROOT}/src/graphics/tc_ios_metal_context.mm)
-endif()
-add_executable(TCdemo MACOSX_BUNDLE ${TC_IOS_DEMO_SOURCES})
-target_include_directories(TCdemo PRIVATE ${TC_ROOT}/include ${TC_ROOT}/src ${TC_ROOT}/examples/demo)
-target_compile_features(TCdemo PRIVATE c_std_11 cxx_std_17)
-target_compile_definitions(TCdemo PRIVATE
-  TC_BUILD_GRAPHICS_OPENGL=$<STREQUAL:${TC_IOS_GRAPHICS},OPENGL>
-  TC_BUILD_GRAPHICS_METAL=$<STREQUAL:${TC_IOS_GRAPHICS},METAL>
-  TC_IOS_GRAPHICS_OPENGL=$<STREQUAL:${TC_IOS_GRAPHICS},OPENGL>
-  TC_IOS_GRAPHICS_METAL=$<STREQUAL:${TC_IOS_GRAPHICS},METAL>
-  SK_GL=1
-  SK_METAL=1)
-if(TC_IOS_GRAPHICS STREQUAL "OPENGL")
-  target_compile_definitions(TCdemo PRIVATE GLES_SILENCE_DEPRECATION=1)
-endif()
-set_target_properties(TCdemo PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER com.totalcross.tcruntime MACOSX_BUNDLE_BUNDLE_NAME TCdemo MACOSX_BUNDLE_SHORT_VERSION_STRING 0.1 MACOSX_BUNDLE_BUNDLE_VERSION 1)
-target_link_libraries(TCdemo PRIVATE skia png zlib_ng "-framework UIKit" "-framework Foundation" "-framework CoreFoundation" "-framework QuartzCore" "-framework CoreGraphics" "-framework CoreText" "-framework ImageIO" "-framework Metal" "-framework OpenGLES")
+
+set(BOARD_BACKEND IOS_NATIVE CACHE STRING "" FORCE)
+set(MAGIC_BACKEND "${MDB_IOS_MAGIC_BACKEND}" CACHE STRING "" FORCE)
+set(DOODLE_RENDERER SKIA CACHE STRING "" FORCE)
+set(DOODLE_SKIA_ROOT "${MDB_IOS_SKIA_ROOT}" CACHE PATH "" FORCE)
+set(DOODLE_IOS_PNG_ROOT "${MDB_IOS_PNG_ROOT}" CACHE PATH "" FORCE)
+set(DOODLE_IOS_ZLIB_ROOT "${MDB_IOS_ZLIB_ROOT}" CACHE PATH "" FORCE)
+set(MDB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MDB_BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/.." magic_doodle_board)

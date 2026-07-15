@@ -160,6 +160,22 @@ starts a local HTTP server on an available loopback port and uses Safari by
 default; set `MDB_WEB_BROWSER`, `MDB_WEB_TIMEOUT_SECONDS`, or `MDB_WEB_PORT`
 to select another browser, visible run duration, or server port.
 
+The `ios/` source directory is a convenience entry point for an iOS-only
+consumer. It selects the same public composition as the root project rather
+than compiling a legacy platform-specific demo directly:
+
+```sh
+cmake -S ios -B build/ios-demo \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_SYSROOT=iphonesimulator \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DMDB_IOS_MAGIC_BACKEND=CPU \
+  -DMDB_IOS_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4" \
+  -DMDB_IOS_PNG_ROOT="$PWD/.cache/libpng-ios-sim/libpng/ios-simulator/arm64" \
+  -DMDB_IOS_ZLIB_ROOT="$PWD/.cache/zlib-ng-ios-sim/zlib-ng/ios-simulator/arm64"
+cmake --build build/ios-demo --parallel
+```
+
 The name is both a product metaphor and an architectural map:
 
 - **Board** is the surface on which an application exists: windows, views, events, lifecycle, and frame timing.

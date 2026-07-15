@@ -30,6 +30,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
+- [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
 
 ## Surprises & Discoveries
 
@@ -316,6 +317,14 @@ directory font manager, but the browser's Emscripten filesystem starts without
 the `/usr/share/fonts` directory that its default manager scans. The Web demo
 therefore preloads an externally fetched Roboto font at that path; text remains
 owned by Doodle's Skia renderer and requires no browser-specific Canvas API.
+
+2026-07-15: `ios/CMakeLists.txt` now selects `IOS_NATIVE`, a chosen Magic
+backend, and Skia before adding the root project as a subdirectory. This keeps
+the convenience iOS entry point useful to platform-only consumers without
+retaining a second app implementation that included `src/graphics/` and the
+legacy public headers. The CPU simulator bundle configured and built with
+`cmake -S ios` using the same cached Skia, libpng, and zlib prefixes as the
+backend-matrix smoke script.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
