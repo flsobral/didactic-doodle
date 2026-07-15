@@ -160,6 +160,10 @@ starts a local HTTP server on an available loopback port and uses Safari by
 default; set `MDB_WEB_BROWSER`, `MDB_WEB_TIMEOUT_SECONDS`, or `MDB_WEB_PORT`
 to select another browser, visible run duration, or server port.
 
+Android wrappers wait up to 60 seconds for a connected, fully booted emulator
+before failing clearly; set `MDB_ANDROID_BOOT_TIMEOUT_SECONDS` or `ADB` when
+using a different timeout or device bridge.
+
 The `ios/` source directory is a convenience entry point for an iOS-only
 consumer. It selects the same public composition as the root project rather
 than compiling a legacy platform-specific demo directly:

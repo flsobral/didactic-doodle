@@ -68,6 +68,7 @@ android() {
   local backend=$1
   local android_home=${ANDROID_HOME:-"$HOME/Library/Android/sdk"}
   local adb=${ADB:-"$android_home/platform-tools/adb"}
+  local boot_timeout=${MDB_ANDROID_BOOT_TIMEOUT_SECONDS:-60}
   local skia_root=${MDB_ANDROID_SKIA_ROOT:-"$root/.cache/skia-android-r4"}
   local png_root=${MDB_ANDROID_PNG_ROOT:-"$root/.cache/libpng-android/libpng/android/arm64-v8a"}
   local zlib_root=${MDB_ANDROID_ZLIB_ROOT:-"$root/.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"}
@@ -75,8 +76,13 @@ android() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
   require_directory "$zlib_root"
-  "$adb" wait-for-device
-  [[ $("$adb" shell getprop sys.boot_completed | tr -d '\r') == 1 ]] || fail "an Android emulator must be fully booted"
+  [[ $boot_timeout =~ ^[0-9]+$ ]] && ((boot_timeout > 0)) || fail "MDB_ANDROID_BOOT_TIMEOUT_SECONDS must be a positive number of seconds"
+  local deadline=$(( $(date +%s) + boot_timeout ))
+  while [[ $(date +%s) -lt $deadline ]]; do
+    if [[ $("$adb" get-state 2>/dev/null || true) == device ]] && [[ $("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; then break; fi
+    sleep 1
+  done
+  [[ $("$adb" get-state 2>/dev/null || true) == device ]] && [[ $("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]] || fail "no fully booted Android emulator was detected within ${boot_timeout}s; start an AVD or set ADB"
   (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
   "$adb" install -r "$root/android/app/build/outputs/apk/debug/app-debug.apk"
   "$adb" shell am force-stop com.amalgam.magicdoodleboard.demo

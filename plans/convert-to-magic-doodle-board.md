@@ -370,6 +370,11 @@ BoardView entry point. A visible AVD run remains required to validate each rende
 Android native overlay slots are deliberately unavailable pending their own
 surface/container implementation.
 
+2026-07-15: Android smoke wrappers no longer wait indefinitely when no device
+is connected. They poll for a fully booted ADB target up to a configurable
+timeout and then name the missing prerequisite, making the runner's status
+observable before Gradle work begins.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Context and Orientation
