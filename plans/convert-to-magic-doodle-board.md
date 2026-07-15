@@ -303,6 +303,14 @@ on an available port, launches Safari at the generated URL, and records
 generated-artifact metadata under `artifacts/final/`; the CI Web workflow now
 uses the same public CMake selections.
 
+2026-07-15: Safari exposed a WebAssembly indirect-call signature mismatch in
+the Doodle Web path. The Board animation callback and scheduler were verified
+with the generated WebAssembly name section; the failing call was instead the
+application-side invocation of Skia's `GrGLFunction::fBindFramebuffer` wrapper.
+Magic already makes the WebGL context current and records its currently bound
+framebuffer before Doodle begins the frame, so Doodle now consumes that value
+without invoking the incompatible wrapper.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Context and Orientation

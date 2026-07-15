@@ -38,14 +38,11 @@ static SkPaint skia_paint(DoodlePaint paint) { SkPaint result; result.setColor4f
 static DoodleResult skia_create(MagicContext *, const DoodleRendererConfig *, void **out_state) { DoodleSkiaState *state = new (std::nothrow) DoodleSkiaState{}; if (!state) return DOODLE_ERROR_OUT_OF_MEMORY; *out_state = state; return DOODLE_OK; }
 static void skia_destroy(void *state) { delete static_cast<DoodleSkiaState *>(state); }
 static sk_sp<SkSurface> skia_gl_surface(DoodleSkiaState *state, uint32_t framebuffer, uint32_t width, uint32_t height) {
-  sk_sp<const GrGLInterface> gl;
   GrGLFramebufferInfo info;
   GrBackendRenderTarget target;
   if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
   if (!state->opengl) return nullptr;
-  state->opengl->resetContext(); gl = GrGLMakeNativeInterface();
-  if (!gl || !gl->fFunctions.fBindFramebuffer) return nullptr;
-  gl->fFunctions.fBindFramebuffer(0x8D40, (GrGLint)framebuffer);
+  state->opengl->resetContext();
   info = { (GrGLuint)framebuffer, 0x8058 };
   target = GrBackendRenderTarget((int)width, (int)height, 0, 0, info);
   return SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr);
