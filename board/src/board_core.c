@@ -45,6 +45,8 @@ BoardResult board_ios_view_get(BoardBackend *backend, void **out_view) { (void)b
 #endif
 #if !BOARD_BUILD_ANDROID
 BoardResult board_android_attach(BoardBackend *backend, void *native_app) { (void)backend; (void)native_app; return BOARD_ERROR_UNAVAILABLE; }
+BoardResult board_android_attach_window(BoardBackend *backend, void *native_window) { (void)backend; (void)native_window; return BOARD_ERROR_UNAVAILABLE; }
+BoardResult board_android_resize_window(BoardBackend *backend) { (void)backend; return BOARD_ERROR_UNAVAILABLE; }
 #endif
 static void board_app_event(void *data, const BoardEvent *event) { BoardApp *app = data; if (event->type == BOARD_EVENT_QUIT) board_app_request_quit(app); if (app->callbacks.on_event) app->callbacks.on_event(app->user_data, event); }
 static void board_app_frame(void *data, uint64_t timestamp_ns, double delta) { BoardApp *app = data; if (!app->running) return; if (app->callbacks.on_update) app->callbacks.on_update(app->user_data, delta); if (app->callbacks.on_frame) app->callbacks.on_frame(app->user_data, timestamp_ns, delta); }

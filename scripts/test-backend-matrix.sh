@@ -80,7 +80,7 @@ android() {
   (cd "$root/android" && ANDROID_HOME="$android_home" ./gradlew :app:assembleDebug -PdoodleSkiaRoot="$skia_root" -PdoodleAndroidPngRoot="$png_root" -PdoodleAndroidZlibRoot="$zlib_root" -PmdbAndroidMagicBackend="$backend")
   "$adb" install -r "$root/android/app/build/outputs/apk/debug/app-debug.apk"
   "$adb" shell am force-stop com.amalgam.magicdoodleboard.demo
-  "$adb" shell am start -n com.amalgam.magicdoodleboard.demo/android.app.NativeActivity
+  "$adb" shell am start -n com.amalgam.magicdoodleboard.demo/.MagicDoodleBoardActivity
   sleep "$mobile_delay"
   "$adb" shell pidof com.amalgam.magicdoodleboard.demo >/dev/null || fail "Android demo exited before validation"
   "$adb" exec-out screencap -p > "$root/artifacts/final/android-$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')-emulator.png"

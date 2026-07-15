@@ -21,6 +21,7 @@ typedef struct BoardAndroidState {
     BoardBackend *backend;
     struct android_app *app;
     ANativeWindow *window;
+    uint8_t owns_window;
 #if BOARD_BUILD_ANDROID_OPENGL
     void *active_gl;
 #endif
@@ -282,7 +283,7 @@ static void board_android_frame(long timestamp_ns, void *data) {
 
 static BoardResult board_android_start(BoardBackend *backend) {
     BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
-    if (!state || !state->app || !state->window) return BOARD_ERROR_UNAVAILABLE;
+    if (!state || !state->window) return BOARD_ERROR_UNAVAILABLE;
     AChoreographer_postFrameCallback(AChoreographer_getInstance(), board_android_frame, state);
     return BOARD_OK;
 }
@@ -310,6 +311,7 @@ static void board_android_dispose(BoardBackend *backend) {
         state->app->onAppCmd = NULL;
         state->app->onInputEvent = NULL;
     }
+    if (state && state->owns_window && state->window) ANativeWindow_release(state->window);
     free(state);
     free(backend->pixels);
     backend->implementation = NULL;
@@ -355,5 +357,19 @@ BoardResult board_android_attach(BoardBackend *backend, void *native_app) {
         if (ALooper_pollOnce(-1, NULL, &events, (void **)&source) >= 0 && source) source->process(app, source);
     }
     if (app->destroyRequested || !state->window) return BOARD_ERROR_UNAVAILABLE;
+    return board_android_resize(state);
+}
+
+BoardResult board_android_attach_window(BoardBackend *backend, void *native_window) {
+    BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
+    if (!backend || backend->kind != BOARD_BACKEND_ANDROID || !state || !native_window || state->window || state->app) return BOARD_ERROR_INVALID_ARGUMENT;
+    state->window = (ANativeWindow *)native_window;
+    state->owns_window = 1;
+    return board_android_resize(state);
+}
+
+BoardResult board_android_resize_window(BoardBackend *backend) {
+    BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
+    if (!backend || backend->kind != BOARD_BACKEND_ANDROID || !state || !state->window) return BOARD_ERROR_INVALID_ARGUMENT;
     return board_android_resize(state);
 }

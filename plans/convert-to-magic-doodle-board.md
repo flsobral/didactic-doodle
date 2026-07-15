@@ -24,7 +24,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan and WebGL2 are complete; desktop Vulkan remains.
 - [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
-- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. The iOS Board view now supports embedded hybrid overlays above the renderer; Android NativeActivity remains fullscreen-owned until its reusable BoardView host is implemented.
+- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. iOS supports embedded hybrid overlays above the renderer, and Android now provides an embedded `SurfaceView`-based BoardView; Android native overlay slots and below-renderer ordering remain.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
@@ -125,6 +125,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 
 - Decision: Add the host-mode and native-slot C ABI before the Android reusable view, and initially implement slots only above the iOS renderer.
   Rationale: The public API needs stable, native-type-free ownership and geometry rules before each platform can provide it. iOS can host an overlay container inside its existing reusable Board view; placing a control below its render layer would require a separate rendering sibling, so that order returns `BOARD_ERROR_UNAVAILABLE` rather than silently changing z-order.
+  Date/Author: 2026-07-15 / Codex.
+
+- Decision: Make Android BoardView a SurfaceView that owns a private JNI application handle, replacing the demo NativeActivity entry point.
+  Rationale: SurfaceView supplies an ANativeWindow usable by the existing Board-to-Magic capability contract while allowing a native Android layout to position BoardView between ordinary controls. The C ABI accepts only an opaque window pointer; JNI and Java remain private implementation details.
   Date/Author: 2026-07-15 / Codex.
 
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
@@ -356,6 +360,14 @@ slot. The iOS demo embeds that Board view between native controls and adds an
 interactive native overlay button. Android has no misleading slot success
 path: it reports the capability as unavailable until its reusable BoardView
 is implemented.
+
+2026-07-15: Android now has `org.magicdoodle.board.BoardView`, an embeddable
+SurfaceView that creates, starts, resizes, and destroys the private native
+Board/Magic/Doodle composition from its surface lifecycle. The demo Activity
+places the BoardView between Android controls and the Android CPU APK builds
+successfully. A visible AVD run remains required to validate each renderer;
+Android native overlay slots are deliberately unavailable pending their own
+surface/container implementation.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 

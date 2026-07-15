@@ -28,4 +28,5 @@ android {
             path 'src/main/cpp/CMakeLists.txt'
         }
     }
+    sourceSets { main.java.srcDirs += '../../board/backends/android/java' }
 }

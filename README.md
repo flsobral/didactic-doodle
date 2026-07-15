@@ -582,6 +582,11 @@ the platform UI thread. The iOS host currently supports controls above the
 renderer; requesting below-renderer order or requesting a slot from an
 unimplemented host returns `BOARD_ERROR_UNAVAILABLE`.
 
+Android provides `org.magicdoodle.board.BoardView` as an embeddable
+`SurfaceView`. The demo Activity places it between ordinary Android controls;
+its native application handle remains private to the JNI bridge. Native overlay
+slots on Android are not implemented yet and return `BOARD_ERROR_UNAVAILABLE`.
+
 ## Target repository structure
 
 ```text

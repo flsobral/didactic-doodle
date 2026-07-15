@@ -42,4 +42,3 @@ target_include_directories(magic_doodle_board_android_demo PRIVATE
   "${CMAKE_ANDROID_NDK}/sources/android/native_app_glue")
 target_link_libraries(magic_doodle_board_android_demo PRIVATE Board::Android Magic::Magic Doodle::Skia)
 target_compile_definitions(magic_doodle_board_android_demo PRIVATE MDB_ANDROID_OPENGL=$<STREQUAL:${MDB_ANDROID_MAGIC_BACKEND},OPENGL> MDB_ANDROID_VULKAN=$<STREQUAL:${MDB_ANDROID_MAGIC_BACKEND},VULKAN>)
-target_link_options(magic_doodle_board_android_demo PRIVATE "-Wl,-u,ANativeActivity_onCreate")

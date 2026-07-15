@@ -11,5 +11,6 @@ jobs:
       - name: Verify native Android composition sources
         run: |
           test -f board/backends/android/board_android_backend.c
+          test -f board/backends/android/java/org/magicdoodle/board/BoardView.java
           test -f magic/backends/vulkan/magic_vulkan_context.cpp
           test -f examples/android/magic_doodle_board_android_demo.c
