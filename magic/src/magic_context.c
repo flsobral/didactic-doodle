@@ -2,7 +2,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "magic_context_private.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+
+static void magic_context_set_backend_identity(MagicContext *context) {
+    const char *version = NULL;
+    if (context->backend == MAGIC_BACKEND_CPU) { context->backend_name = "CPU"; snprintf(context->backend_version, sizeof(context->backend_version), "%u.%u.%u", MAGIC_VERSION_MAJOR, MAGIC_VERSION_MINOR, MAGIC_VERSION_PATCH); return; }
+    if (context->backend == MAGIC_BACKEND_OPENGL) { context->backend_name = "OpenGL";
+#if MAGIC_BUILD_OPENGL
+        version = magic_opengl_backend_version(context);
+#endif
+    } else if (context->backend == MAGIC_BACKEND_METAL) { context->backend_name = "Metal";
+#if MAGIC_BUILD_METAL
+        version = magic_metal_backend_version(context);
+#endif
+    } else if (context->backend == MAGIC_BACKEND_VULKAN) { context->backend_name = "Vulkan";
+#if MAGIC_BUILD_VULKAN
+        version = magic_vulkan_backend_version(context);
+#endif
+    } else if (context->backend == MAGIC_BACKEND_WEB) { context->backend_name = "WebGL";
+#if MAGIC_BUILD_WEB
+        version = magic_web_backend_version(context);
+#endif
+    } else context->backend_name = "unknown";
+    snprintf(context->backend_version, sizeof(context->backend_version), "%s", version && version[0] ? version : "unknown");
+}
 
 static const MagicBackendOps magic_cpu_ops = { magic_cpu_backend_create, magic_cpu_backend_destroy, magic_cpu_backend_resize, magic_cpu_backend_begin_frame, magic_cpu_backend_end_frame };
 #if MAGIC_BUILD_OPENGL
@@ -61,6 +85,7 @@ MagicResult magic_context_create(BoardNativeSurface *surface, const MagicConfig 
 #endif
     } else { context->backend = MAGIC_BACKEND_CPU; context->ops = &magic_cpu_ops; }
     { MagicResult result = context->ops->create(context, surface); if (result != MAGIC_OK) { free(context); return result; } }
+    magic_context_set_backend_identity(context);
     *out_context = context; return MAGIC_OK;
 }
 void magic_context_destroy(MagicContext *context) { if (context) { if (context->active) magic_context_end_frame(context, context->active); context->ops->destroy(context); free(context); } }
@@ -75,6 +100,8 @@ MagicResult magic_context_begin_frame(MagicContext *context, MagicFrame **out_fr
 }
 MagicResult magic_context_end_frame(MagicContext *context, MagicFrame *frame) { MagicResult result; if (!context || !frame || context->active != frame || !frame->valid) return MAGIC_ERROR_INVALID_ARGUMENT; result = context->ops->end_frame(context, frame); frame->valid = 0; free(frame); context->active = 0; return result; }
 MagicBackend magic_context_backend(const MagicContext *context) { return context ? context->backend : MAGIC_BACKEND_AUTO; }
+const char *magic_context_backend_name(const MagicContext *context) { return context && context->backend_name ? context->backend_name : "unknown"; }
+const char *magic_context_backend_version(const MagicContext *context) { return context && context->backend_version[0] ? context->backend_version : "unknown"; }
 int magic_context_is_device_lost(const MagicContext *context) { (void)context; return 0; }
 uint32_t magic_frame_width(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.width : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.width : frame->context->backend == MAGIC_BACKEND_VULKAN ? frame->vulkan.width : frame->context->backend == MAGIC_BACKEND_WEB ? frame->web.width : frame->cpu.width) : 0; }
 uint32_t magic_frame_height(const MagicFrame *frame) { return frame ? (frame->context->backend == MAGIC_BACKEND_OPENGL ? frame->opengl.height : frame->context->backend == MAGIC_BACKEND_METAL ? frame->metal.height : frame->context->backend == MAGIC_BACKEND_VULKAN ? frame->vulkan.height : frame->context->backend == MAGIC_BACKEND_WEB ? frame->web.height : frame->cpu.height) : 0; }

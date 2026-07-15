@@ -5,9 +5,10 @@
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-typedef struct MagicWebBackend { BoardSurfaceWebInterface surface; EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context; } MagicWebBackend;
+typedef struct MagicWebBackend { BoardSurfaceWebInterface surface; EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context; char version[128]; } MagicWebBackend;
 
 static MagicResult magic_web_board_result(BoardResult result) { return result == BOARD_OK ? MAGIC_OK : result == BOARD_ERROR_VERSION ? MAGIC_ERROR_VERSION : result == BOARD_ERROR_UNAVAILABLE ? MAGIC_ERROR_UNAVAILABLE : MAGIC_ERROR_SURFACE; }
 
@@ -24,6 +25,7 @@ MagicResult magic_web_backend_create(MagicContext *context, BoardNativeSurface *
     backend->context = emscripten_webgl_create_context(backend->surface.canvas_selector, &attributes);
     if (backend->context <= 0) { free(backend); return MAGIC_ERROR_SURFACE; }
     if (emscripten_webgl_make_context_current(backend->context) != EMSCRIPTEN_RESULT_SUCCESS) { emscripten_webgl_destroy_context(backend->context); free(backend); return MAGIC_ERROR_SURFACE; }
+    snprintf(backend->version, sizeof(backend->version), "%s", glGetString(GL_VERSION) ? (const char *)glGetString(GL_VERSION) : "unknown");
     context->backend_data = backend;
     return MAGIC_OK;
 }
@@ -32,6 +34,8 @@ void magic_web_backend_destroy(MagicContext *context) {
     MagicWebBackend *backend = context ? context->backend_data : NULL;
     if (backend) { emscripten_webgl_destroy_context(backend->context); free(backend); context->backend_data = NULL; }
 }
+
+const char *magic_web_backend_version(const MagicContext *context) { const MagicWebBackend *backend = context ? context->backend_data : NULL; return backend && backend->version[0] ? backend->version : "unknown"; }
 
 MagicResult magic_web_backend_resize(MagicContext *context, uint32_t width, uint32_t height, float scale) { (void)width; (void)height; (void)scale; return context && context->backend_data ? MAGIC_OK : MAGIC_ERROR_INVALID_ARGUMENT; }
 

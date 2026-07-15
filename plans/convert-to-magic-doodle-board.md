@@ -26,6 +26,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Migrated the portable Canvas API, renderer lifecycle, and Skia provider into Doodle; the active demos draw only through `DoodleCanvas`.
 - [x] (2026-07-15) Added provider-owned Blend2D, NanoVG, and Vello stubs under Doodle. Their getters return unavailable, CMake selections fail explicitly, and focused getter/configuration tests prevent a silent no-op renderer.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
+- [x] (2026-07-15) Added public runtime identity queries for the active Board backend, Magic context, and Doodle renderer. The shared scene displays their names and versions without consulting application build macros.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
@@ -88,6 +89,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: Vulkan SDK 1.4.350.1 is now installed locally and enumerates the Apple M1 Pro through MoltenVK, including `VK_LAYER_KHRONOS_validation` and `VK_KHR_portability_enumeration`.
   Evidence: `/Users/flsobral/Library/VulkanSDK/1.4.350.1/macOS/bin/vulkaninfo --summary` reported loader 1.4.350, `driverName = MoltenVK`, and the validation layer. The preceding desktop-Vulkan limitation no longer applies to the loader. `nm -gU .cache/skia-158dc9d7-r5/libskia-macos-arm64.a | grep MakeVulkan` subsequently returned Ganesh Vulkan symbols, enabling the combination.
+
+- Observation: The initial desktop Vulkan demo target defined `MDB_DEMO_VULKAN` but did not select `MAGIC_BACKEND_VULKAN`, so it silently created a CPU Magic context.
+  Evidence: the new runtime label printed `Board: SDL3 3.4.12 | Magic: CPU 0.1.0 | Doodle: Skia 158dc9d7-r5` from a `MAGIC_BACKEND=VULKAN` build. Adding the missing branch exposed MoltenVK's required `VK_KHR_portability_subset` device extension. After Magic enabled and passed the actual device-extension list to Skia, the label reported `Magic: Vulkan 1.1.334` and the validation log was empty.
 
 - Observation: Emscripten's current WebGL glue rejects contexts requested with `explicitSwapControl`.
   Evidence: its generated `_emscripten_webgl_do_create_context` returns zero when that attribute is true because browser explicit swap was removed. Magic must request the normal implicit browser presentation path and treat end-frame as successful after Doodle flushes the current context.
@@ -210,6 +214,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 
 - Decision: Add SDL3 desktop Vulkan to the supported macOS matrix after the validation-layer smoke run succeeds, using Vulkan SDK 1.4.350.1 and the TotalCross Skia r5 archive.
   Rationale: the locally installed SDK proved that MoltenVK and a validation layer are available, the r5 archive exported Ganesh Vulkan symbols, and the three-frame smoke run completed without a validation error. macOS is the only validated desktop runner; Windows and Linux must receive their own runner validation before they are claimed as supported.
+  Date/Author: 2026-07-15 / Codex.
+
+- Decision: Report selected runtime backends through object-bound public name and version queries, and have the shared scene render those results.
+  Rationale: build selections alone did not prove the demo created the intended context. Object-bound queries keep foreign runtime types out of public headers, let every entry point use the same backend-agnostic scene, and made a desktop Vulkan fallback visible during validation. The appended Board Vulkan-surface, Magic Vulkan-interop, and Doodle renderer-provider fields require ABI version 2 so old binary consumers are rejected rather than accepting incompatible layouts.
   Date/Author: 2026-07-15 / Codex.
 
 ## Outcomes & Retrospective
@@ -423,14 +431,18 @@ observable before Gradle work begins.
 2026-07-15: SDL3 desktop Vulkan is now an implemented macOS path. Board
 creates an SDL Vulkan window and owns the SDL-specific surface destruction
 callback; Magic owns instance portability enumeration, device, swapchain, and
-presentation; Doodle Skia receives the exact enabled instance-extension list
-through `MagicVulkanInterop` instead of assuming Android extensions. With
-Vulkan SDK 1.4.350.1, MoltenVK, and Skia r5, the root CTest suite passed 10 of
-10 tests and the three-frame demo completed under
-`VK_LAYER_KHRONOS_validation`. Board, Magic, and Doodle also configured,
-tested, installed, and configured an external consumer in dependency order.
-The new `scripts/test-desktop-vulkan-skia.sh` preserves those prerequisites in
-the backend matrix. Windows and Linux have not yet run this script.
+presentation; Doodle Skia receives the exact enabled instance- and
+device-extension lists through `MagicVulkanInterop` instead of assuming
+Android extensions. The runtime identity labels caught and corrected an
+initial demo CPU fallback, then exposed the required MoltenVK portability
+device extension. With Vulkan SDK 1.4.350.1, MoltenVK, and Skia r5, the
+corrected three-frame demo reported `Board: SDL3 3.4.12 | Magic: Vulkan
+1.1.334 | Doodle: Skia 158dc9d7-r5`; its validation log was empty and the
+root CTest suite passed 10 of 10 tests. After the ABI 2 update, Board, Magic,
+and Doodle also configured, tested, installed, and configured an external
+consumer in dependency order; the consumer linked and exited 0. The new
+`scripts/test-desktop-vulkan-skia.sh` preserves those prerequisites in the
+backend matrix. Windows and Linux have not yet run this script.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
@@ -454,7 +466,7 @@ The remaining work is not represented as delivered. Native slots currently suppo
 
 ### What Changed
 
-The public architecture is represented by `board/include/board/`, `magic/include/magic/`, and `doodle/include/doodle/`. `board/include/board/board_surface.h` exposes versioned, native-type-free surface capability tables; `magic/include/magic/magic_interop.h` carries versioned frame interop; and `doodle/include/doodle/` owns the Canvas and renderer-provider APIs. Private platform and graphics implementation files remain in their owning layer, including `board/backends/`, `magic/backends/`, and `doodle/renderers/`.
+The public architecture is represented by `board/include/board/`, `magic/include/magic/`, and `doodle/include/doodle/`. `board/include/board/board_surface.h` exposes versioned, native-type-free surface capability tables; `magic/include/magic/magic_interop.h` carries versioned frame interop; and `doodle/include/doodle/` owns the Canvas and renderer-provider APIs. `board_backend_name`/`board_backend_version`, `magic_context_backend_name`/`magic_context_backend_version`, and `doodle_renderer_name`/`doodle_renderer_version` identify the active objects without exposing native types. Private platform and graphics implementation files remain in their owning layer, including `board/backends/`, `magic/backends/`, and `doodle/renderers/`.
 
 `examples/common/magic_doodle_board_scene.c` is the backend-agnostic scene used by the desktop, iOS, Android, and Web entry points. Root `CMakeLists.txt` selects the composition through `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; `ios/CMakeLists.txt` is an iOS-only convenience entry for that same composition. `board/backends/sdl3/board_sdl3_backend.c`, `magic/backends/vulkan/magic_vulkan_context.cpp`, and `doodle/renderers/skia/doodle_skia_renderer.cpp` now form the desktop Vulkan path. `scripts/test-backend-matrix.sh` and its named wrappers provide repeatable smoke-test entry points for the recorded supported combinations, including a loopback HTTP server for Web and validation-layer setup for desktop Vulkan.
 
@@ -476,6 +488,8 @@ Browser execution uncovered two different failures. Loading the Web demo through
 
 Android minimum SDK 24 is a functional constraint, not an arbitrary build setting: the native scheduler uses `AChoreographer`, whose required API is unavailable below that level. The Android runner also previously appeared not to execute when no emulator was booted; it now reports a bounded, explicit readiness failure instead of waiting indefinitely.
 
+The runtime labels found two desktop Vulkan issues that configuration and a three-frame exit status alone had hidden: the demo omitted its Vulkan `MagicConfig` branch and then MoltenVK required `VK_KHR_portability_subset`. Magic now enables that advertised device extension and Doodle receives the same device-extension list for Skia negotiation. The corrected validation-layer run is the applicable Vulkan evidence.
+
 ### Validation and Measurable Results
 
 Only observed results are recorded here. A Headless + CPU + Skia composition produced the deterministic hash `bff7964c10eaa55f`, as recorded in `artifacts/final/headless-image-hash.txt` and the retrospective entry dated 2026-07-14. Staged Board, Magic, and Doodle installation tests and their consumer configuration were recorded as passing on 2026-07-14; the exact command shapes are preserved under `Concrete Steps` and in the retrospective rather than being reconstructed here.
@@ -490,7 +504,7 @@ That run reported 8 of 8 tests passed, including `mdb_public_headers_c`, `mdb_pu
 
 The recorded Web smoke run served the demo over HTTP in Safari for eight seconds. `artifacts/final/web-skia-artifacts.txt` records 811 bytes for the HTML, 382317 bytes for JavaScript, 4818383 bytes for WebAssembly, and 35408 bytes for the data file. These are generated artifact sizes from that run, not performance measurements. No meaningful frame-time, memory, binary-size comparison, or rendering-performance benchmark has been taken.
 
-With `VULKAN_SDK=/Users/flsobral/Library/VulkanSDK/1.4.350.1/macOS`, `VK_ICD_FILENAMES` set to the SDK MoltenVK JSON, and `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`, `scripts/test-desktop-vulkan-skia.sh` configured and built a fresh matrix directory and completed the three-frame demo without a validation error. A separate root CTest run reported 10 of 10 tests passed. Standalone Board, Magic, and Doodle Vulkan builds each reported all of their focused tests passed, and the installed consumer linked and exited 0. These are macOS observations only.
+With `VULKAN_SDK=/Users/flsobral/Library/VulkanSDK/1.4.350.1/macOS`, `VK_ICD_FILENAMES` set to the SDK MoltenVK JSON, and `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`, the corrected `scripts/test-desktop-vulkan-skia.sh` configured and built a fresh matrix directory, printed `Board: SDL3 3.4.12 | Magic: Vulkan 1.1.334 | Doodle: Skia 158dc9d7-r5`, and completed the three-frame demo without a validation error. `vulkan-validation.log` was empty, and a separate root CTest run reported 10 of 10 tests passed. Standalone Board, Magic, and Doodle Vulkan builds each reported all of their focused tests passed, and the installed consumer linked and exited 0. These are macOS observations only.
 
 The plan records builds, launches, and screenshots for the listed iOS and Android simulator/emulator paths under `artifacts/final/`, and three-frame desktop smoke runs for OpenGL and Metal. Because the latest mobile-host changes have not received a final complete visible-device rerun, those earlier captures are historical evidence rather than final acceptance of the current tree.
 
@@ -1227,7 +1241,9 @@ Desktop SDL3 plus Vulkan on macOS:
 
 The wrapper must find the SDK's MoltenVK ICD, configure and build a fresh
 `build/backend-matrix/desktop-VULKAN` directory with Skia r5, run the shared
-scene for three frames, and leave no `Validation Error` or `ERROR` line in
+scene for three frames, report `Board: SDL3 ... | Magic: Vulkan ... | Doodle:
+Skia ...` in `build/backend-matrix/desktop-VULKAN/runtime-identity.log`, and
+leave no `Validation Error` or `ERROR` line in
 `build/backend-matrix/desktop-VULKAN/vulkan-validation.log`. This is a
 macOS-only validated path; Windows and Linux require separate runner evidence.
 

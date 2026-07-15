@@ -10,6 +10,8 @@ DoodleResult doodle_renderer_create(const DoodleRendererProvider *provider, Magi
 void doodle_renderer_destroy(DoodleRenderer *renderer);
 DoodleResult doodle_renderer_begin_frame(DoodleRenderer *renderer, MagicFrame *frame, DoodleCanvas **out_canvas);
 DoodleResult doodle_renderer_end_frame(DoodleRenderer *renderer, DoodleCanvas *canvas);
+const char *doodle_renderer_name(const DoodleRenderer *renderer);
+const char *doodle_renderer_version(const DoodleRenderer *renderer);
 #ifdef __cplusplus
 }
 #endif

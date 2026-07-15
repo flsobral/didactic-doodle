@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 typedef struct DoodleRendererConfig { uint32_t struct_size; uint32_t abi_version; uint32_t flags; } DoodleRendererConfig;
-typedef struct DoodleRendererProvider { uint32_t struct_size; uint32_t abi_version; const char *name; DoodleResult (*create)(MagicContext *magic, const DoodleRendererConfig *config, void **out_state); void (*destroy)(void *state); DoodleResult (*begin_frame)(void *state, MagicFrame *frame, DoodleCanvas **out_canvas); DoodleResult (*end_frame)(void *state, DoodleCanvas *canvas); void (*canvas_save)(DoodleCanvas *canvas); void (*canvas_restore)(DoodleCanvas *canvas); void (*canvas_clear)(DoodleCanvas *canvas, DoodleColor color); void (*canvas_draw_rect)(DoodleCanvas *canvas, DoodleRect rect, DoodlePaint paint); } DoodleRendererProvider;
+typedef struct DoodleRendererProvider { uint32_t struct_size; uint32_t abi_version; const char *name; DoodleResult (*create)(MagicContext *magic, const DoodleRendererConfig *config, void **out_state); void (*destroy)(void *state); DoodleResult (*begin_frame)(void *state, MagicFrame *frame, DoodleCanvas **out_canvas); DoodleResult (*end_frame)(void *state, DoodleCanvas *canvas); void (*canvas_save)(DoodleCanvas *canvas); void (*canvas_restore)(DoodleCanvas *canvas); void (*canvas_clear)(DoodleCanvas *canvas, DoodleColor color); void (*canvas_draw_rect)(DoodleCanvas *canvas, DoodleRect rect, DoodlePaint paint); const char *version; } DoodleRendererProvider;
 const DoodleRendererProvider *doodle_skia_provider(void);
 const DoodleRendererProvider *doodle_blend2d_provider(void);
 const DoodleRendererProvider *doodle_nanovg_provider(void);

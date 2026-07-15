@@ -14,4 +14,4 @@
 #include <magic/magic_interop.h>
 #include <doodle/doodle_canvas.h>
 #include <doodle/doodle_renderer.h>
-int main(void) { return (int)(BOARD_ABI_VERSION + MAGIC_ABI_VERSION + DOODLE_ABI_VERSION - 3u); }
+int main(void) { return (int)(BOARD_ABI_VERSION + MAGIC_ABI_VERSION + DOODLE_ABI_VERSION - 6u); }

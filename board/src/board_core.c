@@ -4,6 +4,7 @@
 #include <board/board_android.h>
 #include <board/board_ios.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,6 +17,8 @@ BoardResult board_backend_create(const BoardBackendConfig *config, BoardBackend 
     BoardBackend *backend; BoardResult result;
     if (!config || !out_backend || config->struct_size < offsetof(BoardBackendConfig, host_mode) || config->abi_version != BOARD_ABI_VERSION || !config->width || !config->height) return BOARD_ERROR_INVALID_ARGUMENT;
     backend = calloc(1, sizeof(*backend)); if (!backend) return BOARD_ERROR_OUT_OF_MEMORY; backend->kind = config->kind; backend->host_mode = config->struct_size >= sizeof(*config) ? config->host_mode : BOARD_HOST_MODE_FULLSCREEN_OWNED;
+    backend->name = config->kind == BOARD_BACKEND_HEADLESS ? "Headless" : config->kind == BOARD_BACKEND_SDL3 ? "SDL3" : config->kind == BOARD_BACKEND_WEB ? "Web" : config->kind == BOARD_BACKEND_ANDROID ? "Android" : config->kind == BOARD_BACKEND_IOS ? "iOS" : config->kind == BOARD_BACKEND_GLFW ? "GLFW" : config->kind == BOARD_BACKEND_WINIT ? "winit" : "unknown";
+    snprintf(backend->version, sizeof(backend->version), "%u.%u.%u", BOARD_VERSION_MAJOR, BOARD_VERSION_MINOR, BOARD_VERSION_PATCH);
     if (backend->host_mode != BOARD_HOST_MODE_FULLSCREEN_OWNED && backend->host_mode != BOARD_HOST_MODE_EMBEDDED && backend->host_mode != BOARD_HOST_MODE_HYBRID_OVERLAY) { free(backend); return BOARD_ERROR_INVALID_ARGUMENT; }
     if (config->kind == BOARD_BACKEND_HEADLESS) result = board_headless_backend_init(backend, config);
 #if BOARD_BUILD_SDL3
@@ -34,6 +37,8 @@ BoardResult board_backend_create(const BoardBackendConfig *config, BoardBackend 
     if (result != BOARD_OK) { free(backend); return result; } *out_backend = backend; return BOARD_OK;
 }
 void board_backend_destroy(BoardBackend *backend) { if (backend) { if (backend->dispose) backend->dispose(backend); free(backend); } }
+const char *board_backend_name(const BoardBackend *backend) { return backend && backend->name ? backend->name : "unknown"; }
+const char *board_backend_version(const BoardBackend *backend) { return backend && backend->version[0] ? backend->version : "unknown"; }
 BoardNativeSurface *board_backend_surface(BoardBackend *backend) { return backend ? &backend->surface : NULL; }
 BoardFrameScheduler *board_backend_scheduler(BoardBackend *backend) { return backend ? &backend->scheduler : NULL; }
 BoardResult board_backend_post_event(BoardBackend *backend, const BoardEvent *event) { if (!backend || !event || event->struct_size < sizeof(*event) || event->abi_version != BOARD_ABI_VERSION || backend->event_count == 32) return BOARD_ERROR_INVALID_ARGUMENT; backend->events[backend->event_count++] = *event; return BOARD_OK; }

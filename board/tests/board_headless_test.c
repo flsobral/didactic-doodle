@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda. */
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include <board/board_app.h>
+#include <string.h>
 static unsigned frames;
 static void on_frame(void *data, uint64_t timestamp, double delta) { (void)data; (void)timestamp; (void)delta; ++frames; }
 static void on_ui_task(void *data) { *(unsigned *)data = 1; }
@@ -13,11 +14,12 @@ int main(void) {
     BoardHostServices services = { sizeof(BoardHostServices), BOARD_ABI_VERSION, 0, dispatch_ui };
     BoardNativeViewSlotConfig slot_config = { sizeof(BoardNativeViewSlotConfig), BOARD_ABI_VERSION, (void *)1, {0, 0, 1, 1}, {0, 0, 1, 1}, 1, 0, BOARD_NATIVE_VIEW_ABOVE_RENDERER };
     if (board_backend_create(&backend_config, &backend) != BOARD_OK) return 1;
+    if (strcmp(board_backend_name(backend), "Headless") || !board_backend_version(backend)[0]) return 7;
     if (board_backend_host_mode(backend, &mode) != BOARD_OK || mode != BOARD_HOST_MODE_HYBRID_OVERLAY) return 4;
     if (board_host_dispatch_ui(&services, on_ui_task, &ran) != BOARD_OK || ran != 1) return 5;
     if (board_native_view_slot_create(backend, &slot_config, &slot) != BOARD_ERROR_UNAVAILABLE) return 6;
     app_config.backend = backend; app_config.callbacks = callbacks;
     if (board_app_create(&app_config, &app) != BOARD_OK || board_app_start(app) != BOARD_OK || board_app_step(app, 1) != BOARD_OK || frames != 1) return 2;
-    if (board_surface_query_interface(board_backend_surface(backend), BOARD_SURFACE_INTERFACE_CPU, 2, &callbacks, sizeof(callbacks)) != BOARD_ERROR_VERSION) return 3;
+    if (board_surface_query_interface(board_backend_surface(backend), BOARD_SURFACE_INTERFACE_CPU, BOARD_ABI_VERSION + 1, &callbacks, sizeof(callbacks)) != BOARD_ERROR_VERSION) return 3;
     board_app_destroy(app); board_backend_destroy(backend); return 0;
 }

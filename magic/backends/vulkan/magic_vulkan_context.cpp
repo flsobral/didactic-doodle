@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "../../src/magic_context_private.h"
 #include <vulkan/vulkan.h>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -18,18 +19,21 @@ struct MagicVulkanState {
     VkExtent2D extent{};
     VkPhysicalDeviceFeatures2 features{};
     std::vector<const char *> instance_extensions;
+    std::vector<const char *> device_extensions;
     uint32_t queue_family = 0;
     std::vector<VkImage> images;
     std::vector<VkSemaphore> render_semaphores;
     uint32_t frame_slot = 0;
     uint32_t active_image = UINT32_MAX;
     uint64_t surface_generation = 0;
+    char version[32]{};
 };
 
 static MagicVulkanState *magic_vk(MagicContext *context) { return context ? static_cast<MagicVulkanState *>(context->backend_data) : nullptr; }
 static uint64_t magic_vk_handle(const void *value) { return (uint64_t)(uintptr_t)value; }
 static int magic_vk_has_extension(const std::vector<const char *> &extensions, const char *name) { for (const char *extension : extensions) if (!std::strcmp(extension, name)) return 1; return 0; }
 static int magic_vk_extension_available(const std::vector<VkExtensionProperties> &extensions, const char *name) { for (const VkExtensionProperties &extension : extensions) if (!std::strcmp(extension.extensionName, name)) return 1; return 0; }
+static const char *const magic_vk_portability_subset_extension = "VK_KHR_portability_subset";
 
 static void magic_vk_destroy_surface(MagicVulkanState *state) {
     if (!state || state->surface == VK_NULL_HANDLE) return;
@@ -132,14 +136,20 @@ extern "C" MagicResult magic_vulkan_backend_create(MagicContext *context, BoardN
         }
     }
     if (state->physical_device == VK_NULL_HANDLE) goto failure;
+    { VkPhysicalDeviceProperties properties{}; vkGetPhysicalDeviceProperties(state->physical_device, &properties); std::snprintf(state->version, sizeof(state->version), "%u.%u.%u", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion)); }
     {
-        const char *device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}; float priority = 1.0f;
+        uint32_t extension_count = 0; float priority = 1.0f;
+        if (vkEnumerateDeviceExtensionProperties(state->physical_device, nullptr, &extension_count, nullptr) != VK_SUCCESS) goto failure;
+        std::vector<VkExtensionProperties> available_extensions(extension_count);
+        if (vkEnumerateDeviceExtensionProperties(state->physical_device, nullptr, &extension_count, available_extensions.data()) != VK_SUCCESS || !magic_vk_extension_available(available_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) goto failure;
+        state->device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        if (magic_vk_extension_available(available_extensions, magic_vk_portability_subset_extension)) state->device_extensions.push_back(magic_vk_portability_subset_extension);
         PFN_vkGetPhysicalDeviceFeatures2 get_features = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(vkGetInstanceProcAddr(state->instance, "vkGetPhysicalDeviceFeatures2"));
         if (!get_features) goto failure;
         state->features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         get_features(state->physical_device, &state->features);
         VkDeviceQueueCreateInfo queue{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO}; queue.queueFamilyIndex = state->queue_family; queue.queueCount = 1; queue.pQueuePriorities = &priority;
-        VkDeviceCreateInfo info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO}; info.queueCreateInfoCount = 1; info.pQueueCreateInfos = &queue; info.enabledExtensionCount = 1; info.ppEnabledExtensionNames = device_extensions; info.pNext = &state->features;
+        VkDeviceCreateInfo info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO}; info.queueCreateInfoCount = 1; info.pQueueCreateInfos = &queue; info.enabledExtensionCount = (uint32_t)state->device_extensions.size(); info.ppEnabledExtensionNames = state->device_extensions.data(); info.pNext = &state->features;
         if (vkCreateDevice(state->physical_device, &info, nullptr, &state->device) != VK_SUCCESS) goto failure;
     }
     vkGetDeviceQueue(state->device, state->queue_family, 0, &state->queue);
@@ -153,6 +163,8 @@ extern "C" void magic_vulkan_backend_destroy(MagicContext *context) {
     MagicVulkanState *state = magic_vk(context); if (!state) return;
     magic_vk_destroy_swapchain(state); magic_vk_destroy_surface(state); if (state->device != VK_NULL_HANDLE) vkDestroyDevice(state->device, nullptr); if (state->instance != VK_NULL_HANDLE) vkDestroyInstance(state->instance, nullptr); delete state; context->backend_data = nullptr;
 }
+
+extern "C" const char *magic_vulkan_backend_version(const MagicContext *context) { const MagicVulkanState *state = magic_vk(const_cast<MagicContext *>(context)); return state && state->version[0] ? state->version : "unknown"; }
 
 extern "C" MagicResult magic_vulkan_backend_resize(MagicContext *context, uint32_t, uint32_t, float) {
     MagicVulkanState *state = magic_vk(context); if (!state) return MAGIC_ERROR_INVALID_ARGUMENT;
@@ -171,7 +183,7 @@ extern "C" MagicResult magic_vulkan_backend_begin_frame(MagicContext *context, M
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { vkDestroySemaphore(state->device, acquire, nullptr); return MAGIC_ERROR_SURFACE; }
     state->active_image = image;
     MagicVulkanInterop interop{};
-    interop.struct_size = sizeof(interop); interop.abi_version = MAGIC_ABI_VERSION; interop.instance = magic_vk_handle(state->instance); interop.physical_device = magic_vk_handle(state->physical_device); interop.device = magic_vk_handle(state->device); interop.queue = magic_vk_handle(state->queue); interop.image = (uint64_t)state->images[image]; interop.acquire_semaphore = (uint64_t)acquire; interop.render_complete_semaphore = (uint64_t)state->render_semaphores[state->frame_slot]; interop.surface_generation = state->surface_generation; interop.device_features = &state->features; interop.queue_family = state->queue_family; interop.image_format = (uint32_t)state->format; interop.image_usage = (uint32_t)state->usage; interop.width = state->extent.width; interop.height = state->extent.height; interop.scale = 1.0f; interop.instance_extensions = state->instance_extensions.data(); interop.instance_extension_count = (uint32_t)state->instance_extensions.size();
+    interop.struct_size = sizeof(interop); interop.abi_version = MAGIC_ABI_VERSION; interop.instance = magic_vk_handle(state->instance); interop.physical_device = magic_vk_handle(state->physical_device); interop.device = magic_vk_handle(state->device); interop.queue = magic_vk_handle(state->queue); interop.image = (uint64_t)state->images[image]; interop.acquire_semaphore = (uint64_t)acquire; interop.render_complete_semaphore = (uint64_t)state->render_semaphores[state->frame_slot]; interop.surface_generation = state->surface_generation; interop.device_features = &state->features; interop.queue_family = state->queue_family; interop.image_format = (uint32_t)state->format; interop.image_usage = (uint32_t)state->usage; interop.width = state->extent.width; interop.height = state->extent.height; interop.scale = 1.0f; interop.instance_extensions = state->instance_extensions.data(); interop.instance_extension_count = (uint32_t)state->instance_extensions.size(); interop.device_extensions = state->device_extensions.data(); interop.device_extension_count = (uint32_t)state->device_extensions.size();
     frame->vulkan = interop;
     return MAGIC_OK;
 }

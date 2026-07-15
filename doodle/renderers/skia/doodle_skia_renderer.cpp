@@ -24,6 +24,10 @@
 #include <new>
 #include <unordered_map>
 
+#ifndef DOODLE_SKIA_VERSION
+#define DOODLE_SKIA_VERSION "external"
+#endif
+
 struct DoodleCanvas { SkCanvas *native; };
 struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl;
 #if defined(SK_METAL)
@@ -71,9 +75,8 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
 #if defined(SK_VULKAN)
     VkInstance instance = (VkInstance)(uintptr_t)vulkan.instance; VkPhysicalDevice physical_device = (VkPhysicalDevice)(uintptr_t)vulkan.physical_device; VkDevice device = (VkDevice)(uintptr_t)vulkan.device;
     if (!state->vulkan) {
-      const char *device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-      if (!vulkan.device_features || !vulkan.instance_extensions || !vulkan.instance_extension_count) return DOODLE_ERROR_UNAVAILABLE;
-      state->vulkan_extensions.init(skia_vk_get_proc, instance, physical_device, vulkan.instance_extension_count, vulkan.instance_extensions, 1, device_extensions);
+      if (!vulkan.device_features || !vulkan.instance_extensions || !vulkan.instance_extension_count || !vulkan.device_extensions || !vulkan.device_extension_count) return DOODLE_ERROR_UNAVAILABLE;
+      state->vulkan_extensions.init(skia_vk_get_proc, instance, physical_device, vulkan.instance_extension_count, vulkan.instance_extensions, vulkan.device_extension_count, vulkan.device_extensions);
       GrVkBackendContext backend{}; backend.fInstance = instance; backend.fPhysicalDevice = physical_device; backend.fDevice = device; backend.fQueue = (VkQueue)(uintptr_t)vulkan.queue; backend.fGraphicsQueueIndex = vulkan.queue_family; backend.fMaxAPIVersion = VK_API_VERSION_1_1; backend.fVkExtensions = &state->vulkan_extensions; backend.fDeviceFeatures2 = static_cast<VkPhysicalDeviceFeatures2 *>(vulkan.device_features); backend.fGetProc = skia_vk_get_proc;
       state->vulkan = GrDirectContext::MakeVulkan(backend);
     }
@@ -100,7 +103,7 @@ static DoodleResult skia_end(void *value, DoodleCanvas *canvas) { DoodleSkiaStat
   else
 #endif
   state->surface->flushAndSubmit(); state->canvas.native = nullptr; state->surface.reset(); return DOODLE_OK; }
-static const DoodleRendererProvider provider = { sizeof(DoodleRendererProvider), DOODLE_ABI_VERSION, "Skia", skia_create, skia_destroy, skia_begin, skia_end, nullptr, nullptr, nullptr, nullptr };
+static const DoodleRendererProvider provider = { sizeof(DoodleRendererProvider), DOODLE_ABI_VERSION, "Skia", skia_create, skia_destroy, skia_begin, skia_end, nullptr, nullptr, nullptr, nullptr, DOODLE_SKIA_VERSION };
 extern "C" const DoodleRendererProvider *doodle_skia_provider(void) { return &provider; }
 extern "C" void doodle_canvas_save(DoodleCanvas *canvas) { if (canvas && canvas->native) canvas->native->save(); }
 extern "C" void doodle_canvas_restore(DoodleCanvas *canvas) { if (canvas && canvas->native) canvas->native->restore(); }

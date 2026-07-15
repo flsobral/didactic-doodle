@@ -77,6 +77,7 @@ JNIEXPORT jlong JNICALL Java_org_magicdoodle_board_BoardView_nativeCreate(JNIEnv
     if (board_surface_query_interface(board_backend_surface(demo->backend), BOARD_SURFACE_INTERFACE_CPU, BOARD_ABI_VERSION, &pixels, sizeof(pixels)) != BOARD_OK || pixels.map_pixels(pixels.user_data, &memory, &scene_width, &scene_height, &stride, &format, &scale) != BOARD_OK) goto failure;
     (void)memory; (void)stride; (void)format; (void)scale;
     magic_doodle_board_scene_init(&demo->scene, (float)scene_width, (float)scene_height);
+    magic_doodle_board_scene_set_runtime(&demo->scene, demo->backend, demo->magic, demo->renderer);
     app_config = (BoardAppConfig){sizeof(BoardAppConfig), BOARD_ABI_VERSION, demo->backend, callbacks, demo};
     if (board_app_create(&app_config, &demo->app) != BOARD_OK) goto failure;
     return (jlong)(uintptr_t)demo;

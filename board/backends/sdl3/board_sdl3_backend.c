@@ -8,6 +8,7 @@
 #include <SDL3/SDL_vulkan.h>
 #endif
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef struct BoardSdl3Backend { SDL_Window *window; SDL_MetalView metal_view; unsigned vulkan_library_loaded : 1; } BoardSdl3Backend;
 static BoardSdl3Backend *board_sdl3(BoardBackend *backend) { return backend ? backend->implementation : NULL; }
@@ -84,7 +85,7 @@ BoardResult board_sdl3_backend_init(BoardBackend *backend, const BoardBackendCon
 #endif
         free(state); SDL_Quit(); return BOARD_ERROR_PLATFORM; }
 #endif
-    backend->implementation = state; backend->width = config->width; backend->height = config->height; backend->scale = config->scale > 0 ? config->scale : 1.0f; backend->surface.cpu = (BoardSurfaceCpuInterface){ sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, backend, board_sdl3_map, board_sdl3_present }; backend->surface.opengl = (BoardSurfaceOpenGLInterface){ sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, backend, board_sdl3_gl_create, board_sdl3_gl_destroy, board_sdl3_gl_make_current, board_sdl3_gl_get_proc, board_sdl3_gl_drawable_size, board_sdl3_gl_swap };
+    backend->implementation = state; backend->width = config->width; backend->height = config->height; backend->scale = config->scale > 0 ? config->scale : 1.0f; { int version = SDL_GetVersion(); snprintf(backend->version, sizeof(backend->version), "%d.%d.%d", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version)); } backend->surface.cpu = (BoardSurfaceCpuInterface){ sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, backend, board_sdl3_map, board_sdl3_present }; backend->surface.opengl = (BoardSurfaceOpenGLInterface){ sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, backend, board_sdl3_gl_create, board_sdl3_gl_destroy, board_sdl3_gl_make_current, board_sdl3_gl_get_proc, board_sdl3_gl_drawable_size, board_sdl3_gl_swap };
 #if BOARD_BUILD_SDL3_METAL
     backend->surface.metal = (BoardSurfaceMetalInterface){ sizeof(BoardSurfaceMetalInterface), BOARD_ABI_VERSION, SDL_Metal_GetLayer(state->metal_view), config->width, config->height, backend->scale };
 #endif

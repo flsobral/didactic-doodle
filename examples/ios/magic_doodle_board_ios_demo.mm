@@ -66,6 +66,7 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     backend_config = (BoardBackendConfig){sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_IOS, "Magic Doodle Board", (uint32_t)(bounds.size.width * scale), (uint32_t)(bounds.size.height * scale), (float)scale, 0, BOARD_HOST_MODE_HYBRID_OVERLAY};
     if (board_backend_create(&backend_config, &_demo.backend) != BOARD_OK || magic_context_create(board_backend_surface(_demo.backend), &magic_config, &_demo.magic) != MAGIC_OK || doodle_renderer_create(doodle_skia_provider(), _demo.magic, &renderer_config, &_demo.renderer) != DOODLE_OK || board_ios_view_get(_demo.backend, &view) != BOARD_OK) { NSLog(@"Magic Doodle Board: initialization failed"); return; }
     magic_doodle_board_scene_init(&_demo.scene, backend_config.width, backend_config.height);
+    magic_doodle_board_scene_set_runtime(&_demo.scene, _demo.backend, _demo.magic, _demo.renderer);
     container = [[UIView alloc] initWithFrame:bounds];
     container.backgroundColor = UIColor.systemBackgroundColor;
     title = [[UILabel alloc] initWithFrame:CGRectMake(16, 16, bounds.size.width - 32, 32)];

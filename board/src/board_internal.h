@@ -13,7 +13,7 @@ typedef BoardResult (*BoardNativeViewSlotCreate)(BoardBackend *backend, const Bo
 typedef void (*BoardNativeViewSlotDestroy)(BoardNativeViewSlot *slot);
 typedef BoardResult (*BoardNativeViewSlotApply)(BoardNativeViewSlot *slot);
 struct BoardNativeViewSlot { BoardBackend *backend; void *implementation; BoardRect frame; BoardRect clip; uint8_t visible; uint8_t clip_enabled; BoardNativeViewZOrder z_order; };
-struct BoardBackend { BoardNativeSurface surface; BoardFrameScheduler scheduler; BoardBackendKind kind; BoardHostMode host_mode; void *implementation; BoardBackendRun run; BoardBackendStart start; BoardBackendDispose dispose; BoardNativeViewSlotCreate native_slot_create; BoardNativeViewSlotDestroy native_slot_destroy; BoardNativeViewSlotApply native_slot_apply; BoardEventSink event_sink; void *event_data; uint8_t *pixels; uint32_t width, height, stride; float scale; BoardEvent events[32]; uint32_t event_count; };
+struct BoardBackend { BoardNativeSurface surface; BoardFrameScheduler scheduler; BoardBackendKind kind; BoardHostMode host_mode; const char *name; char version[64]; void *implementation; BoardBackendRun run; BoardBackendStart start; BoardBackendDispose dispose; BoardNativeViewSlotCreate native_slot_create; BoardNativeViewSlotDestroy native_slot_destroy; BoardNativeViewSlotApply native_slot_apply; BoardEventSink event_sink; void *event_data; uint8_t *pixels; uint32_t width, height, stride; float scale; BoardEvent events[32]; uint32_t event_count; };
 struct BoardApp { BoardBackend *backend; BoardAppCallbacks callbacks; void *user_data; unsigned running : 1; unsigned started : 1; };
 BoardResult board_headless_backend_init(BoardBackend *backend, const BoardBackendConfig *config);
 #if BOARD_BUILD_SDL3

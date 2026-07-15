@@ -309,6 +309,22 @@ static void app_on_frame(void *user_data,
 
 Board never calls Doodle directly, and Doodle never presents a frame directly. The application composes the three public APIs.
 
+### Runtime backend identity
+
+After creating the three objects, an application can report the active runtime
+combination without consulting build macros:
+
+```c
+printf("Board: %s %s | Magic: %s %s | Doodle: %s %s\n",
+       board_backend_name(board), board_backend_version(board),
+       magic_context_backend_name(magic), magic_context_backend_version(magic),
+       doodle_renderer_name(renderer), doodle_renderer_version(renderer));
+```
+
+The shared demo renders these three labels. SDL, OpenGL/WebGL, and Vulkan
+versions come from their active runtime objects; the Skia label identifies the
+external Skia artifact selected when Doodle was configured.
+
 ## Layer 1: Board
 
 Board owns platform and host integration.

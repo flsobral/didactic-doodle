@@ -29,7 +29,7 @@ desktop() {
   local backend=$1
   local build="$build_root/desktop-$backend"
   local skia_root=${MDB_DESKTOP_SKIA_ROOT:-"$root/.cache/skia-158dc9d7-r4"}
-  local vulkan_sdk validation_log
+  local vulkan_sdk validation_log runtime_log
   [[ $backend != METAL || $(uname) == Darwin ]] || fail "desktop Metal requires macOS"
   if [[ $backend == VULKAN ]]; then
     [[ $(uname) == Darwin ]] || fail "desktop Vulkan smoke validation is currently available only on macOS; Windows and Linux still require their own runners"
@@ -51,8 +51,11 @@ desktop() {
   cmake --build "$build" --parallel
   if [[ $backend == VULKAN ]]; then
     validation_log="$build/vulkan-validation.log"
-    "$build/examples/desktop/magic_doodle_board_demo" --frames 3 2>"$validation_log"
+    runtime_log="$build/runtime-identity.log"
+    "$build/examples/desktop/magic_doodle_board_demo" --frames 3 >"$runtime_log" 2>"$validation_log"
     if rg -q 'Validation Error|\bERROR\b' "$validation_log"; then cat "$validation_log" >&2; fail "Vulkan validation reported an error"; fi
+    if ! rg -q '^Board: SDL3 .+ \| Magic: Vulkan .+ \| Doodle: Skia .+$' "$runtime_log"; then cat "$runtime_log" >&2; fail "desktop Vulkan demo did not create and report the requested runtime combination"; fi
+    cat "$runtime_log"
   else
     "$build/examples/desktop/magic_doodle_board_demo" --frames 3
   fi

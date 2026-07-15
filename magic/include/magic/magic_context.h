@@ -15,6 +15,8 @@ MagicResult magic_context_resize(MagicContext *context, uint32_t width, uint32_t
 MagicResult magic_context_begin_frame(MagicContext *context, MagicFrame **out_frame);
 MagicResult magic_context_end_frame(MagicContext *context, MagicFrame *frame);
 MagicBackend magic_context_backend(const MagicContext *context);
+const char *magic_context_backend_name(const MagicContext *context);
+const char *magic_context_backend_version(const MagicContext *context);
 int magic_context_is_device_lost(const MagicContext *context);
 #ifdef __cplusplus
 }

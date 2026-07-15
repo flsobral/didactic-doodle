@@ -2,11 +2,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "magic_doodle_board_scene.h"
 #include <math.h>
+#include <stdio.h>
 
 static DoodleColor scene_color(float r, float g, float b, float a) { return (DoodleColor){r, g, b, a}; }
 static DoodlePaint scene_fill(DoodleColor color) { return (DoodlePaint){color, 1, DOODLE_PAINT_FILL}; }
 static DoodlePaint scene_stroke(DoodleColor color, float width) { return (DoodlePaint){color, width, DOODLE_PAINT_STROKE}; }
-void magic_doodle_board_scene_init(MagicDoodleBoardScene *scene, float width, float height) { if (scene) *scene = (MagicDoodleBoardScene){width, height, 0, 0, 0, 0}; }
+void magic_doodle_board_scene_init(MagicDoodleBoardScene *scene, float width, float height) { if (scene) *scene = (MagicDoodleBoardScene){.width = width, .height = height}; }
+void magic_doodle_board_scene_set_runtime(MagicDoodleBoardScene *scene, const BoardBackend *board, const MagicContext *magic, const DoodleRenderer *renderer) {
+    if (!scene) return;
+    snprintf(scene->board_backend, sizeof(scene->board_backend), "Board: %s %s", board_backend_name(board), board_backend_version(board));
+    snprintf(scene->magic_backend, sizeof(scene->magic_backend), "Magic: %s %s", magic_context_backend_name(magic), magic_context_backend_version(magic));
+    snprintf(scene->renderer, sizeof(scene->renderer), "Doodle: %s %s", doodle_renderer_name(renderer), doodle_renderer_version(renderer));
+}
 void magic_doodle_board_scene_event(MagicDoodleBoardScene *scene, const BoardEvent *event) {
     if (!scene || !event) return;
     if (event->type == BOARD_EVENT_RESIZE) { scene->width = event->data.resize.width; scene->height = event->data.resize.height; }
@@ -21,6 +28,9 @@ void magic_doodle_board_scene_draw(MagicDoodleBoardScene *scene, DoodleCanvas *c
     doodle_canvas_draw_round_rect(canvas, (DoodleRect){56, 82, 250, 94}, 16, scene_fill(scene_color(.16f, .55f, .86f, 1)));
     doodle_canvas_draw_line(canvas, (DoodlePoint){56, 210}, (DoodlePoint){scene->width - 56, 210}, scene_stroke(scene_color(.95f, .73f, .28f, 1), 5));
     doodle_canvas_draw_text(canvas, "Magic Doodle Board", 56, 65, (DoodleTextStyle){scene_color(.92f, .95f, 1, 1), 24, NULL});
+    doodle_canvas_draw_text(canvas, scene->board_backend, 56, 244, (DoodleTextStyle){scene_color(.75f, .84f, .96f, 1), 16, NULL});
+    doodle_canvas_draw_text(canvas, scene->magic_backend, 56, 270, (DoodleTextStyle){scene_color(.75f, .84f, .96f, 1), 16, NULL});
+    doodle_canvas_draw_text(canvas, scene->renderer, 56, 296, (DoodleTextStyle){scene_color(.75f, .84f, .96f, 1), 16, NULL});
     x = scene->width * .5f + cosf((float)scene->elapsed * 2.f) * (scene->width * .25f);
     doodle_canvas_save(canvas);
     doodle_canvas_translate(canvas, x, scene->height * .56f);

@@ -27,6 +27,7 @@ int main(void) {
     if (board_backend_create(&backend_config, &backend) != BOARD_OK || magic_context_create(board_backend_surface(backend), &magic_config, &magic) != MAGIC_OK || doodle_renderer_create(doodle_skia_provider(), magic, &renderer_config, &renderer) != DOODLE_OK) goto cleanup;
     demo.magic = magic; demo.renderer = renderer; magic_doodle_board_scene_init(&demo.scene, 960, 640);
     if (magic_context_begin_frame(magic, &initial_frame) == MAGIC_OK) { magic_doodle_board_scene_init(&demo.scene, (float)magic_frame_width(initial_frame), (float)magic_frame_height(initial_frame)); magic_context_end_frame(magic, initial_frame); }
+    magic_doodle_board_scene_set_runtime(&demo.scene, backend, magic, renderer);
     app_config = (BoardAppConfig){sizeof(app_config), BOARD_ABI_VERSION, backend, callbacks, &demo};
     if (board_app_create(&app_config, &app) != BOARD_OK || board_app_start(app) != BOARD_OK) goto cleanup;
     demo.app = app;

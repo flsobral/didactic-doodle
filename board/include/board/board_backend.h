@@ -15,6 +15,8 @@ typedef enum BoardBackendKind { BOARD_BACKEND_HEADLESS, BOARD_BACKEND_SDL3, BOAR
 typedef struct BoardBackendConfig { uint32_t struct_size; uint32_t abi_version; BoardBackendKind kind; const char *title; uint32_t width, height; float scale; uint8_t resizable; BoardHostMode host_mode; } BoardBackendConfig;
 BoardResult board_backend_create(const BoardBackendConfig *config, BoardBackend **out_backend);
 void board_backend_destroy(BoardBackend *backend);
+const char *board_backend_name(const BoardBackend *backend);
+const char *board_backend_version(const BoardBackend *backend);
 BoardNativeSurface *board_backend_surface(BoardBackend *backend);
 BoardFrameScheduler *board_backend_scheduler(BoardBackend *backend);
 BoardResult board_backend_post_event(BoardBackend *backend, const BoardEvent *event);
