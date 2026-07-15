@@ -1,4 +1,4 @@
-web-skia browser smoke run completed with safari for 8 seconds
+web-skia browser smoke run completed with safari over HTTP for 8 seconds
 magic_doodle_board_web_demo.html:      811 bytes
 magic_doodle_board_web_demo.js:   376671 bytes
 magic_doodle_board_web_demo.wasm:  4819718 bytes

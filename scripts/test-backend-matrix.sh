@@ -90,7 +90,7 @@ web() {
   local emcmake=${EMCMAKE:-"$root/.cache/emsdk-main/upstream/emscripten/emcmake"}
   local browser=${MDB_WEB_BROWSER:-safari}
   local timeout=${MDB_WEB_TIMEOUT_SECONDS:-8}
-  local port=${MDB_WEB_PORT:-8080}
+  local port=${MDB_WEB_PORT:-}
   local html js wasm web_directory url
   if [[ ! -x "$emcmake" ]]; then emcmake=$(command -v emcmake || true); fi
   [[ -n "$emcmake" ]] || fail "Emscripten emcmake is required; set EMCMAKE or install the pinned Emscripten 2.0.6 toolchain"
@@ -103,7 +103,11 @@ web() {
   require_file "$html"; require_file "$js"; require_file "$wasm"
   command -v python3 >/dev/null || fail "python3 is required to serve the Web demo"
   command -v curl >/dev/null || fail "curl is required to verify the local Web server"
-  [[ $port =~ ^[0-9]+$ ]] && ((port > 0 && port < 65536)) || fail "MDB_WEB_PORT must be a TCP port from 1 to 65535"
+  if [[ -n $port ]]; then
+    [[ $port =~ ^[0-9]+$ ]] && ((port > 0 && port < 65536)) || fail "MDB_WEB_PORT must be a TCP port from 1 to 65535"
+  else
+    port=$(python3 -c 'import socket; listener = socket.socket(); listener.bind(("127.0.0.1", 0)); print(listener.getsockname()[1]); listener.close()')
+  fi
   mkdir -p "$root/artifacts/final"
   web_directory=$(dirname "$html")
   url="http://127.0.0.1:$port/$(basename "$html")"
@@ -111,6 +115,10 @@ web() {
   python3 -m http.server "$port" --bind 127.0.0.1 --directory "$web_directory" >"$web_server_log" 2>&1 &
   web_server_pid=$!
   trap stop_web_server EXIT
+  if ! kill -0 "$web_server_pid" 2>/dev/null; then
+    cat "$web_server_log" >&2
+    fail "local Web server could not start on 127.0.0.1:$port"
+  fi
   if ! curl --retry 20 --retry-connrefused --retry-delay 0 --silent --fail "$url" >/dev/null; then
     cat "$web_server_log" >&2
     fail "local Web server did not serve $url"
@@ -124,7 +132,7 @@ web() {
   fi
   sleep "$timeout"
   {
-    printf 'web-skia browser smoke run completed with %s at %s for %s seconds\n' "$browser" "$url" "$timeout"
+    printf 'web-skia browser smoke run completed with %s over HTTP for %s seconds\n' "$browser" "$timeout"
     printf 'magic_doodle_board_web_demo.html: %s bytes\n' "$(wc -c < "$html")"
     printf 'magic_doodle_board_web_demo.js: %s bytes\n' "$(wc -c < "$js")"
     printf 'magic_doodle_board_web_demo.wasm: %s bytes\n' "$(wc -c < "$wasm")"

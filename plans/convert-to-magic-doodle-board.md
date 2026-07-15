@@ -298,10 +298,10 @@ through that table. The common scene linked against the pinned wasm32 Skia
 archive, producing `magic_doodle_board_web_demo.html`, `.js`, and `.wasm`.
 The demo must be served over HTTP so that the Emscripten loader can fetch its
 `.wasm` asset; opening the generated HTML through `file://` aborts before
-initialization. `scripts/test-web-skia.sh` starts a loopback Python HTTP server,
-launches Safari at the generated URL, and records generated-artifact metadata
-under `artifacts/final/`; the CI Web workflow now uses the same public CMake
-selections.
+initialization. `scripts/test-web-skia.sh` starts a loopback Python HTTP server
+on an available port, launches Safari at the generated URL, and records
+generated-artifact metadata under `artifacts/final/`; the CI Web workflow now
+uses the same public CMake selections.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 

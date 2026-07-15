@@ -154,7 +154,7 @@ scripts/test-web-skia.sh
 `scripts/test-backend-matrix.sh <combination>` is the shared implementation.
 Adding a supported entry to the backend matrix requires adding its matching
 `scripts/test-<combination>.sh` wrapper in the same change. The Web wrapper
-starts a local HTTP server at `http://127.0.0.1:8080` and uses Safari by
+starts a local HTTP server on an available loopback port and uses Safari by
 default; set `MDB_WEB_BROWSER`, `MDB_WEB_TIMEOUT_SECONDS`, or `MDB_WEB_PORT`
 to select another browser, visible run duration, or server port.
 
