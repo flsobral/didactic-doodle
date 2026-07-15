@@ -22,9 +22,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
 - [x] (2026-07-15) Migrated application lifecycle, events, scheduling, and surface hosting into Board for every implemented host: Headless, SDL3, native Android, native iOS, and Web. GLFW and winit remain explicit configuration-fail stubs rather than silent substitutions.
 - [x] (2026-07-15) Migrated the supported Magic contexts and routed their native-surface operations through Board's public capability API: CPU for Headless, SDL3, Android, and iOS; OpenGL/OpenGL ES for SDL3 macOS, Android, and iOS; Metal for SDL3 macOS and iOS; Android Vulkan; and WebGL2.
-- [ ] Implement the remaining Magic desktop Vulkan context through Board's public capability API; configuration currently rejects `MAGIC_BACKEND=VULKAN` outside the Android toolchain.
+- [ ] Evaluate SDL3 desktop Vulkan as a future extension when a Vulkan loader and a matching macOS Skia archive with Ganesh Vulkan support are available. It is not a supported combination in this plan's acceptance matrix.
 - [x] (2026-07-15) Migrated the portable Canvas API, renderer lifecycle, and Skia provider into Doodle; the active demos draw only through `DoodleCanvas`.
-- [ ] Add the declared Blend2D, NanoVG, and Vello Doodle renderer providers or explicit provider-owned stubs, with clear configuration diagnostics and provider tests.
+- [x] (2026-07-15) Added provider-owned Blend2D, NanoVG, and Vello stubs under Doodle. Their getters return unavailable, CMake selections fail explicitly, and focused getter/configuration tests prevent a silent no-op renderer.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
@@ -81,6 +81,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: Android API 24 does not export `vkGetPhysicalDeviceFeatures2` as a linkable loader symbol, and Skia must receive the exact feature structure enabled on the Magic-owned device.
   Evidence: the original Android Vulkan implementation obtains the function through `vkGetInstanceProcAddr`, passes that structure through `VkDeviceCreateInfo::pNext`, and gives the same pointer to `GrVkBackendContext`; Magic now preserves that contract through an opaque interop field.
+
+- Observation: The pinned macOS Skia archive does not export Ganesh Vulkan entry points, and this environment has no Vulkan loader or MoltenVK development package.
+  Evidence: `nm -gU .cache/skia-158dc9d7-r4/libskia-macos-arm64.a | grep MakeVulkan` produced no symbols, while neither `vulkan.h` nor `libvulkan*.dylib` was present under the local Homebrew prefixes. SDL3 desktop Vulkan therefore cannot be an honest supported Skia combination with the current external artifacts.
 
 - Observation: Emscripten's current WebGL glue rejects contexts requested with `explicitSwapControl`.
   Evidence: its generated `_emscripten_webgl_do_create_context` returns zero when that attribute is true because browser explicit swap was removed. Magic must request the normal implicit browser presentation path and treat end-frame as successful after Doodle flushes the current context.
@@ -197,6 +200,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: the pinned wasm32 Skia artifact contains the Ganesh OpenGL implementation. Board exposes only the browser canvas selector, Magic owns WebGL2 creation/current-context setup and browser-implicit presentation, and Doodle creates its Skia backend render target from opaque frame values without including browser headers.
   Date/Author: 2026-07-14 / Codex.
 
+- Decision: Keep SDL3 desktop Vulkan outside the supported matrix until the external Vulkan loader and a matching macOS Skia Ganesh Vulkan artifact are available.
+  Rationale: the plan's acceptance matrix intentionally lists Android Vulkan but not desktop Vulkan. Advertising a desktop path without those external artifacts would violate the explicit-backend rule and could not have a runnable smoke-test script.
+  Date/Author: 2026-07-15 / Codex.
+
 ## Outcomes & Retrospective
 
 2026-07-15: A progress review reconciled the plan with the checked-in tree,
@@ -209,6 +216,14 @@ above-renderer overlays are implemented on Android and iOS, while
 below-renderer ordering remains an explicit unavailable capability. Full
 matrix/CI acceptance remains open because it has not been rerun after the
 latest mobile-host changes.
+
+2026-07-15: Blend2D, NanoVG, and Vello now each have a Doodle-owned provider
+stub source and public getter. The getters return unavailable rather than a
+no-op renderer; selecting any of the renderers continues to fail during CMake
+configuration. Focused tests cover both the getters and all three
+configuration diagnostics. Desktop Vulkan was deliberately not promoted to
+the supported matrix: the pinned macOS Skia archive lacks Ganesh Vulkan and
+the local environment lacks a Vulkan loader.
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
 implements a versioned headless CPU surface and deterministic coalescing frame

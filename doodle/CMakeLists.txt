@@ -16,7 +16,11 @@ endif()
 if(NOT TARGET Magic::Magic)
   find_package(Magic CONFIG REQUIRED)
 endif()
-add_library(doodle_core src/doodle_renderer.c)
+add_library(doodle_core
+  src/doodle_renderer.c
+  renderers/blend2d/doodle_blend2d_stub.c
+  renderers/nanovg/doodle_nanovg_stub.c
+  renderers/vello/doodle_vello_stub.c)
 set_target_properties(doodle_core PROPERTIES EXPORT_NAME Doodle)
 add_library(Doodle::Doodle ALIAS doodle_core)
 target_link_libraries(doodle_core PUBLIC Magic::Magic)
@@ -124,6 +128,9 @@ if(DOODLE_BUILD_TESTS)
  add_executable(doodle_provider_test tests/doodle_provider_test.c)
  target_link_libraries(doodle_provider_test PRIVATE doodle_core)
  add_test(NAME doodle_provider COMMAND doodle_provider_test)
+ add_executable(doodle_provider_stubs_test tests/doodle_provider_stubs_test.c)
+ target_link_libraries(doodle_provider_stubs_test PRIVATE doodle_core)
+ add_test(NAME doodle_provider_stubs COMMAND doodle_provider_stubs_test)
 endif()
 install(TARGETS doodle_core EXPORT DoodleTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 if(TARGET doodle_renderer_skia)

@@ -16,6 +16,8 @@ cases = (
     ("headless_cpu", ("-DBOARD_BACKEND=HEADLESS", "-DMAGIC_BACKEND=CPU", "-DDOODLE_RENDERER=NONE"), True, ""),
     ("headless_opengl", ("-DBOARD_BACKEND=HEADLESS", "-DMAGIC_BACKEND=OPENGL", "-DDOODLE_RENDERER=NONE"), False, "BOARD_BACKEND=HEADLESS supports only MAGIC_BACKEND=CPU"),
     ("glfw_stub", ("-DBOARD_BACKEND=GLFW", "-DMAGIC_BACKEND=CPU", "-DDOODLE_RENDERER=NONE"), False, "BOARD_BACKEND=GLFW is declared but not implemented"),
+    ("blend2d_stub", ("-DBOARD_BACKEND=HEADLESS", "-DMAGIC_BACKEND=CPU", "-DDOODLE_RENDERER=BLEND2D"), False, "DOODLE_RENDERER=BLEND2D is declared but not implemented"),
+    ("nanovg_stub", ("-DBOARD_BACKEND=HEADLESS", "-DMAGIC_BACKEND=CPU", "-DDOODLE_RENDERER=NANOVG"), False, "DOODLE_RENDERER=NANOVG is declared but not implemented"),
     ("vello_stub", ("-DBOARD_BACKEND=HEADLESS", "-DMAGIC_BACKEND=CPU", "-DDOODLE_RENDERER=VELLO"), False, "DOODLE_RENDERER=VELLO is declared but not implemented"),
     ("web_without_emscripten", ("-DBOARD_BACKEND=WEB", "-DMAGIC_BACKEND=WEB", "-DDOODLE_RENDERER=NONE"), False, "BOARD_BACKEND=WEB requires the Emscripten CMake toolchain"),
 )
