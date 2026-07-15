@@ -14,7 +14,7 @@ typedef struct MagicCpuInterop { uint32_t struct_size; uint32_t abi_version; voi
 typedef struct MagicOpenGLInterop { uint32_t struct_size; uint32_t abi_version; void *context; uint32_t framebuffer; uint32_t width, height; float scale; } MagicOpenGLInterop;
 typedef struct MagicMetalInterop { uint32_t struct_size; uint32_t abi_version; void *layer; void *device; void *command_queue; const void **drawable_slot; uint32_t width, height; float scale; } MagicMetalInterop;
 typedef struct MagicVulkanInterop { uint32_t struct_size; uint32_t abi_version; uint64_t instance; uint64_t physical_device; uint64_t device; uint64_t queue; uint64_t image; uint64_t acquire_semaphore; uint64_t render_complete_semaphore; uint64_t surface_generation; void *device_features; uint32_t queue_family; uint32_t image_format; uint32_t image_usage; uint32_t width, height; float scale; } MagicVulkanInterop;
-typedef struct MagicWebInterop { uint32_t struct_size; uint32_t abi_version; void *context; } MagicWebInterop;
+typedef struct MagicWebInterop { uint32_t struct_size; uint32_t abi_version; void *context; uint32_t framebuffer; uint32_t width, height; float scale; } MagicWebInterop;
 MagicResult magic_frame_query_interop(MagicFrame *frame, MagicInteropId id, uint32_t abi_version, void *out_interop, size_t out_interop_size);
 #ifdef __cplusplus
 }

@@ -8,4 +8,5 @@ BOARD_BACKEND=IOS_NATIVE + MAGIC_BACKEND=METAL + DOODLE_RENDERER=SKIA in iOS sim
 BOARD_BACKEND=ANDROID_NATIVE + MAGIC_BACKEND=CPU + DOODLE_RENDERER=SKIA in Android emulator: app installs, launches, and renders the shared scene through the native CPU surface
 BOARD_BACKEND=ANDROID_NATIVE + MAGIC_BACKEND=OPENGL + DOODLE_RENDERER=SKIA in Android emulator: app installs, launches, and renders the shared scene through OpenGL ES
 BOARD_BACKEND=ANDROID_NATIVE + MAGIC_BACKEND=VULKAN + DOODLE_RENDERER=SKIA in Android emulator: app installs, launches, and renders the shared scene through Vulkan
+BOARD_BACKEND=WEB + MAGIC_BACKEND=WEB + DOODLE_RENDERER=SKIA in Safari: emrun serves and launches the shared scene through WebGL2
 DOODLE_RENDERER=VELLO: configuration fails clearly as unimplemented

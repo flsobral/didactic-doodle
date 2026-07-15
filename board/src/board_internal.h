@@ -27,5 +27,8 @@ BoardResult board_ios_backend_init(BoardBackend *backend, const BoardBackendConf
 }
 #endif
 #endif
+#if BOARD_BUILD_WEB
+BoardResult board_web_backend_init(BoardBackend *backend, const BoardBackendConfig *config);
+#endif
 BoardResult board_backend_run_internal(BoardBackend *backend, BoardEventSink sink, void *user_data);
 #endif

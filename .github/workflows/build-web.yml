@@ -16,10 +16,11 @@ jobs:
         run: ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-wasm32-r4" wasm32
       - name: Configure and build
         run: |
-          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DTC_PLATFORM=WEB -DTC_BACKEND=SDL -DTC_RENDERER=SKIA -DTC_GRAPHICS=OPENGL -DTC_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4"
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DBOARD_BACKEND=WEB -DMAGIC_BACKEND=WEB -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4" -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
           cmake --build build-web --config Release
-          test -f build-web/examples/demo/tc_demo.html
-          test -f build-web/examples/demo/tc_demo.wasm
+          test -f build-web/examples/web/magic_doodle_board_web_demo.html
+          test -f build-web/examples/web/magic_doodle_board_web_demo.js
+          test -f build-web/examples/web/magic_doodle_board_web_demo.wasm
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

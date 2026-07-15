@@ -20,9 +20,10 @@ The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
 **Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
 **Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**, and
-**Board Android native + Magic CPU/OpenGL ES/Vulkan + Doodle Skia in an Android emulator**. Board exposes
-either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
-iOS native view; Magic acquires
+**Board Android native + Magic CPU/OpenGL ES/Vulkan + Doodle Skia in an Android emulator**, and
+**Board Web + Magic WebGL2 + Doodle Skia in a browser**. Board exposes either a
+deterministic headless CPU surface, an SDL3 window surface, reusable native mobile
+views, or a browser canvas; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
 Skia provider binds Canvas operations through the selected versioned Magic
 interop table.
@@ -37,10 +38,9 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Web and the remaining Doodle providers beyond the
-SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU/OpenGL ES/Vulkan paths are declared migration targets, not working selections
-in this revision. Selecting one fails during CMake configuration with an
-explicit diagnostic; no backend is silently substituted.
+GLFW, winit, and Doodle providers other than Skia remain declared migration
+targets. Selecting one fails during CMake configuration with an explicit
+diagnostic; no backend is silently substituted.
 
 Run the macOS desktop demo with:
 
@@ -109,6 +109,23 @@ input conversion, and `AChoreographer` frame loop private; Magic CPU presents
 through the versioned Board CPU surface interface, while Magic OpenGL ES uses
 the Board EGL capability.
 
+Run the Web demo with the pinned wasm32 Skia archive and Emscripten 2.0.6:
+
+```sh
+bash scripts/fetch-totalcross-skia.sh .cache/skia-wasm32-r4 wasm32
+emcmake cmake -S . -B build/web-skia \
+  -DBOARD_BACKEND=WEB -DMAGIC_BACKEND=WEB \
+  -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4" \
+  -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
+cmake --build build/web-skia --parallel
+emrun --browser safari build/web-skia/examples/web/magic_doodle_board_web_demo.html
+```
+
+Board owns browser animation-frame scheduling plus mouse, touch, keyboard, and
+resize conversion. Magic privately owns the WebGL2 context and frame commit;
+Doodle Skia consumes only `MagicWebInterop` and renders the shared scene.
+
 ## Backend-matrix test scripts
 
 Each supported combination has a smoke-test script that builds, installs where
@@ -128,11 +145,14 @@ scripts/test-ios-metal-skia.sh
 scripts/test-android-cpu-skia.sh
 scripts/test-android-opengl-skia.sh
 scripts/test-android-vulkan-skia.sh
+scripts/test-web-skia.sh
 ```
 
 `scripts/test-backend-matrix.sh <combination>` is the shared implementation.
 Adding a supported entry to the backend matrix requires adding its matching
-`scripts/test-<combination>.sh` wrapper in the same change.
+`scripts/test-<combination>.sh` wrapper in the same change. The Web wrapper
+uses Safari by default; set `MDB_WEB_BROWSER` and `MDB_WEB_TIMEOUT_SECONDS` to
+select another browser or visible run duration.
 
 The name is both a product metaphor and an architectural map:
 

@@ -1,0 +1,23 @@
+<!--
+  SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+  SPDX-License-Identifier: LGPL-2.1-only
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Magic Doodle Board</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0e131f; }
+    #canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  <script>
+    var Module = { canvas: document.getElementById('canvas'), printErr: function(message) { console.error(message); } };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

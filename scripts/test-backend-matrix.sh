@@ -71,6 +71,33 @@ android() {
   "$adb" exec-out screencap -p > "$root/artifacts/final/android-$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')-emulator.png"
 }
 
+web() {
+  local build="$build_root/web-skia"
+  local skia_root=${MDB_WEB_SKIA_ROOT:-"$root/.cache/skia-wasm32-r4"}
+  local emcmake=${EMCMAKE:-"$root/.cache/emsdk-main/upstream/emscripten/emcmake"}
+  local browser=${MDB_WEB_BROWSER:-safari}
+  local timeout=${MDB_WEB_TIMEOUT_SECONDS:-8}
+  local html js wasm
+  if [[ ! -x "$emcmake" ]]; then emcmake=$(command -v emcmake || true); fi
+  [[ -n "$emcmake" ]] || fail "Emscripten emcmake is required; set EMCMAKE or install the pinned Emscripten 2.0.6 toolchain"
+  require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
+  "$emcmake" cmake -S "$root" -B "$build" -DBOARD_BACKEND=WEB -DMAGIC_BACKEND=WEB -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
+  cmake --build "$build" --parallel
+  html="$build/examples/web/magic_doodle_board_web_demo.html"
+  js="$build/examples/web/magic_doodle_board_web_demo.js"
+  wasm="$build/examples/web/magic_doodle_board_web_demo.wasm"
+  require_file "$html"; require_file "$js"; require_file "$wasm"
+  command -v emrun >/dev/null || fail "emrun is required to launch the Web demo"
+  mkdir -p "$root/artifacts/final"
+  emrun --browser "$browser" --timeout "$timeout" --timeout-returncode 0 "$html"
+  {
+    printf 'web-skia browser smoke run completed with %s for %s seconds\n' "$browser" "$timeout"
+    printf 'magic_doodle_board_web_demo.html: %s bytes\n' "$(wc -c < "$html")"
+    printf 'magic_doodle_board_web_demo.js: %s bytes\n' "$(wc -c < "$js")"
+    printf 'magic_doodle_board_web_demo.wasm: %s bytes\n' "$(wc -c < "$wasm")"
+  } > "$root/artifacts/final/web-skia-artifacts.txt"
+}
+
 case "$combination" in
   headless-cpu-skia) headless ;;
   desktop-cpu-skia) desktop CPU ;;
@@ -82,5 +109,6 @@ case "$combination" in
   android-cpu-skia) android CPU ;;
   android-opengl-skia) android OPENGL ;;
   android-vulkan-skia) android VULKAN ;;
-  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia}" ;;
+  web-skia) web ;;
+  *) fail "usage: $0 {headless-cpu-skia|desktop-cpu-skia|desktop-opengl-skia|desktop-metal-skia|ios-cpu-skia|ios-opengl-skia|ios-metal-skia|android-cpu-skia|android-opengl-skia|android-vulkan-skia|web-skia}" ;;
 esac

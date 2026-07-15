@@ -41,7 +41,7 @@ static void skia_destroy(void *state) { delete static_cast<DoodleSkiaState *>(st
 static PFN_vkVoidFunction skia_vk_get_proc(const char *name, VkInstance instance, VkDevice device) { return device != VK_NULL_HANDLE ? vkGetDeviceProcAddr(device, name) : vkGetInstanceProcAddr(instance, name); }
 #endif
 static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **out_canvas) {
-  MagicCpuInterop pixels{}; MagicOpenGLInterop opengl{}; MagicMetalInterop metal{}; MagicVulkanInterop vulkan{}; DoodleSkiaState *state = static_cast<DoodleSkiaState *>(value);
+  MagicCpuInterop pixels{}; MagicOpenGLInterop opengl{}; MagicMetalInterop metal{}; MagicVulkanInterop vulkan{}; MagicWebInterop web{}; DoodleSkiaState *state = static_cast<DoodleSkiaState *>(value);
   if (!state) return DOODLE_ERROR_INVALID_ARGUMENT;
   if (magic_frame_query_interop(frame, MAGIC_INTEROP_CPU, MAGIC_ABI_VERSION, &pixels, sizeof(pixels)) == MAGIC_OK) {
     SkColorType format = pixels.format == MAGIC_PIXEL_FORMAT_BGRA8888 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
@@ -49,6 +49,9 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_OPENGL, MAGIC_ABI_VERSION, &opengl, sizeof(opengl)) == MAGIC_OK) {
     if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
     if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)opengl.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)opengl.width, (int)opengl.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
+  } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_WEB, MAGIC_ABI_VERSION, &web, sizeof(web)) == MAGIC_OK) {
+    if (!state->opengl) state->opengl = GrDirectContext::MakeGL(GrGLMakeNativeInterface());
+    if (state->opengl) { state->opengl->resetContext(); GrGLFramebufferInfo info = { (GrGLuint)web.framebuffer, 0x8058 }; GrBackendRenderTarget target((int)web.width, (int)web.height, 0, 0, info); state->surface = SkSurface::MakeFromBackendRenderTarget(state->opengl.get(), target, kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr); }
   } else if (magic_frame_query_interop(frame, MAGIC_INTEROP_METAL, MAGIC_ABI_VERSION, &metal, sizeof(metal)) == MAGIC_OK) {
 #if defined(SK_METAL)
     if (!state->metal) state->metal = GrDirectContext::MakeMetal(metal.device, metal.command_queue);
