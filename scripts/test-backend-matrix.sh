@@ -7,10 +7,23 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 combination=${1:-}
 build_root=${MDB_MATRIX_BUILD_ROOT:-"$root/build/backend-matrix"}
 mobile_delay=${MDB_MOBILE_DELAY_SECONDS:-3}
+web_server_pid=
+web_server_log=
 
 fail() { echo "error: $*" >&2; exit 2; }
 require_directory() { [[ -d "$1" ]] || fail "missing directory: $1"; }
 require_file() { [[ -f "$1" ]] || fail "missing file: $1"; }
+stop_web_server() {
+  if [[ -n ${web_server_pid:-} ]]; then
+    kill "$web_server_pid" 2>/dev/null || true
+    wait "$web_server_pid" 2>/dev/null || true
+    web_server_pid=
+  fi
+  if [[ -n ${web_server_log:-} ]]; then
+    rm -f "$web_server_log"
+    web_server_log=
+  fi
+}
 
 desktop() {
   local backend=$1 build="$build_root/desktop-$backend"
@@ -77,7 +90,8 @@ web() {
   local emcmake=${EMCMAKE:-"$root/.cache/emsdk-main/upstream/emscripten/emcmake"}
   local browser=${MDB_WEB_BROWSER:-safari}
   local timeout=${MDB_WEB_TIMEOUT_SECONDS:-8}
-  local html js wasm
+  local port=${MDB_WEB_PORT:-8080}
+  local html js wasm web_directory url
   if [[ ! -x "$emcmake" ]]; then emcmake=$(command -v emcmake || true); fi
   [[ -n "$emcmake" ]] || fail "Emscripten emcmake is required; set EMCMAKE or install the pinned Emscripten 2.0.6 toolchain"
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
@@ -87,11 +101,30 @@ web() {
   js="$build/examples/web/magic_doodle_board_web_demo.js"
   wasm="$build/examples/web/magic_doodle_board_web_demo.wasm"
   require_file "$html"; require_file "$js"; require_file "$wasm"
-  command -v emrun >/dev/null || fail "emrun is required to launch the Web demo"
+  command -v python3 >/dev/null || fail "python3 is required to serve the Web demo"
+  command -v curl >/dev/null || fail "curl is required to verify the local Web server"
+  [[ $port =~ ^[0-9]+$ ]] && ((port > 0 && port < 65536)) || fail "MDB_WEB_PORT must be a TCP port from 1 to 65535"
   mkdir -p "$root/artifacts/final"
-  emrun --browser "$browser" --timeout "$timeout" --timeout-returncode 0 "$html"
+  web_directory=$(dirname "$html")
+  url="http://127.0.0.1:$port/$(basename "$html")"
+  web_server_log=$(mktemp "${TMPDIR:-/tmp}/magic-doodle-board-web-http.XXXXXX.log")
+  python3 -m http.server "$port" --bind 127.0.0.1 --directory "$web_directory" >"$web_server_log" 2>&1 &
+  web_server_pid=$!
+  trap stop_web_server EXIT
+  if ! curl --retry 20 --retry-connrefused --retry-delay 0 --silent --fail "$url" >/dev/null; then
+    cat "$web_server_log" >&2
+    fail "local Web server did not serve $url"
+  fi
+  if [[ $(uname) == Darwin ]]; then
+    command -v open >/dev/null || fail "macOS open command is required to launch the Web demo"
+    open -a "$browser" "$url"
+  else
+    command -v "$browser" >/dev/null || fail "browser executable '$browser' was not found"
+    "$browser" "$url" >/dev/null 2>&1 &
+  fi
+  sleep "$timeout"
   {
-    printf 'web-skia browser smoke run completed with %s for %s seconds\n' "$browser" "$timeout"
+    printf 'web-skia browser smoke run completed with %s at %s for %s seconds\n' "$browser" "$url" "$timeout"
     printf 'magic_doodle_board_web_demo.html: %s bytes\n' "$(wc -c < "$html")"
     printf 'magic_doodle_board_web_demo.js: %s bytes\n' "$(wc -c < "$js")"
     printf 'magic_doodle_board_web_demo.wasm: %s bytes\n' "$(wc -c < "$wasm")"

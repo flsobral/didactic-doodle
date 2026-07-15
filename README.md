@@ -119,7 +119,9 @@ emcmake cmake -S . -B build/web-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-wasm32-r4" \
   -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
 cmake --build build/web-skia --parallel
-emrun --browser safari build/web-skia/examples/web/magic_doodle_board_web_demo.html
+cd build/web-skia/examples/web
+python3 -m http.server 8080 --bind 127.0.0.1
+# In another terminal: open http://127.0.0.1:8080/magic_doodle_board_web_demo.html
 ```
 
 Board owns browser animation-frame scheduling plus mouse, touch, keyboard, and
@@ -152,8 +154,9 @@ scripts/test-web-skia.sh
 `scripts/test-backend-matrix.sh <combination>` is the shared implementation.
 Adding a supported entry to the backend matrix requires adding its matching
 `scripts/test-<combination>.sh` wrapper in the same change. The Web wrapper
-uses Safari by default; set `MDB_WEB_BROWSER` and `MDB_WEB_TIMEOUT_SECONDS` to
-select another browser or visible run duration.
+starts a local HTTP server at `http://127.0.0.1:8080` and uses Safari by
+default; set `MDB_WEB_BROWSER`, `MDB_WEB_TIMEOUT_SECONDS`, or `MDB_WEB_PORT`
+to select another browser, visible run duration, or server port.
 
 The name is both a product metaphor and an architectural map:
 

@@ -29,7 +29,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [ ] Remove temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete source directories after all callers and tests use the new APIs.
 - [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
-- [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and `emrun` launched it in Safari for an eight-second smoke run; `scripts/test-web-skia.sh` now records its generated artifacts.
+- [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 
 ## Surprises & Discoveries
 
@@ -296,10 +296,12 @@ implicit presentation boundary, and publishes a
 versioned opaque Web frame table; Doodle Skia binds the default framebuffer
 through that table. The common scene linked against the pinned wasm32 Skia
 archive, producing `magic_doodle_board_web_demo.html`, `.js`, and `.wasm`.
-`emrun --browser safari --timeout 8 --timeout-returncode 0` served and launched
-the demo successfully. `scripts/test-web-skia.sh` repeats the build and launch
-and records generated-artifact metadata under `artifacts/final/`; the CI Web
-workflow now uses the same public CMake selections.
+The demo must be served over HTTP so that the Emscripten loader can fetch its
+`.wasm` asset; opening the generated HTML through `file://` aborts before
+initialization. `scripts/test-web-skia.sh` starts a loopback Python HTTP server,
+launches Safari at the generated URL, and records generated-artifact metadata
+under `artifacts/final/`; the CI Web workflow now uses the same public CMake
+selections.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
