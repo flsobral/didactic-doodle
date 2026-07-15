@@ -5,6 +5,9 @@
 #include <android/choreographer.h>
 #include <android/input.h>
 #include <android/native_window.h>
+#if BOARD_BUILD_ANDROID_OPENGL
+#include <EGL/egl.h>
+#endif
 #include <android_native_app_glue.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +17,16 @@ typedef struct BoardAndroidState {
     BoardBackend *backend;
     struct android_app *app;
     ANativeWindow *window;
+#if BOARD_BUILD_ANDROID_OPENGL
+    void *active_gl;
+#endif
 } BoardAndroidState;
+
+#if BOARD_BUILD_ANDROID_OPENGL
+typedef struct BoardAndroidOpenGLContext { EGLDisplay display; EGLConfig config; EGLContext context; EGLSurface surface; uint32_t width, height; float scale; } BoardAndroidOpenGLContext;
+static BoardResult board_android_gl_rebuild(BoardAndroidState *state, BoardAndroidOpenGLContext *gl);
+static void board_android_gl_release_surface(BoardAndroidOpenGLContext *gl);
+#endif
 
 static uint64_t board_android_timestamp(void) {
     struct timespec now;
@@ -30,17 +42,32 @@ static void board_android_emit(BoardBackend *backend, BoardEventType type) {
 static BoardResult board_android_resize(BoardAndroidState *state) {
     BoardBackend *backend;
     uint8_t *pixels;
-    uint32_t width, height;
+    uint32_t width, height, previous_width, previous_height;
+    BoardResult result;
     BoardEvent event = {sizeof(BoardEvent), BOARD_ABI_VERSION, BOARD_EVENT_RESIZE, board_android_timestamp(), {{0}}};
     if (!state || !state->window || !(backend = state->backend)) return BOARD_ERROR_UNAVAILABLE;
-    if (ANativeWindow_setBuffersGeometry(state->window, 0, 0, WINDOW_FORMAT_RGBA_8888) != 0) return BOARD_ERROR_PLATFORM;
-    width = (uint32_t)ANativeWindow_getWidth(state->window);
-    height = (uint32_t)ANativeWindow_getHeight(state->window);
+    previous_width = backend->width;
+    previous_height = backend->height;
+#if BOARD_BUILD_ANDROID_OPENGL
+    if (state->active_gl) {
+        result = board_android_gl_rebuild(state, (BoardAndroidOpenGLContext *)state->active_gl);
+        if (result != BOARD_OK) return result;
+        width = backend->width;
+        height = backend->height;
+    } else
+#endif
+    {
+        if (ANativeWindow_setBuffersGeometry(state->window, 0, 0, WINDOW_FORMAT_RGBA_8888) != 0) return BOARD_ERROR_PLATFORM;
+        width = (uint32_t)ANativeWindow_getWidth(state->window);
+        height = (uint32_t)ANativeWindow_getHeight(state->window);
+    }
     if (!width || !height) return BOARD_ERROR_UNAVAILABLE;
-    if (width == backend->width && height == backend->height) return BOARD_OK;
-    pixels = (uint8_t *)realloc(backend->pixels, (size_t)width * height * 4u);
-    if (!pixels) return BOARD_ERROR_OUT_OF_MEMORY;
-    backend->pixels = pixels;
+    if (width != previous_width || height != previous_height) {
+        pixels = (uint8_t *)realloc(backend->pixels, (size_t)width * height * 4u);
+        if (!pixels) return BOARD_ERROR_OUT_OF_MEMORY;
+        backend->pixels = pixels;
+    }
+    if (width == previous_width && height == previous_height) return BOARD_OK;
     backend->width = width;
     backend->height = height;
     backend->stride = width * 4u;
@@ -51,6 +78,94 @@ static BoardResult board_android_resize(BoardAndroidState *state) {
     if (backend->event_sink) backend->event_sink(backend->event_data, &event);
     return BOARD_OK;
 }
+
+#if BOARD_BUILD_ANDROID_OPENGL
+static void board_android_gl_release_surface(BoardAndroidOpenGLContext *gl) {
+    if (!gl || gl->display == EGL_NO_DISPLAY || gl->surface == EGL_NO_SURFACE) return;
+    eglMakeCurrent(gl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglDestroySurface(gl->display, gl->surface);
+    gl->surface = EGL_NO_SURFACE;
+}
+
+static BoardResult board_android_gl_rebuild(BoardAndroidState *state, BoardAndroidOpenGLContext *gl) {
+    EGLint width = 0, height = 0;
+    if (!state || !state->window || !gl || gl->display == EGL_NO_DISPLAY || gl->context == EGL_NO_CONTEXT) return BOARD_ERROR_UNAVAILABLE;
+    board_android_gl_release_surface(gl);
+    gl->surface = eglCreateWindowSurface(gl->display, gl->config, state->window, NULL);
+    if (gl->surface == EGL_NO_SURFACE || !eglMakeCurrent(gl->display, gl->surface, gl->surface, gl->context)) return BOARD_ERROR_PLATFORM;
+    eglSwapInterval(gl->display, 1);
+    if (!eglQuerySurface(gl->display, gl->surface, EGL_WIDTH, &width) || !eglQuerySurface(gl->display, gl->surface, EGL_HEIGHT, &height) || width <= 0 || height <= 0) return BOARD_ERROR_PLATFORM;
+    gl->width = (uint32_t)width;
+    gl->height = (uint32_t)height;
+    gl->scale = 1.0f;
+    state->backend->width = gl->width;
+    state->backend->height = gl->height;
+    state->backend->stride = gl->width * 4u;
+    state->backend->scale = gl->scale;
+    return BOARD_OK;
+}
+
+static BoardResult board_android_gl_create(void *data, void **out_context) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    BoardAndroidOpenGLContext *gl;
+    EGLint count = 0;
+    EGLint config_attributes[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE};
+    EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+    if (!state || !state->window || !out_context || state->active_gl) return BOARD_ERROR_INVALID_ARGUMENT;
+    gl = (BoardAndroidOpenGLContext *)calloc(1, sizeof(*gl));
+    if (!gl) return BOARD_ERROR_OUT_OF_MEMORY;
+    gl->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (gl->display == EGL_NO_DISPLAY || !eglInitialize(gl->display, NULL, NULL) || !eglBindAPI(EGL_OPENGL_ES_API) || !eglChooseConfig(gl->display, config_attributes, &gl->config, 1, &count) || count < 1) goto failure;
+    gl->context = eglCreateContext(gl->display, gl->config, EGL_NO_CONTEXT, context_attributes);
+    if (gl->context == EGL_NO_CONTEXT) goto failure;
+    state->active_gl = gl;
+    if (board_android_gl_rebuild(state, gl) != BOARD_OK) goto failure;
+    *out_context = gl;
+    return BOARD_OK;
+failure:
+    board_android_gl_release_surface(gl);
+    if (gl->display != EGL_NO_DISPLAY) { if (gl->context != EGL_NO_CONTEXT) eglDestroyContext(gl->display, gl->context); eglTerminate(gl->display); }
+    if (state->active_gl == gl) state->active_gl = NULL;
+    free(gl);
+    return BOARD_ERROR_PLATFORM;
+}
+
+static void board_android_gl_destroy(void *data, void *context) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    BoardAndroidOpenGLContext *gl = (BoardAndroidOpenGLContext *)context;
+    if (!gl) return;
+    board_android_gl_release_surface(gl);
+    if (gl->display != EGL_NO_DISPLAY) { if (gl->context != EGL_NO_CONTEXT) eglDestroyContext(gl->display, gl->context); eglTerminate(gl->display); }
+    if (state && state->active_gl == gl) state->active_gl = NULL;
+    free(gl);
+}
+
+static BoardResult board_android_gl_make_current(void *data, void *context) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    BoardAndroidOpenGLContext *gl = (BoardAndroidOpenGLContext *)context;
+    if (!state || !gl || state->active_gl != gl || gl->surface == EGL_NO_SURFACE) return BOARD_ERROR_UNAVAILABLE;
+    return eglMakeCurrent(gl->display, gl->surface, gl->surface, gl->context) ? BOARD_OK : BOARD_ERROR_PLATFORM;
+}
+
+static void *board_android_gl_get_proc(void *data, const char *name) { (void)data; return name ? (void *)eglGetProcAddress(name) : NULL; }
+
+static BoardResult board_android_gl_drawable_size(void *data, uint32_t *width, uint32_t *height, float *scale) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    BoardAndroidOpenGLContext *gl = state ? (BoardAndroidOpenGLContext *)state->active_gl : NULL;
+    if (!gl || !width || !height || !scale) return BOARD_ERROR_INVALID_ARGUMENT;
+    *width = gl->width;
+    *height = gl->height;
+    *scale = gl->scale;
+    return BOARD_OK;
+}
+
+static BoardResult board_android_gl_swap(void *data) {
+    BoardAndroidState *state = (BoardAndroidState *)data;
+    BoardAndroidOpenGLContext *gl = state ? (BoardAndroidOpenGLContext *)state->active_gl : NULL;
+    if (!gl || gl->surface == EGL_NO_SURFACE) return BOARD_ERROR_UNAVAILABLE;
+    return eglSwapBuffers(gl->display, gl->surface) ? BOARD_OK : BOARD_ERROR_PLATFORM;
+}
+#endif
 
 static BoardResult board_android_map(void *data, void **pixels, uint32_t *width, uint32_t *height, uint32_t *stride, BoardPixelFormat *format, float *scale) {
     BoardAndroidState *state = (BoardAndroidState *)data;
@@ -108,6 +223,9 @@ static void board_android_command(struct android_app *app, int32_t command) {
             (void)board_android_resize(state);
             break;
         case APP_CMD_TERM_WINDOW:
+#if BOARD_BUILD_ANDROID_OPENGL
+            if (state->active_gl) board_android_gl_release_surface((BoardAndroidOpenGLContext *)state->active_gl);
+#endif
             state->window = NULL;
             board_android_emit(state->backend, BOARD_EVENT_PAUSE);
             break;
@@ -159,6 +277,9 @@ static BoardResult board_android_run(BoardBackend *backend, BoardEventSink sink,
 
 static void board_android_dispose(BoardBackend *backend) {
     BoardAndroidState *state = backend ? (BoardAndroidState *)backend->implementation : NULL;
+#if BOARD_BUILD_ANDROID_OPENGL
+    if (state && state->active_gl) board_android_gl_destroy(state, state->active_gl);
+#endif
     if (state && state->app && state->app->userData == state) {
         state->app->userData = NULL;
         state->app->onAppCmd = NULL;
@@ -183,6 +304,9 @@ BoardResult board_android_backend_init(BoardBackend *backend, const BoardBackend
     state->backend = backend;
     backend->implementation = state;
     backend->surface.cpu = (BoardSurfaceCpuInterface){sizeof(BoardSurfaceCpuInterface), BOARD_ABI_VERSION, state, board_android_map, board_android_present};
+#if BOARD_BUILD_ANDROID_OPENGL
+    backend->surface.opengl = (BoardSurfaceOpenGLInterface){sizeof(BoardSurfaceOpenGLInterface), BOARD_ABI_VERSION, state, board_android_gl_create, board_android_gl_destroy, board_android_gl_make_current, board_android_gl_get_proc, board_android_gl_drawable_size, board_android_gl_swap};
+#endif
     backend->start = board_android_start;
     backend->run = board_android_run;
     backend->dispose = board_android_dispose;

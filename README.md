@@ -20,7 +20,7 @@ The repository is in the architectural migration described below. The currently
 executable rendering paths are **Board Headless + Magic CPU + Doodle Skia**,
 **Board SDL3 + Magic CPU/OpenGL/Metal + Doodle Skia on macOS**, and
 **Board iOS native + Magic CPU/OpenGL ES/Metal + Doodle Skia in the iOS simulator**, and
-**Board Android native + Magic CPU + Doodle Skia in an Android emulator**. Board exposes
+**Board Android native + Magic CPU/OpenGL ES + Doodle Skia in an Android emulator**. Board exposes
 either a deterministic headless CPU surface, an SDL3 window surface, or a reusable
 iOS native view; Magic acquires
 and presents CPU frames through Board's versioned surface interface, and the
@@ -37,8 +37,8 @@ cmake -S . -B build/headless-skia \
   -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
 ```
 
-Vulkan, Web, Android OpenGL ES/Vulkan, and the remaining Doodle providers beyond the
-SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU paths are declared migration targets, not working selections
+Vulkan, Web, Android Vulkan, and the remaining Doodle providers beyond the
+SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, and Android CPU/OpenGL ES paths are declared migration targets, not working selections
 in this revision. Selecting one fails during CMake configuration with an
 explicit diagnostic; no backend is silently substituted.
 
@@ -95,9 +95,15 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.amalgam.magicdoodleboard.demo/android.app.NativeActivity
 ```
 
+For the OpenGL ES variant, add `-PmdbAndroidMagicBackend=OPENGL` to the Gradle
+command. Board keeps its private EGL surface and OpenGL ES context callbacks;
+Magic drives the context through the versioned Board capability table and Doodle
+Skia renders through `MagicOpenGLInterop`.
+
 The Android app has `minSdk 24`. Board keeps the NativeActivity, `ANativeWindow`,
 input conversion, and `AChoreographer` frame loop private; Magic CPU presents
-through the versioned Board CPU surface interface.
+through the versioned Board CPU surface interface, while Magic OpenGL ES uses
+the Board EGL capability.
 
 The name is both a product metaphor and an architectural map:
 

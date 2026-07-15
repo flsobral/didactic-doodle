@@ -1,7 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda. */
 /* SPDX-License-Identifier: LGPL-2.1-only */
 #include "../../src/magic_context_private.h"
-#if defined(MAGIC_BUILD_IOS_OPENGL)
+#if defined(MAGIC_BUILD_ANDROID_OPENGL)
+#include <GLES3/gl3.h>
+#elif defined(MAGIC_BUILD_IOS_OPENGL)
 #include <OpenGLES/ES3/gl.h>
 #elif defined(__APPLE__)
 #include <OpenGL/gl3.h>

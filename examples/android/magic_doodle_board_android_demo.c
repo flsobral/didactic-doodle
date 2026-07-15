@@ -42,7 +42,11 @@ static void android_demo_frame(void *data, uint64_t timestamp_ns, double delta_s
 void android_main(struct android_app *native_app) {
     AndroidDemo demo = {0};
     BoardBackendConfig backend_config = {sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_ANDROID, "Magic Doodle Board", 1280, 720, 1.0f, 0};
+#if MDB_ANDROID_OPENGL
+    MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_OPENGL, 1};
+#else
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_CPU, 1};
+#endif
     DoodleRendererConfig renderer_config = {sizeof(DoodleRendererConfig), DOODLE_ABI_VERSION, 0};
     BoardAppCallbacks callbacks = {sizeof(BoardAppCallbacks), BOARD_ABI_VERSION, NULL, android_demo_event, android_demo_update, android_demo_frame, NULL};
     BoardAppConfig app_config;

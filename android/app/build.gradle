@@ -17,7 +17,8 @@ android {
                 arguments.addAll([
                     "-DDOODLE_SKIA_ROOT=${providers.gradleProperty('doodleSkiaRoot').orElse('').get()}",
                     "-DDOODLE_ANDROID_PNG_ROOT=${providers.gradleProperty('doodleAndroidPngRoot').orElse('').get()}",
-                    "-DDOODLE_ANDROID_ZLIB_ROOT=${providers.gradleProperty('doodleAndroidZlibRoot').orElse('').get()}"
+                    "-DDOODLE_ANDROID_ZLIB_ROOT=${providers.gradleProperty('doodleAndroidZlibRoot').orElse('').get()}",
+                    "-DMDB_ANDROID_MAGIC_BACKEND=${providers.gradleProperty('mdbAndroidMagicBackend').orElse('CPU').get()}"
                 ])
             }
         }

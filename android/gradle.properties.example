@@ -5,3 +5,4 @@
 doodleSkiaRoot=/absolute/path/to/skia-android
 doodleAndroidPngRoot=/absolute/path/to/libpng/android/arm64-v8a
 doodleAndroidZlibRoot=/absolute/path/to/zlib-ng/android/arm64-v8a
+mdbAndroidMagicBackend=CPU
