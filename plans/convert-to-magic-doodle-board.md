@@ -16,13 +16,15 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - [x] (2026-07-14 00:00Z) Captured the current runtime structure, supported combinations, public APIs, frame model, mobile integration requirements, naming goals, and target three-layer architecture in this ExecPlan.
 - [x] (2026-07-14) Recorded the source and legacy-symbol baseline under `artifacts/baseline/`; desktop configuration was attempted and its missing Skia artifact recorded as an environment limitation.
-- [ ] Inventory all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes.
+- [x] (2026-07-15) Inventoried all `Tc...`, `tc_...`, `TC_...`, public headers, CMake options, target names, source files, and cross-directory private includes under `artifacts/baseline/`; the architecture checks now reject retired framework names and private cross-layer includes in active sources.
 - [x] (2026-07-14) Added C11/C++ public-header tests, public-header foreign-type checks, and layer-boundary checks for the new layer trees.
 - [x] (2026-07-15) Added root configuration-matrix tests that confirm the valid Headless + CPU selection and explicit diagnostics for unsupported backend or renderer selections.
 - [x] (2026-07-14) Created independently configurable Board, Magic, and Doodle skeletons with CMake exports; staged standalone installation succeeds for Board Headless, Magic CPU, and Doodle core, and the SDL3 Metal Board → Magic Metal → Doodle Skia package chain now configures and tests on macOS.
-- [ ] Migrate application lifecycle, events, scheduling, surface hosting, and all window backends into Board; Headless, SDL3 CPU, Android native CPU/OpenGL ES, the iOS native CPU/OpenGL ES/Metal view, and Web are complete, while GLFW and winit remain.
-- [ ] Migrate CPU, OpenGL/OpenGL ES, Metal, Vulkan, and Web contexts into Magic and route all native-surface operations through Board's public capability API. CPU is complete for Headless, SDL3, Android, and iOS; OpenGL is complete for SDL3 macOS, Android OpenGL ES, and iOS OpenGL ES; Metal is complete for SDL3 macOS and iOS; Android Vulkan and WebGL2 are complete; desktop Vulkan remains.
-- [ ] Migrate the Canvas API and renderer lifecycle into Doodle; move Skia and the renderer stubs under Doodle renderer providers.
+- [x] (2026-07-15) Migrated application lifecycle, events, scheduling, and surface hosting into Board for every implemented host: Headless, SDL3, native Android, native iOS, and Web. GLFW and winit remain explicit configuration-fail stubs rather than silent substitutions.
+- [x] (2026-07-15) Migrated the supported Magic contexts and routed their native-surface operations through Board's public capability API: CPU for Headless, SDL3, Android, and iOS; OpenGL/OpenGL ES for SDL3 macOS, Android, and iOS; Metal for SDL3 macOS and iOS; Android Vulkan; and WebGL2.
+- [ ] Implement the remaining Magic desktop Vulkan context through Board's public capability API; configuration currently rejects `MAGIC_BACKEND=VULKAN` outside the Android toolchain.
+- [x] (2026-07-15) Migrated the portable Canvas API, renderer lifecycle, and Skia provider into Doodle; the active demos draw only through `DoodleCanvas`.
+- [ ] Add the declared Blend2D, NanoVG, and Vello Doodle renderer providers or explicit provider-owned stubs, with clear configuration diagnostics and provider tests.
 - [x] (2026-07-15) Replaced the application draw callback with explicit composition of Board frame callbacks, Magic frames, and Doodle canvases in every active demo; the legacy callback runtime was removed.
 - [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
@@ -196,6 +198,17 @@ Update this section whenever implementation inspection reveals a fact that chang
   Date/Author: 2026-07-14 / Codex.
 
 ## Outcomes & Retrospective
+
+2026-07-15: A progress review reconciled the plan with the checked-in tree,
+the named backend-matrix scripts, and the recorded smoke-test commits. Board
+is complete for every implemented host, and Magic is complete for every
+currently supported context except desktop Vulkan. The Canvas and Skia
+provider migration is complete; the remaining Doodle-provider task is the
+declared Blend2D, NanoVG, and Vello provider/stub work. Mobile embedded and
+above-renderer overlays are implemented on Android and iOS, while
+below-renderer ordering remains an explicit unavailable capability. Full
+matrix/CI acceptance remains open because it has not been rerun after the
+latest mobile-host changes.
 
 2026-07-14: The migration now has an executable lower-layer spine. `board_core`
 implements a versioned headless CPU surface and deterministic coalescing frame
