@@ -1,8 +1,8 @@
 # Convert didactic-doodle into the three-layer Magic Doodle Board framework
 
-This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, `Outcomes & Retrospective`, and `Editorial Report` must be kept up to date as work proceeds.
 
-This plan follows the repository guidance in `AGENTS.md`. A future contributor must be able to resume the work using only the repository working tree and this file. Keep this document self-contained whenever implementation discoveries change the design or commands below.
+This plan follows the repository guidance in `AGENTS.md` and `.agent/PLANS.md`. A future contributor must be able to resume the work using only the repository working tree and this file. Keep this document self-contained whenever implementation discoveries change the design or commands below.
 
 ## Purpose / Big Picture
 
@@ -34,6 +34,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 - [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
+- [ ] Finalize the Editorial Report after the remaining host-mode and full-matrix acceptance work; reconcile it with the final validation evidence and `Outcomes & Retrospective` before marking this ExecPlan complete.
 
 ## Surprises & Discoveries
 
@@ -414,11 +415,97 @@ observable before Gradle work begins.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
+## Editorial Report
+
+This report is an in-progress factual handoff maintained under `.agent/PLANS.md`. It describes execution evidence available on 2026-07-15; it is not a completion claim and must be finalized after the remaining Progress items and final acceptance runs.
+
+### Editorial Summary
+
+The original engineering problem was a monolithic C-first graphics runtime whose lifecycle, platform hosting, graphics contexts, Canvas API, and renderer behavior were coupled through legacy `Tc*` interfaces. The migration set out to make the same demo scene composable from three independent public libraries: Board for hosting and events, Magic for frame and graphics-context ownership, and Doodle for Canvas and renderers.
+
+The working tree now contains those three package trees, public versioned capability boundaries, a shared demo scene, and recorded runnable paths for headless CPU, macOS SDL3 CPU/OpenGL/Metal, iOS CPU/OpenGL ES/Metal, Android CPU/OpenGL ES/Vulkan, and Web. The result is developer-visible: supported builds choose `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER` explicitly and application code composes a Board frame with a Magic frame and a Doodle Canvas. This is not yet a final completion claim because mobile-host acceptance and the full supported-matrix/CI run remain open.
+
+### Original Plan versus Actual Outcome
+
+The plan intended to replace the retired runtime with exactly three public layers, preserve the shared demo across supported platforms, keep unsupported choices honest, and establish independent CMake packages with public-only dependency boundaries. Those core structural goals have been implemented: `board/`, `magic/`, and `doodle/` configure as packages; retired framework names were removed from active sources; and the demos use `examples/common/magic_doodle_board_scene.c` through the explicit Board-to-Magic-to-Doodle frame sequence.
+
+The executed result changed direction in several material ways. Android hosting began as a NativeActivity path but became an embeddable `org.magicdoodle.board.BoardView`; this better satisfies the reusable-view requirement. Web changed from direct local-file opening to an HTTP-served smoke test and gained a preloaded Roboto font because the browser loader and the pinned Skia font manager required those conditions. SDL3 desktop Vulkan was not added to the supported matrix: the plan's acceptance matrix never required it, the local macOS archive lacks Ganesh Vulkan symbols, and no local Vulkan loader was found. Blend2D, NanoVG, and Vello remain deliberately unavailable rather than becoming no-op implementations; provider-owned getter stubs and configuration tests now make that status explicit.
+
+The remaining work is not represented as delivered. Native slots currently support documented above-renderer ordering; below-renderer ordering is unavailable. The supported-matrix, CI, installation, and final observable acceptance work has not been rerun as one final set after the latest mobile-host changes. The Editorial Report itself is consequently incremental rather than final.
+
+### What Changed
+
+The public architecture is represented by `board/include/board/`, `magic/include/magic/`, and `doodle/include/doodle/`. `board/include/board/board_surface.h` exposes versioned, native-type-free surface capability tables; `magic/include/magic/magic_interop.h` carries versioned frame interop; and `doodle/include/doodle/` owns the Canvas and renderer-provider APIs. Private platform and graphics implementation files remain in their owning layer, including `board/backends/`, `magic/backends/`, and `doodle/renderers/`.
+
+`examples/common/magic_doodle_board_scene.c` is the backend-agnostic scene used by the desktop, iOS, Android, and Web entry points. Root `CMakeLists.txt` selects the composition through `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; `ios/CMakeLists.txt` is an iOS-only convenience entry for that same composition. `scripts/test-backend-matrix.sh` and its named wrappers provide repeatable smoke-test entry points for the recorded supported combinations, including a loopback HTTP server for Web.
+
+Recent evidence-bearing commits include `c709e46` (three-layer foundation), `4451fce` (Skia CPU provider), `9118840` (Android Vulkan path), `fa34684` through `a2dfb6a` (Web migration and compatibility fixes), `05ecc9e` (legacy runtime removal), `466d1c7`, `3f0e65e`, and `c56711b` (mobile embedding and overlays), and `f76b5c5` (provider-owned renderer stubs). These commits are evidence pointers, not a claim that every combination has received final acceptance after the last commit.
+
+### Decisions and Trade-offs
+
+The central decision was to use versioned public capability tables between Board and Magic and versioned frame interop tables between Magic and Doodle. This keeps SDL, UIKit, Metal, Vulkan, EGL, Skia, JNI, and browser declarations out of installed headers, at the cost of maintaining explicit negotiation structs and backend adapters.
+
+Application composition owns the frame sequence instead of Board invoking Doodle. This enforces the dependency direction and makes lifecycle behavior observable, but application entry points must coordinate begin-frame and end-frame calls. Unsupported backend and renderer selections fail during configuration rather than falling back; this produces clearer behavior but requires a maintained compatibility matrix and named validation scripts.
+
+Mobile integration uses reusable Board views and native overlay slots. The implemented initial z-order is above the renderer; returning `BOARD_ERROR_UNAVAILABLE` for below-renderer requests is intentionally less capable than silently changing the requested order. The Web path remains pinned to Emscripten 2.0.6 and a matching external Skia artifact, trading toolchain currency for recorded compatibility.
+
+### Unexpected Problems and Discoveries
+
+The external Skia artifacts materially constrained the implementation. The iOS simulator archive required separate libpng and zlib inputs; the Android Vulkan path required the newer `skia-158dc9d7-r4` archive because older local artifacts lacked `GrDirectContext::MakeVulkan`; and the macOS archive did not expose Ganesh Vulkan symbols. These findings are recorded in `Surprises & Discoveries` with the relevant commands and artifact names.
+
+Browser execution uncovered two different failures. Loading the Web demo through `file://` prevented Emscripten from fetching the `.wasm` file, so the test runner now serves it over loopback HTTP. Safari then exposed a WebAssembly indirect-call signature mismatch when application code invoked Skia's framebuffer wrapper; the implementation instead consumes the framebuffer already made current by Magic. The wasm32 Skia package also required a preloaded Roboto font because its expected font directory was absent from the initial Emscripten filesystem.
+
+Android minimum SDK 24 is a functional constraint, not an arbitrary build setting: the native scheduler uses `AChoreographer`, whose required API is unavailable below that level. The Android runner also previously appeared not to execute when no emulator was booted; it now reports a bounded, explicit readiness failure instead of waiting indefinitely.
+
+### Validation and Measurable Results
+
+Only observed results are recorded here. A Headless + CPU + Skia composition produced the deterministic hash `bff7964c10eaa55f`, as recorded in `artifacts/final/headless-image-hash.txt` and the retrospective entry dated 2026-07-14. Staged Board, Magic, and Doodle installation tests and their consumer configuration were recorded as passing on 2026-07-14; the exact command shapes are preserved under `Concrete Steps` and in the retrospective rather than being reconstructed here.
+
+The focused provider-stub validation was observed with:
+
+    cmake -S . -B build/plan-doodle-stubs -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=NONE -DMDB_BUILD_TESTS=ON -DMDB_BUILD_EXAMPLES=OFF
+    cmake --build build/plan-doodle-stubs --parallel
+    ctest --test-dir build/plan-doodle-stubs --output-on-failure
+
+That run reported 8 of 8 tests passed, including `mdb_public_headers_c`, `mdb_public_headers_cpp`, `mdb_boundaries`, `mdb_configuration`, `board_headless`, `magic_cpu`, `doodle_provider`, and `doodle_provider_stubs`. A subsequent focused run reported 3 of 3 passed for `mdb_boundaries`, `mdb_configuration`, and `doodle_provider_stubs`.
+
+The recorded Web smoke run served the demo over HTTP in Safari for eight seconds. `artifacts/final/web-skia-artifacts.txt` records 811 bytes for the HTML, 382317 bytes for JavaScript, 4818383 bytes for WebAssembly, and 35408 bytes for the data file. These are generated artifact sizes from that run, not performance measurements. No meaningful frame-time, memory, binary-size comparison, or rendering-performance benchmark has been taken.
+
+The plan records builds, launches, and screenshots for the listed iOS and Android simulator/emulator paths under `artifacts/final/`, and three-frame desktop smoke runs for OpenGL and Metal. Because the latest mobile-host changes have not received a final complete visible-device rerun, those earlier captures are historical evidence rather than final acceptance of the current tree.
+
+### Useful Evidence and Examples
+
+Useful concise evidence includes `tests/architecture/check_boundaries.py` for public and layer-boundary enforcement, `tests/configuration/check_combinations.py` for explicit configuration diagnostics, and `tests/integration/headless_skia.cpp` for the deterministic composed rendering path. `doodle/tests/doodle_provider_stubs_test.c` demonstrates that the Blend2D, NanoVG, and Vello getters report unavailable rather than supplying a false renderer.
+
+For human-visible evidence, inspect `artifacts/final/android-cpu-emulator.png`, `artifacts/final/android-opengl-emulator.png`, `artifacts/final/android-vulkan-emulator.png`, `artifacts/final/ios-cpu-simulator.png`, `artifacts/final/ios-opengl-simulator.png`, and `artifacts/final/ios-metal-simulator.png`. Their presence records captures made during execution; visual correctness still needs human inspection. For Web, the reproducible command is `scripts/test-web-skia.sh`, which starts the local HTTP server and records `artifacts/final/web-skia-artifacts.txt`.
+
+### Limitations, Remaining Work, and Open Questions
+
+The plan remains in progress. The Progress list still requires completion or explicit disposition of the reusable mobile host modes, full supported-matrix validation, CI and installation checks, documentation and final observable acceptance, and final reconciliation of this report. The current mobile overlay implementation does not support below-renderer ordering. GLFW and winit remain configuration-fail Board stubs; Blend2D, NanoVG, and Vello remain configuration-fail Doodle renderer selections backed only by unavailable getter stubs. Headless GPU contexts are outside the initial scope.
+
+Desktop SDL3 Vulkan is an open future extension rather than a supported configuration. It requires an external Vulkan loader and a compatible macOS Skia artifact with Ganesh Vulkan support. Whether the required artifacts will be published or whether the project should build them separately is unresolved. The supported mobile paths also need current-tree visible-device verification, especially after the BoardView and overlay changes.
+
+### Possible Article Angles
+
+For C and CMake framework maintainers: “Separating a cross-platform graphics runtime into host, frame, and Canvas layers.” The problem is preventing private platform and renderer types from crossing a public API; the takeaway is the use of versioned opaque capability tables.
+
+For mobile graphics developers: “Making a renderer host embeddable without giving up native controls.” The problem is combining a reusable render view with ordinary Android and iOS controls; the takeaway is an explicit overlay-slot contract and honest z-order limitations.
+
+For WebAssembly maintainers: “Why a browser graphics demo needs an HTTP server, a pinned toolchain, and a font asset.” The problem is that a compiled Web demo can still fail at load or text rendering time; the takeaway is to validate the full asset-loading path rather than treating a generated HTML file as a runnable artifact.
+
+### Suggested Narrative
+
+The strongest narrative starts with the monolithic callback that handed a Canvas directly to application lifecycle code and explains why that made platform hosting and renderer ownership inseparable. It then introduces the three constraints: public headers must remain C-compatible and free of foreign types, every backend choice must be explicit, and one demo scene must remain portable. The implementation sequence is Board surface capabilities, Magic frame interop, then Doodle renderer binding; the Android Vulkan synchronization contract and mobile overlay slots provide concrete examples. The unexpected Web loader, function-table, and font failures demonstrate why end-to-end validation mattered. Close with the recorded headless hash, configuration tests, generated Web artifact evidence, the remaining mobile/full-matrix work, and the decision not to overstate unsupported desktop Vulkan.
+
+### Claims Requiring Human Review
+
+Any external statement that the current tree runs correctly on all mobile combinations requires a new visible simulator/emulator run after the latest BoardView and overlay commits. Screenshot-based visual claims require inspection of the files in `artifacts/final/`; the report records their existence and prior capture, not a fresh visual review. Claims about performance, binary-size improvement, production readiness, external dependency licensing, or desktop Vulkan support are unsupported by this plan and require separate technical and editorial review. Normal review is also required before publishing claims about Apple, Android, SDL3, Skia, Emscripten, or TotalCross behavior.
+
 ## Context and Orientation
 
-The current project is named `didactic-doodle`. It is a C-first, multiplatform 2D runtime whose public headers currently live under `include/tc_runtime/`. Its implementation mixes application runtime code under `src/runtime/`, native window backends under `src/backends/`, graphics contexts under `src/graphics/`, and renderer adapters under `src/renderers/`.
+At the baseline captured for this plan, the project was named `didactic-doodle` and its public headers lived under `include/tc_runtime/`. That baseline implementation mixed application runtime code under `src/runtime/`, native window backends under `src/backends/`, graphics contexts under `src/graphics/`, and renderer adapters under `src/renderers/`. Those retired paths have since been removed from active source; the baseline names remain below only to explain the migration starting point.
 
-The current public concepts are:
+The baseline public concepts were:
 
 - `TcApp`, which owns application lifecycle and callbacks named `on_event`, `on_update`, `on_draw`, and `on_shutdown`.
 - `TcPlatformBackend`, which owns window or surface creation, events, and scheduling.
@@ -428,7 +515,7 @@ The current public concepts are:
 - `TcCanvas2D`, which provides basic 2D drawing and state operations.
 - `TcEvent`, which represents quit, resize, pointer, key, text, pause, and resume events.
 
-The current source layout is conceptually:
+The baseline source layout was conceptually:
 
     include/tc_runtime/
       tc_app.h
@@ -477,11 +564,11 @@ The current source layout is conceptually:
       demo_ios/
       demo_web/
 
-The current event and frame model is callback-oriented. Native backends convert input into `TcEvent`, dispatch it to the application, and invoke frame callbacks from a platform-native scheduler. The application has no blocking loop. Web uses browser animation frames, Android uses `AChoreographer`, iOS uses `CADisplayLink`, and desktop uses an adapter around its window backend.
+The baseline event and frame model was callback-oriented. Native backends converted input into `TcEvent`, dispatched it to the application, and invoked frame callbacks from a platform-native scheduler. The application had no blocking loop. Web used browser animation frames, Android used `AChoreographer`, iOS used `CADisplayLink`, and desktop used an adapter around its window backend.
 
-The current Skia renderer is the only implemented renderer. It uses raster surfaces for CPU, Ganesh GL for OpenGL and WebGL, Metal surfaces created per drawable, and an Android Vulkan swapchain path. NanoVG and Blend2D are stubs; Vello is a stub or documentation-only path. GLFW and winit are also stubs. Stub selections must remain explicit configuration failures until they are implemented.
+At the baseline, Skia was the only implemented renderer. It used raster surfaces for CPU, Ganesh GL for OpenGL and WebGL, Metal surfaces created per drawable, and an Android Vulkan swapchain path. NanoVG and Blend2D were stubs; Vello was a stub or documentation-only path. GLFW and winit were also stubs. The migrated tree retains the same explicit-failure policy for unavailable selections.
 
-The current root build uses these selections:
+The baseline root build used these selections:
 
     TC_PLATFORM=DESKTOP|ANDROID|IOS|WEB
     TC_BACKEND=SDL|ANDROID_NATIVE|IOS_NATIVE|GLFW|WINIT
@@ -948,7 +1035,7 @@ At the end of this milestone, one application scene proves that the public APIs,
 
 Acceptance is that changing the root CMake selections changes Board, Magic, or Doodle implementations without changing any file under `examples/common/`.
 
-### Milestone 8: Replace the build surface, remove legacy names, and complete validation
+### Milestone 8: Replace the build surface, remove legacy names, complete validation, and finalize the Editorial Report
 
 Update the root `CMakeLists.txt` and modules under `cmake/` to use `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`. Detect platform defaults only when the user did not provide an explicit value. Validate unsupported combinations before generating source targets. Do not silently map Web to SDL or fall back from a selected stub.
 
@@ -958,7 +1045,7 @@ Make each layer install public headers, libraries, version files, and CMake pack
 
 Enable the architecture checker to fail on all framework-owned `Tc...`, `tc_...`, and legacy `TC_...` names outside intentionally documented third-party or historical artifact files. Remove `include/tc_runtime/`, `src/runtime/`, `src/backends/`, `src/graphics/`, `src/renderers/`, and `compat/` only when their migrated counterparts are complete and no build references remain. Use `git grep`, generated build files, install manifests, exported symbol inspection, and clean builds to prove removal.
 
-Update CI to run focused jobs for public header compilation, boundary checks, standalone staged installation, headless CPU plus Skia, desktop SDL3 CPU plus Skia, desktop SDL3 OpenGL plus Skia, macOS Metal where available, Android CPU/OpenGL ES/Vulkan where available, iOS CPU/Metal where available, and Web. Stub configuration tests run on a lightweight host and assert clear failures.
+Update CI to run focused jobs for public header compilation, boundary checks, standalone staged installation, headless CPU plus Skia, desktop SDL3 CPU plus Skia, desktop SDL3 OpenGL plus Skia, macOS Metal where available, Android CPU/OpenGL ES/Vulkan where available, iOS CPU/Metal where available, and Web. Stub configuration tests run on a lightweight host and assert clear failures. Before marking this milestone complete, reconcile the `Editorial Report` with the final Progress state, `Outcomes & Retrospective`, exact validation results, commits, and generated artifacts; it must distinguish observed results from work that remains unverified.
 
 Update `README.md`, `AGENTS.md`, package documentation, example documentation, and release notes to match actual implemented combinations. Do not advertise stubs as supported.
 
@@ -1261,3 +1348,5 @@ GLFW, winit, Blend2D, NanoVG, and Vello remain explicit stubs at the start of th
 ## Revision note
 
 2026-07-14: Created the initial self-contained ExecPlan to convert the current `didactic-doodle` runtime into the independent Board, Magic, and Doodle layer architecture. The plan resolves renderer ownership, mobile embedding, headless support, Web naming, cross-layer ABI negotiation, prefix migration, standalone builds, and observable validation so implementation can proceed without relying on prior conversation context.
+
+2026-07-15: Incorporated the mandatory in-progress `Editorial Report` required by `.agent/PLANS.md`. The report synthesizes only recorded implementation, commit, test, artifact, and validation evidence; it identifies remaining work and claims needing human review, and Progress now requires final reconciliation before this ExecPlan can be completed.
