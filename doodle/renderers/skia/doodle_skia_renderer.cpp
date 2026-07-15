@@ -22,6 +22,7 @@
 #endif
 #include <memory>
 #include <new>
+#include <unordered_map>
 
 struct DoodleCanvas { SkCanvas *native; };
 struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl;
@@ -29,7 +30,7 @@ struct DoodleSkiaState { sk_sp<SkSurface> surface; sk_sp<GrDirectContext> opengl
   sk_sp<GrDirectContext> metal;
 #endif
 #if defined(SK_VULKAN)
-  sk_sp<GrDirectContext> vulkan; GrVkExtensions vulkan_extensions; MagicVulkanInterop vulkan_frame{};
+  sk_sp<GrDirectContext> vulkan; GrVkExtensions vulkan_extensions; std::unordered_map<uint64_t, sk_sp<SkSurface>> vulkan_surfaces; uint64_t vulkan_generation = 0; MagicVulkanInterop vulkan_frame{};
 #endif
   DoodleCanvas canvas; };
 static SkColor4f skia_color(DoodleColor color) { return { color.r, color.g, color.b, color.a }; }
@@ -66,9 +67,12 @@ static DoodleResult skia_begin(void *value, MagicFrame *frame, DoodleCanvas **ou
       state->vulkan = GrDirectContext::MakeVulkan(backend);
     }
     if (state->vulkan) {
-      GrVkImageInfo image{}; image.fImage = (VkImage)vulkan.image; image.fImageLayout = VK_IMAGE_LAYOUT_UNDEFINED; image.fImageTiling = VK_IMAGE_TILING_OPTIMAL; image.fFormat = (VkFormat)vulkan.image_format; image.fImageUsageFlags = vulkan.image_usage; image.fSampleCount = 1; image.fLevelCount = 1; image.fCurrentQueueFamily = vulkan.queue_family;
-      GrBackendRenderTarget target((int)vulkan.width, (int)vulkan.height, image); SkColorType color_type = (vulkan.image_format == VK_FORMAT_B8G8R8A8_UNORM || vulkan.image_format == VK_FORMAT_B8G8R8A8_SRGB) ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
-      state->surface = SkSurface::MakeFromBackendRenderTarget(state->vulkan.get(), target, kTopLeft_GrSurfaceOrigin, color_type, nullptr, nullptr);
+      if (state->vulkan_generation != vulkan.surface_generation) { state->vulkan_surfaces.clear(); state->vulkan_generation = vulkan.surface_generation; }
+      auto found = state->vulkan_surfaces.find(vulkan.image);
+      if (found == state->vulkan_surfaces.end()) { GrVkImageInfo image{}; image.fImage = (VkImage)vulkan.image; image.fImageLayout = VK_IMAGE_LAYOUT_UNDEFINED; image.fImageTiling = VK_IMAGE_TILING_OPTIMAL; image.fFormat = (VkFormat)vulkan.image_format; image.fImageUsageFlags = vulkan.image_usage; image.fSampleCount = 1; image.fLevelCount = 1; image.fCurrentQueueFamily = vulkan.queue_family;
+        GrBackendRenderTarget target((int)vulkan.width, (int)vulkan.height, image); SkColorType color_type = (vulkan.image_format == VK_FORMAT_B8G8R8A8_UNORM || vulkan.image_format == VK_FORMAT_B8G8R8A8_SRGB) ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
+        found = state->vulkan_surfaces.emplace(vulkan.image, SkSurface::MakeFromBackendRenderTarget(state->vulkan.get(), target, kTopLeft_GrSurfaceOrigin, color_type, nullptr, nullptr)).first; }
+      state->surface = found->second;
       if (state->surface) { GrBackendSemaphore wait; wait.initVulkan((VkSemaphore)vulkan.acquire_semaphore); if (!state->surface->wait(1, &wait)) state->surface.reset(); }
       state->vulkan_frame = vulkan;
     }

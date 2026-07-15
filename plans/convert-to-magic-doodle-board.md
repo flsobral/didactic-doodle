@@ -253,10 +253,13 @@ Android Vulkan instance, physical-device selection, queue, swapchain image
 acquisition, semaphores, resize/recreation, and presentation. Doodle Skia
 creates a Vulkan Ganesh context from `MagicVulkanInterop`, waits for Magic's
 acquire semaphore, signals Magic's present semaphore, and never owns the
-swapchain. The arm64 APK and root Android composition both build with Android
-API 24 and the current pinned Skia archive; interactive emulator capture must
-be rerun when the local AVD is available because the active AVD process exited
-during this session.
+swapchain. The acquire semaphore is transferred to Skia for each frame, while
+Magic retains only presentation semaphores; this matches the original Android
+Vulkan ownership contract and prevents a double destruction during teardown.
+The arm64 APK and root Android composition both build with Android API 24 and
+the current pinned Skia archive. The visible Pixel 3a API 34 emulator installed
+and ran the shared scene, captured in
+`artifacts/final/android-vulkan-emulator.png`.
 
 Validation recorded on 2026-07-14:
 

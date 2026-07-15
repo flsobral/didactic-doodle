@@ -19,10 +19,10 @@ struct MagicVulkanState {
     VkPhysicalDeviceFeatures2 features{};
     uint32_t queue_family = 0;
     std::vector<VkImage> images;
-    std::vector<VkSemaphore> acquire_semaphores;
     std::vector<VkSemaphore> render_semaphores;
     uint32_t frame_slot = 0;
     uint32_t active_image = UINT32_MAX;
+    uint64_t surface_generation = 0;
 };
 
 static MagicVulkanState *magic_vk(MagicContext *context) { return context ? static_cast<MagicVulkanState *>(context->backend_data) : nullptr; }
@@ -31,9 +31,8 @@ static uint64_t magic_vk_handle(const void *value) { return (uint64_t)(uintptr_t
 static void magic_vk_destroy_swapchain(MagicVulkanState *state) {
     if (!state || state->device == VK_NULL_HANDLE) return;
     if (state->swapchain != VK_NULL_HANDLE) vkDeviceWaitIdle(state->device);
-    for (VkSemaphore semaphore : state->acquire_semaphores) vkDestroySemaphore(state->device, semaphore, nullptr);
     for (VkSemaphore semaphore : state->render_semaphores) vkDestroySemaphore(state->device, semaphore, nullptr);
-    state->acquire_semaphores.clear(); state->render_semaphores.clear(); state->images.clear();
+    state->render_semaphores.clear(); state->images.clear();
     if (state->swapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(state->device, state->swapchain, nullptr);
     state->swapchain = VK_NULL_HANDLE; state->active_image = UINT32_MAX;
 }
@@ -73,11 +72,12 @@ static MagicResult magic_vk_create_swapchain(MagicVulkanState *state) {
     state->images.resize(count);
     if (vkGetSwapchainImagesKHR(state->device, state->swapchain, &count, state->images.data()) != VK_SUCCESS) return MAGIC_ERROR_SURFACE;
     VkSemaphoreCreateInfo semaphore{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    state->acquire_semaphores.resize(count); state->render_semaphores.resize(count);
+    state->render_semaphores.resize(count + 1);
     for (uint32_t index = 0; index < count; ++index) {
-        if (vkCreateSemaphore(state->device, &semaphore, nullptr, &state->acquire_semaphores[index]) != VK_SUCCESS ||
-            vkCreateSemaphore(state->device, &semaphore, nullptr, &state->render_semaphores[index]) != VK_SUCCESS) return MAGIC_ERROR_SURFACE;
+        if (vkCreateSemaphore(state->device, &semaphore, nullptr, &state->render_semaphores[index]) != VK_SUCCESS) return MAGIC_ERROR_SURFACE;
     }
+    if (vkCreateSemaphore(state->device, &semaphore, nullptr, &state->render_semaphores[count]) != VK_SUCCESS) return MAGIC_ERROR_SURFACE;
+    ++state->surface_generation;
     return MAGIC_OK;
 }
 
@@ -142,14 +142,15 @@ extern "C" MagicResult magic_vulkan_backend_resize(MagicContext *context, uint32
 }
 
 extern "C" MagicResult magic_vulkan_backend_begin_frame(MagicContext *context, MagicFrame *frame) {
-    MagicVulkanState *state = magic_vk(context); uint32_t image = 0;
+    MagicVulkanState *state = magic_vk(context); uint32_t image = 0; VkSemaphore acquire = VK_NULL_HANDLE; VkSemaphoreCreateInfo semaphore{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     if (!state || !frame || state->active_image != UINT32_MAX || state->swapchain == VK_NULL_HANDLE) return MAGIC_ERROR_INVALID_ARGUMENT;
-    state->frame_slot = (uint32_t)(frame->sequence % state->acquire_semaphores.size());
-    VkResult result = vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX, state->acquire_semaphores[state->frame_slot], VK_NULL_HANDLE, &image);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) { if (magic_vk_create_swapchain(state) != MAGIC_OK) return MAGIC_ERROR_SURFACE; return MAGIC_ERROR_SURFACE; }
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) return MAGIC_ERROR_SURFACE;
+    state->frame_slot = (uint32_t)(frame->sequence % state->render_semaphores.size());
+    if (vkCreateSemaphore(state->device, &semaphore, nullptr, &acquire) != VK_SUCCESS) return MAGIC_ERROR_SURFACE;
+    VkResult result = vkAcquireNextImageKHR(state->device, state->swapchain, UINT64_MAX, acquire, VK_NULL_HANDLE, &image);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) { vkDestroySemaphore(state->device, acquire, nullptr); if (magic_vk_create_swapchain(state) != MAGIC_OK) return MAGIC_ERROR_SURFACE; return MAGIC_ERROR_SURFACE; }
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { vkDestroySemaphore(state->device, acquire, nullptr); return MAGIC_ERROR_SURFACE; }
     state->active_image = image;
-    frame->vulkan = {sizeof(MagicVulkanInterop), MAGIC_ABI_VERSION, magic_vk_handle(state->instance), magic_vk_handle(state->physical_device), magic_vk_handle(state->device), magic_vk_handle(state->queue), (uint64_t)state->images[image], (uint64_t)state->acquire_semaphores[state->frame_slot], (uint64_t)state->render_semaphores[state->frame_slot], &state->features, state->queue_family, (uint32_t)state->format, (uint32_t)state->usage, state->extent.width, state->extent.height, 1.0f};
+    frame->vulkan = {sizeof(MagicVulkanInterop), MAGIC_ABI_VERSION, magic_vk_handle(state->instance), magic_vk_handle(state->physical_device), magic_vk_handle(state->device), magic_vk_handle(state->queue), (uint64_t)state->images[image], (uint64_t)acquire, (uint64_t)state->render_semaphores[state->frame_slot], state->surface_generation, &state->features, state->queue_family, (uint32_t)state->format, (uint32_t)state->usage, state->extent.width, state->extent.height, 1.0f};
     return MAGIC_OK;
 }
 
