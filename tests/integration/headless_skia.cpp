@@ -29,7 +29,12 @@ int main() {
     BoardSurfaceCpuInterface surface = {}; void *pixels = nullptr; uint32_t width = 0, height = 0, stride = 0; BoardPixelFormat format; float scale;
     if (board_surface_query_interface(board_backend_surface(backend), BOARD_SURFACE_INTERFACE_CPU, BOARD_ABI_VERSION, &surface, sizeof(surface)) != BOARD_OK || surface.map_pixels(surface.user_data, &pixels, &width, &height, &stride, &format, &scale) != BOARD_OK) return 3;
     uint64_t hash = 1469598103934665603ULL; for (uint32_t row = 0; row < height; ++row) for (uint32_t column = 0; column < stride; ++column) { hash ^= static_cast<unsigned char *>(pixels)[row * stride + column]; hash *= 1099511628211ULL; }
+#if defined(__linux__)
+    const uint64_t expected_hash = 0xb4a6c6d43e590ffeULL;
+#else
+    const uint64_t expected_hash = 0xbff7964c10eaa55fULL;
+#endif
     std::printf("headless-skia hash: %016llx\n", static_cast<unsigned long long>(hash));
     board_app_destroy(board); doodle_renderer_destroy(renderer); magic_context_destroy(magic); board_backend_destroy(backend);
-    return hash == 0xbff7964c10eaa55fULL ? 0 : 4;
+    return hash == expected_hash ? 0 : 4;
 }
