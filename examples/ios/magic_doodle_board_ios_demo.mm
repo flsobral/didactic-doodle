@@ -37,10 +37,35 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     magic_context_end_frame(demo->magic, frame);
 }
 
-@interface MagicDoodleBoardViewController : UIViewController { @public IosDemo _demo; }
+@interface MagicDoodleBoardViewController : UIViewController {
+@public
+    IosDemo _demo;
+    UILabel *_title;
+    UIView *_board_view;
+    UIButton *_outside_button;
+}
 @end
 @implementation MagicDoodleBoardViewController
 - (void)nativeOverlayTapped:(id)sender { (void)sender; NSLog(@"Magic Doodle Board native overlay tapped"); }
+- (void)viewDidLayoutSubviews {
+    CGRect bounds;
+    UIEdgeInsets insets;
+    CGFloat title_y;
+    CGFloat board_y;
+    CGFloat button_y;
+    CGFloat board_height;
+    [super viewDidLayoutSubviews];
+    if (!_title || !_board_view || !_outside_button) return;
+    bounds = self.view.bounds;
+    insets = self.view.safeAreaInsets;
+    title_y = insets.top + 8;
+    button_y = bounds.size.height - insets.bottom - 40;
+    board_y = title_y + 40;
+    board_height = button_y - board_y - 8;
+    _title.frame = CGRectMake(16, title_y, bounds.size.width - 32, 32);
+    _board_view.frame = CGRectMake(16, board_y, bounds.size.width - 32, board_height > 0 ? board_height : 0);
+    _outside_button.frame = CGRectMake(16, button_y, bounds.size.width - 32, 40);
+}
 - (void)viewDidLoad {
     BoardBackendConfig backend_config;
 #if MDB_IOS_OPENGL
@@ -69,17 +94,15 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     magic_doodle_board_scene_set_runtime(&_demo.scene, _demo.backend, _demo.magic, _demo.renderer);
     container = [[UIView alloc] initWithFrame:bounds];
     container.backgroundColor = UIColor.systemBackgroundColor;
-    title = [[UILabel alloc] initWithFrame:CGRectMake(16, 16, bounds.size.width - 32, 32)];
+    title = [[UILabel alloc] initWithFrame:CGRectZero];
     title.text = @"Native controls around a BoardView";
     title.textAlignment = NSTextAlignmentCenter;
     [container addSubview:title];
     board_view = (__bridge UIView *)view;
-    board_view.frame = CGRectMake(16, 64, bounds.size.width - 32, bounds.size.height - 136);
-    board_view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    board_view.frame = CGRectZero;
     [container addSubview:board_view];
     outside_button = [UIButton buttonWithType:UIButtonTypeSystem];
-    outside_button.frame = CGRectMake(16, bounds.size.height - 56, bounds.size.width - 32, 40);
-    outside_button.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
+    outside_button.frame = CGRectZero;
     [outside_button setTitle:@"Native control below BoardView" forState:UIControlStateNormal];
     [outside_button addTarget:self action:@selector(nativeOverlayTapped:) forControlEvents:UIControlEventTouchUpInside];
     [container addSubview:outside_button];
@@ -88,6 +111,9 @@ static void ios_demo_frame(void *data, uint64_t timestamp_ns, double delta_secon
     [overlay_button addTarget:self action:@selector(nativeOverlayTapped:) forControlEvents:UIControlEventTouchUpInside];
     slot_config = (BoardNativeViewSlotConfig){sizeof(BoardNativeViewSlotConfig), BOARD_ABI_VERSION, (__bridge void *)overlay_button, {16, 16, 132, 36}, {0, 0, 160, 56}, 1, 1, BOARD_NATIVE_VIEW_ABOVE_RENDERER};
     if (board_native_view_slot_create(_demo.backend, &slot_config, &_demo.overlay_slot) != BOARD_OK) { NSLog(@"Magic Doodle Board: native overlay initialization failed"); return; }
+    _title = title;
+    _board_view = board_view;
+    _outside_button = outside_button;
     self.view = container;
     app_config = (BoardAppConfig){sizeof(BoardAppConfig), BOARD_ABI_VERSION, _demo.backend, callbacks, &_demo};
     if (board_app_create(&app_config, &_demo.app) != BOARD_OK || board_app_start(_demo.app) != BOARD_OK) NSLog(@"Magic Doodle Board: application start failed");

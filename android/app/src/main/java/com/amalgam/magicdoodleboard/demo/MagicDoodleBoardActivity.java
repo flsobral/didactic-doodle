@@ -3,6 +3,7 @@
 package com.amalgam.magicdoodleboard.demo;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.Button;
@@ -24,10 +25,12 @@ public final class MagicDoodleBoardActivity extends Activity {
         BoardView board = new BoardView(this);
         Button overlay = new Button(this);
         overlay.setText("Native overlay");
+        overlay.setTextColor(Color.WHITE);
         board.setNativeOverlay(overlay);
         host.addView(board, new LinearLayout.LayoutParams(-1, 0, 1));
         Button button = new Button(this);
         button.setText("Native control below BoardView");
+        button.setTextColor(Color.rgb(0, 102, 204));
         host.addView(button, new LinearLayout.LayoutParams(-1, 56));
         setContentView(host);
     }

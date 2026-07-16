@@ -30,11 +30,11 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Added and executed `scripts/test-backend-matrix.sh build-all`, which compiled all 12 supported matrix entries without requiring a booted mobile runner or opening the Web demo; the individual commands retain their launch smoke tests.
 - [x] (2026-07-15) Made Android build artifacts observable in the matrix build directory: each Gradle variant is copied to its own `build/android/native-<backend>-skia/magic_doodle_board_android_<backend>_demo.apk` path instead of being overwritten by the next variant.
 - [x] (2026-07-15) Normalized matrix build paths to `build/<platform>/<board>-<magic>-<renderer>` and re-ran `build-all`; for example, desktop Vulkan is `build/desktop/sdl3-vulkan-skia` and iOS Metal is `build/ios/native-metal-skia`.
-- [ ] Add Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable.
+- [x] (2026-07-16) Added Android and iOS fullscreen-owned, embedded, and hybrid-overlay host modes based on reusable native Board views. Both native Board views support embedded hybrid overlays above the renderer; below-renderer ordering remains explicitly unavailable. The current-tree build matrix compiled all six mobile renderer entries; fresh visible device acceptance remains part of the final acceptance item.
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
-- [ ] Complete the supported build matrix, CI updates, installation checks, documentation, and final observable acceptance runs.
+- [ ] Execute the updated CI on its hosted runners and obtain fresh Android OpenGL ES and Vulkan visual smoke evidence for the current reusable-view and overlay implementation. The 2026-07-16 local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, and a clean Android CPU AVD capture are complete; compilation alone does not close this item.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 - [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
@@ -98,6 +98,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 
 - Observation: Emscripten's current WebGL glue rejects contexts requested with `explicitSwapControl`.
   Evidence: its generated `_emscripten_webgl_do_create_context` returns zero when that attribute is true because browser explicit swap was removed. Magic must request the normal implicit browser presentation path and treat end-frame as successful after Doodle flushes the current context.
+
+- Observation: A consumer of an installed Doodle package configured with Skia must supply the matching external Skia artifact when it calls `find_package(Doodle)`.
+  Evidence: a 2026-07-16 consumer configuration against `build/plan-final-install` failed with `Doodle::Skia requires -DDoodle_SKIA_ROOT=...`; it then configured, linked, and exited zero with `-DDoodle_SKIA_ROOT=$PWD/.cache/skia-158dc9d7-r4`. This is an intentional external-renderer dependency, now documented in the README and CI package-consumer command.
+
+- Observation: The available Android AVD can stall unrelated system apps and `system_server`, contaminating screenshots or delaying ADB even while the Magic Doodle Board CPU demo remains alive.
+  Evidence: on 2026-07-16 the AVD displayed ANRs for Messages and System UI, while `logcat` recorded long `system_server` contentions and a live demo PID without a Magic Doodle Board fatal exception. After an emulator restart, the CPU demo produced a clean capture. The OpenGL ES APK built but this runner did not remain stable long enough for a trustworthy visual capture; do not treat its older capture as current-tree acceptance.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
@@ -222,6 +228,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 - Decision: Report selected runtime backends through object-bound public name and version queries, and have the shared scene render those results.
   Rationale: build selections alone did not prove the demo created the intended context. Object-bound queries keep foreign runtime types out of public headers, let every entry point use the same backend-agnostic scene, and made a desktop Vulkan fallback visible during validation. The appended Board Vulkan-surface, Magic Vulkan-interop, and Doodle renderer-provider fields require ABI version 2 so old binary consumers are rejected rather than accepting incompatible layouts.
   Date/Author: 2026-07-15 / Codex.
+
+- Decision: Treat the Skia artifact location as an explicit installed-Doodle package input rather than embedding or copying the archive into the package prefix.
+  Rationale: Skia remains an external dependency by project policy. Rejecting a consumer that omits `Doodle_SKIA_ROOT` is clearer and safer than exporting a target with an unresolved archive path; the consumer command and README now make the requirement explicit.
+  Date/Author: 2026-07-16 / Codex.
 
 ## Outcomes & Retrospective
 
@@ -454,11 +464,44 @@ mode deliberately skipped simulator/AVD startup, APK installation, browser
 launch, and rendering smoke checks, so it supplements rather than replaces
 the named per-combination tests.
 
+2026-07-16: The current tree passed a fresh root Headless + CPU + Skia run
+(9 of 9 tests: public C/C++ headers, boundaries, configuration, headless
+rendering, and focused layer/provider tests). A fresh local
+`scripts/test-backend-matrix.sh build-all` then compiled all 12 supported
+entries with the macOS Vulkan SDK. Board, Magic, and Doodle were subsequently
+built, tested, and installed in dependency order (1 of 1, 1 of 1, and 2 of 2
+tests); an external consumer configured with that prefix and the explicit
+`Doodle_SKIA_ROOT`, linked, and exited zero. The macOS and Linux CI workflows
+now run CTest; macOS additionally validates this staged package-consumer
+chain. No iOS simulator or Android AVD was booted for this run, so fresh
+visible mobile acceptance remains outstanding.
+
+2026-07-16: An iPhone 15 Pro iOS 17.0 simulator was booted and all three
+named iOS smoke scripts rebuilt, installed, launched, and captured the
+current CPU, OpenGL ES, and Metal demos. Visual inspection of the refreshed
+CPU and Metal captures confirmed the shared scene, runtime identity, embedded
+Board view, above-renderer native overlay, and native control below it. During
+this run the original title was found beneath the status-bar area; the iOS demo
+now lays out its title, Board view, and bottom control from `safeAreaInsets`,
+and the refreshed captures show the corrected layout. Android still lacks a
+booted AVD in this environment.
+
+2026-07-16: An Android arm64 AVD was made available after the earlier matrix
+run. The named CPU smoke rebuilt and installed the current APK; after the AVD
+was restarted to clear unrelated System UI and Messages ANRs, the running demo
+produced a clean `artifacts/final/android-cpu-emulator.png` capture showing
+the embedded BoardView, CPU runtime label, native overlay, and surrounding
+host controls. The demo Activity now assigns explicit contrasting label colors
+to its two native buttons so the overlay and below-renderer control remain
+legible on the emulator. The OpenGL ES APK also rebuilt, but AVD-wide ANRs
+prevented a trustworthy current visual capture. Android Vulkan remains build
+validated only for this revision.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Editorial Report
 
-This report is an in-progress factual handoff maintained under `.agent/PLANS.md`. It describes execution evidence available on 2026-07-15; it is not a completion claim and must be finalized after the remaining Progress items and final acceptance runs.
+This report is an in-progress factual handoff maintained under `.agent/PLANS.md`. It describes execution evidence available through 2026-07-16; it is not a completion claim and must be finalized after the remaining Progress items and final acceptance runs.
 
 ### Editorial Summary
 
@@ -519,6 +562,33 @@ With `VULKAN_SDK=/Users/flsobral/Library/VulkanSDK/1.4.350.1/macOS`, `VK_ICD_FIL
 `scripts/test-backend-matrix.sh build-all` subsequently completed the build of all 12 currently supported entries in this macOS environment. It is compilation evidence only: the command intentionally does not boot a simulator or AVD, install an APK, launch a browser, or inspect a rendered result.
 
 The plan records builds, launches, and screenshots for the listed iOS and Android simulator/emulator paths under `artifacts/final/`, and three-frame desktop smoke runs for OpenGL and Metal. Because the latest mobile-host changes have not received a final complete visible-device rerun, those earlier captures are historical evidence rather than final acceptance of the current tree.
+
+On 2026-07-16, the current root Headless + CPU + Skia configuration passed 9
+of 9 CTest cases. The same revision compiled all 12 entries through
+`scripts/test-backend-matrix.sh build-all`; that mode intentionally did not
+launch mobile devices or a browser. Fresh staged Board, Magic, and Doodle
+package tests passed 1 of 1, 1 of 1, and 2 of 2 respectively, and the
+external CMake consumer linked and exited zero when supplied the matching
+`Doodle_SKIA_ROOT`. The macOS and Linux CI definitions now run CTest, and
+macOS additionally exercises this installed package chain. These are local
+configuration and execution results until the updated CI runs on its hosted
+runners.
+
+The same date also produced fresh iPhone 15 Pro simulator captures for iOS
+CPU, OpenGL ES, and Metal after the demo was corrected to respect safe-area
+insets. The CPU and Metal captures were visually inspected: both show the
+shared scene and active runtime identity inside the embedded Board view, an
+above-renderer native overlay, and an independently placed native control
+below it. The Android visible smoke remains unavailable locally because no
+AVD is configured or booted.
+
+An Android arm64 AVD became available later on 2026-07-16. After restarting it
+to clear unrelated Messages and System UI ANRs, the current CPU APK was
+installed, remained alive, and produced a clean visual capture. It shows the
+embedded BoardView, CPU identity, native overlay, and surrounding native host
+controls with explicit contrasting labels. The runner subsequently returned to
+AVD-wide system ANRs; OpenGL ES and Vulkan remain build-validated rather than
+fresh visually accepted on this tree.
 
 ### Useful Evidence and Examples
 
