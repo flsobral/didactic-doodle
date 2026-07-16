@@ -121,6 +121,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: a source build of SDL 3.4.12 on `ubuntu-latest` needs Linux window-system development packages even though the CI job does not open a window.
   Evidence: hosted Linux run `29541804704` stopped in SDL configuration with `SDL could not find X11 or Wayland development libraries on your system`; after those were installed, run `29542084404` identified the remaining XTEST prerequisite. The workflow now installs the SDL X11 (including XTEST), Wayland, EGL, and OpenGL development prerequisites before building the pinned source.
 
+- Observation: the pinned Windows Skia archive uses the static MSVC runtime and references the Windows OpenGL loader.
+  Evidence: hosted Windows run `29542085623` reached link time and reported `MT_StaticRelease` versus `MD_DynamicRelease` mismatches, followed by unresolved `wglGetCurrentContext` and `wglGetProcAddress`. The Windows CI configuration now selects `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`, and the private Skia external target propagates the system `opengl32` dependency to link consumers.
+
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
 ## Decision Log
