@@ -168,6 +168,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: Both implementations preserve the opaque Java `Surface` to `ANativeWindow` boundary used by Board and Magic, but a sibling container gives Android compositor ordering that visibly places native slots above the renderer. BoardView translates Board-relative slot geometry into the container coordinate space and retains the JNI handle privately. The documented below-renderer limitation is unchanged.
   Date/Author: 2026-07-16 / Codex.
 
+- Decision: Obtain Skia and native compression/image dependencies through the tag pinned in `deps/totalcross-depot-tools.ref`, while retaining `scripts/fetch-totalcross-skia.sh` as a compatibility adapter for the existing CMake layout.
+  Rationale: The depot owns versioned release fetchers and now supplies executable scripts. The adapter keeps downstream CMake callers stable while CI gets reproducible Skia headers and archives. Where Skia needs a compression dependency, use the depot's `zlib-ng` prefix; libpng is fetched from the same release family. `minizip-ng` remains preferred if an archive dependency is later needed, but it is not part of the current Skia link closure.
+  Date/Author: 2026-07-16 / Codex.
+
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
   Rationale: Public configuration must describe the actual implementation. The Magic Web provider may initially use WebGL 2 privately and later add WebGPU without changing the Board contract.
   Date/Author: 2026-07-14 / initial architecture plan.

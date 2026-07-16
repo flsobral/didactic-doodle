@@ -9,12 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install sdl3 libpng
-      - name: Fetch pinned Skia
-        run: ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7" macos-arm64
+        run: brew install sdl3
+      - name: Fetch pinned native dependencies
+        run: |
+          bash scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7-r5" macos-arm64
+          deps/totalcross-depot-tools/zlib-ng/fetch.sh --platform macos --arch arm64
+          deps/totalcross-depot-tools/libpng/fetch.sh --platform macos --arch arm64
       - name: Configure and build
         run: |
-          cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DMDB_BUILD_EXAMPLES=ON
+          cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_PREFIX_PATH="$PWD/deps/totalcross-depot-tools/libpng/local/macos/arm64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/macos/arm64"
           cmake --build build --config Release
           ctest --test-dir build --output-on-failure
       - name: Verify installed package chain
@@ -27,11 +30,11 @@ jobs:
           cmake --build build/standalone-magic --parallel
           ctest --test-dir build/standalone-magic --output-on-failure
           cmake --install build/standalone-magic --prefix "$PWD/build/install"
-          cmake -S doodle -B build/standalone-doodle -DCMAKE_PREFIX_PATH="$PWD/build/install" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DDOODLE_BUILD_TESTS=ON
+          cmake -S doodle -B build/standalone-doodle -DCMAKE_PREFIX_PATH="$PWD/build/install;$PWD/deps/totalcross-depot-tools/libpng/local/macos/arm64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/macos/arm64" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5" -DDOODLE_BUILD_TESTS=ON
           cmake --build build/standalone-doodle --parallel
           ctest --test-dir build/standalone-doodle --output-on-failure
           cmake --install build/standalone-doodle --prefix "$PWD/build/install"
-          cmake -S tests/integration/consumer -B build/consumer -DCMAKE_PREFIX_PATH="$PWD/build/install" -DDoodle_SKIA_ROOT="$PWD/.cache/skia-158dc9d7"
+          cmake -S tests/integration/consumer -B build/consumer -DCMAKE_PREFIX_PATH="$PWD/build/install;$PWD/deps/totalcross-depot-tools/libpng/local/macos/arm64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/macos/arm64" -DDoodle_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5"
           cmake --build build/consumer --parallel
           build/consumer/mdb_consumer
       - name: Upload logs on failure

@@ -1,5 +1,6 @@
 /build*/
 /.cache/
+/deps/totalcross-depot-tools/
 /android/.gradle/
 /android/build/
 /android/app/.cxx/

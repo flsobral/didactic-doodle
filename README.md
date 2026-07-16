@@ -28,14 +28,17 @@ and presents CPU frames through Board's versioned surface interface, and the
 Skia provider binds Canvas operations through the selected versioned Magic
 interop table.
 
-Configure Skia with an artifact downloaded by
-`bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r4 macos-arm64`:
+Configure Skia with the pinned TotalCross depot artifact:
+`bash scripts/fetch-totalcross-skia.sh .cache/skia-158dc9d7-r5 macos-arm64`.
+The helper checks out the tag in `deps/totalcross-depot-tools.ref` through
+`deps/fetch-depot-tools.sh`, then stages a CMake-compatible artifact under
+`.cache/`.
 
 ```sh
 cmake -S . -B build/headless/headless-cpu-skia \
   -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU \
   -DDOODLE_RENDERER=SKIA \
-  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4"
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5"
 ```
 
 GLFW, winit, and Doodle providers other than Skia remain declared migration

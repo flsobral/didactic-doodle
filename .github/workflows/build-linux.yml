@@ -8,13 +8,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libsdl3-dev libpng-dev zlib1g-dev
-      - name: Fetch pinned Skia
-        run: ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7" linux-x86_64
+      - name: Build pinned SDL3
+        run: |
+          git clone --depth 1 --branch release-3.4.12 https://github.com/libsdl-org/SDL.git .cache/SDL3
+          cmake -S .cache/SDL3 -B .cache/SDL3-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/.cache/sdl3" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF
+          cmake --build .cache/SDL3-build --parallel
+          cmake --install .cache/SDL3-build
+      - name: Fetch pinned native dependencies
+        run: |
+          bash scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7-r5" linux-x86_64
+          deps/totalcross-depot-tools/zlib-ng/fetch.sh --platform linux --arch x86_64
+          deps/totalcross-depot-tools/libpng/fetch.sh --platform linux --arch x86_64
       - name: Configure and build
         run: |
-          cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DMDB_BUILD_EXAMPLES=ON
+          cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_PREFIX_PATH="$PWD/.cache/sdl3;$PWD/deps/totalcross-depot-tools/libpng/local/linux/x86_64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/linux/x86_64"
           cmake --build build --config Release
           ctest --test-dir build --output-on-failure
       - name: Upload logs on failure
