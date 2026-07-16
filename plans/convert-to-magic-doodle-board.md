@@ -34,7 +34,8 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
-- [ ] Execute the updated CI on its hosted runners and obtain clean Android OpenGL ES and Vulkan visual smoke evidence from a stable AVD. The 2026-07-16 local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, a clean Android CPU AVD capture, all desktop smoke scripts, and the Web HTTP/browser smoke are complete; compilation alone does not close this item.
+- [x] (2026-07-16) Obtained clean Android CPU, OpenGL ES, and Vulkan visual smoke evidence on the arm64 AVD. Each named script now waits for the real Activity window before capturing; the inspected images show the requested runtime identity and the above-renderer native overlay. Updated hosted CI still awaits its external runners.
+- [ ] Execute the updated CI on its hosted runners. The local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, Android CPU/OpenGL ES/Vulkan AVD smokes, all desktop smoke scripts, and the Web HTTP/browser smoke are complete; compilation alone does not close hosted CI acceptance.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 - [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
@@ -105,6 +106,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: The available Android AVD can stall unrelated system apps and `system_server`, contaminating screenshots or delaying ADB even while the Magic Doodle Board CPU demo remains alive.
   Evidence: on 2026-07-16 the AVD displayed ANRs for Messages and System UI, while `logcat` recorded long `system_server` contentions and a live demo PID without a Magic Doodle Board fatal exception. After an emulator restart, the CPU demo produced a clean capture. The OpenGL ES APK built but this runner did not remain stable long enough for a trustworthy visual capture; do not treat its older capture as current-tree acceptance.
 
+- Observation: A child overlay inside Android `SurfaceView` or the renderer-owning `TextureView` can be composed beneath the changing renderer pixels even when the Java hierarchy and Board slot negotiation succeed.
+  Evidence: `uiautomator` reported the attached overlay and its tap changed its text, but the first screenshots showed only the portion outside the renderer. Routing the slot into a sibling `FrameLayout` above the `BoardView` produced a fully visible overlay across CPU, OpenGL ES, and Vulkan captures.
+
+- Observation: The Android matrix runner could report success after building without launching a smoke, or capture the Android splash screen before the Activity content was ready.
+  Evidence: under `set -e`, the former `[[ ... ]] && return` build-only guards made a false condition terminate the shell path. The runner now uses `if` guards, waits for the app PID, removes stale UI-dump data, and waits for the Activity title in a fresh `uiautomator` dump before `screencap`.
+
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
 ## Decision Log
@@ -156,6 +163,10 @@ Update this section whenever implementation inspection reveals a fact that chang
 - Decision: Have Android BoardView own the render SurfaceView and native overlay children, with JNI translating opaque slot references on the UI thread.
   Rationale: This gives Android the same portable BoardNativeViewSlot contract as iOS while keeping Java View and JNI declarations out of installed headers. The initial implementation supports the documented above-renderer order, frame, rectangular clip, and visibility; below-renderer order reports unavailable.
   Date/Author: 2026-07-15 / Codex.
+
+- Decision: Supersede the render-SurfaceView implementation with a private `TextureView`-backed `Surface`, and place hybrid overlays in a caller-supplied sibling `FrameLayout` above `BoardView`.
+  Rationale: Both implementations preserve the opaque Java `Surface` to `ANativeWindow` boundary used by Board and Magic, but a sibling container gives Android compositor ordering that visibly places native slots above the renderer. BoardView translates Board-relative slot geometry into the container coordinate space and retains the JNI handle privately. The documented below-renderer limitation is unchanged.
+  Date/Author: 2026-07-16 / Codex.
 
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
   Rationale: Public configuration must describe the actual implementation. The Magic Web provider may initially use WebGL 2 privately and later add WebGPU without changing the Board contract.
@@ -509,6 +520,18 @@ ANRed; Vulkan rebuilt the current APK but the same AVD stalled before a
 trustworthy launch/capture. Those generated, contaminated screenshots were
 discarded rather than recorded as acceptance evidence.
 
+2026-07-16: A subsequent cold-booted arm64 AVD completed all three named
+Android smokes after the reusable host was changed to a private
+`TextureView`-backed `Surface` and the overlay was placed in a sibling
+container above it. `android-cpu-emulator.png`, `android-opengl-emulator.png`,
+and `android-vulkan-emulator.png` were visually inspected and show the
+requested CPU, OpenGL ES, and Vulkan identities, the shared scene, the native
+overlay above the renderer, and the native control below it. A tap at the
+overlay coordinates changed its text to `Tapped` in a fresh UI hierarchy,
+proving independent native input. The Android matrix runner now rejects a
+build-only false guard, waits for the app PID, and waits for the real Activity
+title before capturing. Hosted CI is the remaining external acceptance item.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Editorial Report
@@ -519,7 +542,7 @@ This report is an in-progress factual handoff maintained under `.agent/PLANS.md`
 
 The original engineering problem was a monolithic C-first graphics runtime whose lifecycle, platform hosting, graphics contexts, Canvas API, and renderer behavior were coupled through legacy `Tc*` interfaces. The migration set out to make the same demo scene composable from three independent public libraries: Board for hosting and events, Magic for frame and graphics-context ownership, and Doodle for Canvas and renderers.
 
-The working tree now contains those three package trees, public versioned capability boundaries, a shared demo scene, and recorded runnable paths for headless CPU, macOS SDL3 CPU/OpenGL/Metal/Vulkan, iOS CPU/OpenGL ES/Metal, Android CPU/OpenGL ES/Vulkan, and Web. The result is developer-visible: supported builds choose `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER` explicitly and application code composes a Board frame with a Magic frame and a Doodle Canvas. This is not yet a final completion claim because mobile-host acceptance and the full supported-matrix/CI run remain open.
+The working tree now contains those three package trees, public versioned capability boundaries, a shared demo scene, and recorded runnable paths for headless CPU, macOS SDL3 CPU/OpenGL/Metal/Vulkan, iOS CPU/OpenGL ES/Metal, Android CPU/OpenGL ES/Vulkan, and Web. The result is developer-visible: supported builds choose `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER` explicitly and application code composes a Board frame with a Magic frame and a Doodle Canvas. Fresh mobile-host acceptance, including Android GPU captures, is now recorded; hosted CI remains the only open external acceptance.
 
 ### Original Plan versus Actual Outcome
 
@@ -527,7 +550,7 @@ The plan intended to replace the retired runtime with exactly three public layer
 
 The executed result changed direction in several material ways. Android hosting began as a NativeActivity path but became an embeddable `org.magicdoodle.board.BoardView`; this better satisfies the reusable-view requirement. Web changed from direct local-file opening to an HTTP-served smoke test and gained a preloaded Roboto font because the browser loader and the pinned Skia font manager required those conditions. SDL3 desktop Vulkan was initially excluded because the r4 macOS archive lacked Ganesh Vulkan symbols and no loader was present; Vulkan SDK 1.4.350.1 and Skia r5 removed those prerequisites, so the macOS path was implemented and validated. Blend2D, NanoVG, and Vello remain deliberately unavailable rather than becoming no-op implementations; provider-owned getter stubs and configuration tests now make that status explicit.
 
-The remaining work is not represented as delivered. Native slots currently support documented above-renderer ordering; below-renderer ordering is unavailable. The supported-matrix, CI, installation, and final observable acceptance work has not been rerun as one final set after the latest mobile-host changes. The Editorial Report itself is consequently incremental rather than final.
+The remaining work is not represented as delivered. Native slots currently support documented above-renderer ordering; below-renderer ordering is unavailable. Local supported-matrix, installation, and observable acceptance evidence is recorded, but the updated hosted CI has not yet run. The Editorial Report is consequently incremental rather than final.
 
 ### What Changed
 
@@ -595,20 +618,18 @@ below it. The Android visible smoke remains unavailable locally because no
 AVD is configured or booted.
 
 An Android arm64 AVD became available later on 2026-07-16. After restarting it
-to clear unrelated Messages and System UI ANRs, the current CPU APK was
-installed, remained alive, and produced a clean visual capture. It shows the
-embedded BoardView, CPU identity, native overlay, and surrounding native host
-controls with explicit contrasting labels. The runner subsequently returned to
-AVD-wide system ANRs; OpenGL ES and Vulkan remain build-validated rather than
-fresh visually accepted on this tree.
+to clear unrelated Messages and System UI ANRs, the current CPU, OpenGL ES,
+and Vulkan APKs installed, launched, and produced clean visual captures. The
+screens show their runtime identities, the embedded BoardView, a native overlay
+above the renderer, and a surrounding native control. The overlay's text also
+changed to `Tapped` after an ADB tap, independently of the Doodle surface.
 
 The final local desktop and Web pass on the same tree was successful: the
 headless integration test passed; SDL3 CPU, OpenGL, Metal, and Vulkan each
 completed their three-frame smoke; the Vulkan validation log was empty; and
 the Web demo was served to Safari over loopback HTTP for eight seconds. The
-remaining local evidence gap is specifically clean Android OpenGL ES and
-Vulkan screenshots from a stable AVD, not a configuration or compilation
-failure in either path.
+remaining evidence gap is updated hosted CI execution, not Android visual
+acceptance or local configuration and compilation.
 
 ### Useful Evidence and Examples
 
@@ -618,9 +639,17 @@ For human-visible evidence, inspect `artifacts/final/android-cpu-emulator.png`, 
 
 ### Limitations, Remaining Work, and Open Questions
 
-The plan remains in progress. The Progress list still requires completion or explicit disposition of the reusable mobile host modes, full supported-matrix validation, CI and installation checks, documentation and final observable acceptance, and final reconciliation of this report. The current mobile overlay implementation does not support below-renderer ordering. GLFW and winit remain configuration-fail Board stubs; Blend2D, NanoVG, and Vello remain configuration-fail Doodle renderer selections backed only by unavailable getter stubs. Headless GPU contexts are outside the initial scope.
+The plan remains in progress only until the updated CI runs on its hosted
+runners and this report is finalized from that evidence. The current mobile
+overlay implementation does not support below-renderer ordering. GLFW and
+winit remain configuration-fail Board stubs; Blend2D, NanoVG, and Vello remain
+configuration-fail Doodle renderer selections backed only by unavailable getter
+stubs. Headless GPU contexts are outside the initial scope.
 
-Desktop SDL3 Vulkan is validated only on macOS with Vulkan SDK 1.4.350.1, MoltenVK, and Skia r5. Windows and Linux need their own SDK/driver runners and smoke-script executions before this repository can claim support there. The supported mobile paths also need current-tree visible-device verification, especially after the BoardView and overlay changes.
+Desktop SDL3 Vulkan is validated only on macOS with Vulkan SDK 1.4.350.1,
+MoltenVK, and Skia r5. Windows and Linux need their own SDK/driver runners and
+smoke-script executions before this repository can claim support there. Android
+CPU, OpenGL ES, and Vulkan have current-tree visible-device verification.
 
 ### Possible Article Angles
 
