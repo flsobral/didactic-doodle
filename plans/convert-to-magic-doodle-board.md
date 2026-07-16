@@ -119,7 +119,7 @@ The new framework has exactly three public layers. **Board** owns application ho
   Evidence: hosted Windows run `29541808320` successfully installed `libskia.lib` and then failed with curl exit 3 while downloading `build_config_manifest-android-arm64-v8a.md`, before CMake ran. The project adapter now uses the executable depot fetcher for the selected archive and reads the declared shared development bundle metadata directly, avoiding unrelated manifest downloads. The adapter stages the resulting headers and archive locally for `windows-x64`.
 
 - Observation: a source build of SDL 3.4.12 on `ubuntu-latest` needs Linux window-system development packages even though the CI job does not open a window.
-  Evidence: hosted Linux run `29541804704` stopped in SDL configuration with `SDL could not find X11 or Wayland development libraries on your system`. The workflow now installs the SDL X11, Wayland, EGL, and OpenGL development prerequisites before building the pinned source.
+  Evidence: hosted Linux run `29541804704` stopped in SDL configuration with `SDL could not find X11 or Wayland development libraries on your system`; after those were installed, run `29542084404` identified the remaining XTEST prerequisite. The workflow now installs the SDL X11 (including XTEST), Wayland, EGL, and OpenGL development prerequisites before building the pinned source.
 
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
