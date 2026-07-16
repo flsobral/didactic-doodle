@@ -13,7 +13,10 @@ jobs:
       - name: Fetch pinned Skia
         run: ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7" linux-x86_64
       - name: Configure and build
-        run: cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DMDB_BUILD_EXAMPLES=ON && cmake --build build --config Release
+        run: |
+          cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7" -DMDB_BUILD_EXAMPLES=ON
+          cmake --build build --config Release
+          ctest --test-dir build --output-on-failure
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

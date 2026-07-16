@@ -106,7 +106,7 @@ ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew :app:assembleDebug \
   -PdoodleAndroidPngRoot="$PWD/../.cache/libpng-android/libpng/android/arm64-v8a" \
   -PdoodleAndroidZlibRoot="$PWD/../.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.amalgam.magicdoodleboard.demo/android.app.NativeActivity
+adb shell am start -n com.amalgam.magicdoodleboard.demo/.MagicDoodleBoardActivity
 ```
 
 For the OpenGL ES variant, add `-PmdbAndroidMagicBackend=OPENGL` to the Gradle
@@ -118,10 +118,11 @@ creation callbacks. Magic owns the Vulkan instance, device, swapchain,
 synchronization, and presentation, while Doodle Skia consumes the versioned
 `MagicVulkanInterop` frame data.
 
-The Android app has `minSdk 24`. Board keeps the NativeActivity, `ANativeWindow`,
-input conversion, and `AChoreographer` frame loop private; Magic CPU presents
-through the versioned Board CPU surface interface, while Magic OpenGL ES uses
-the Board EGL capability.
+The Android app has `minSdk 24`. Its convenience Activity hosts an embeddable
+`BoardView`; Board keeps the private `SurfaceView`/`ANativeWindow`, input
+conversion, and `AChoreographer` frame loop private. Magic CPU presents through
+the versioned Board CPU surface interface, while Magic OpenGL ES uses the Board
+EGL capability.
 
 Run the Web demo with the pinned wasm32 Skia archive and Emscripten 2.0.6:
 
@@ -597,18 +598,18 @@ Android concept:
 import org.magicdoodle.board.BoardView;
 
 BoardView boardView = new BoardView(context);
-boardView.setApplication(applicationHandle);
 container.addView(boardView);
 ```
 
 iOS concept:
 
-```swift
+```c
 import MagicDoodleBoard
 
-let boardView = BoardView(frame: .zero)
-boardView.applicationHandle = applicationHandle
-view.addSubview(boardView)
+/* Create the C Board backend, then retrieve its reusable native view. */
+void *nativeView = NULL;
+board_ios_view_get(boardBackend, &nativeView);
+/* Cast and add nativeView within the iOS host implementation. */
 ```
 
 The core C API never owns an `Activity`, `Fragment`, `UIViewController`, or navigation controller. Optional wrappers are convenience adapters only.
@@ -627,7 +628,11 @@ Board host view
     └── web view
 ```
 
-A `BoardNativeViewSlot` controls native view position, size, visibility, rectangular clipping, and a documented above-or-below-surface z-order. Arbitrary Doodle filters, perspective transforms, and path clipping do not apply to native controls.
+A `BoardNativeViewSlot` controls native view position, size, visibility,
+rectangular clipping, and the documented above-renderer z-order. Arbitrary
+Doodle filters, perspective transforms, and path clipping do not apply to
+native controls. Below-renderer ordering is currently unavailable and returns
+`BOARD_ERROR_UNAVAILABLE`.
 
 Use `BOARD_HOST_MODE_HYBRID_OVERLAY` in `BoardBackendConfig` before creating
 slots. The portable API deliberately receives the native control as an opaque
@@ -778,11 +783,15 @@ cmake --install build/magic --prefix build/install
 cmake -S doodle -B build/doodle \
   -DCMAKE_PREFIX_PATH="$PWD/build/install" \
   -DDOODLE_RENDERER=SKIA \
+  -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r4" \
   -DDOODLE_BUILD_TESTS=ON
 cmake --build build/doodle --parallel
 ctest --test-dir build/doodle --output-on-failure
 cmake --install build/doodle --prefix build/install
 ```
+
+A consumer of an installed Doodle package configured with Skia must also pass
+`-DDoodle_SKIA_ROOT=<matching Skia artifact>` to `find_package(Doodle)`.
 
 ### Build the composed framework
 
