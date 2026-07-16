@@ -31,7 +31,56 @@ esac
 [[ -f "$depot_fetch" ]] || { echo "Missing depot bootstrap script: $depot_fetch" >&2; exit 1; }
 bash "$depot_fetch" >/dev/null
 skia="$depot_dir/skia"
-"$skia/fetch.sh" --platform "$platform" --arch "$arch" --install-dev
+"$skia/fetch.sh" --platform "$platform" --arch "$arch"
+
+# The depot fetcher installs every platform build manifest when --install-dev
+# is selected.  Its current Windows shell path retains CRLF in those manifest
+# URLs, even though the target archive and shared header bundle are valid.
+# Keep the official fetcher responsible for the target artifact and install
+# just the declared shared development bundle here.
+dev_info=$(python3 - "$skia/artifacts.json" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+source = manifest["defaults"]["source"]
+bundle = manifest["defaults"]["dev_bundle"]
+print(source["repo"])
+print(source["tag"])
+print(bundle["artifact_name"])
+PY
+)
+dev_repo=$(printf '%s\n' "$dev_info" | sed -n '1p')
+dev_tag=$(printf '%s\n' "$dev_info" | sed -n '2p')
+dev_bundle=$(printf '%s\n' "$dev_info" | sed -n '3p')
+[[ -n "$dev_repo" && -n "$dev_tag" && -n "$dev_bundle" ]] || { echo "Invalid Skia development-bundle metadata" >&2; exit 1; }
+dev_archive=$(mktemp "${TMPDIR:-/tmp}/skia-dev-headers.XXXXXX.zip")
+dev_extract=$(mktemp -d "${TMPDIR:-/tmp}/skia-dev-headers.XXXXXX")
+trap 'rm -f "$dev_archive"; rm -rf "$dev_extract"' EXIT
+curl -L --fail --retry 3 -o "$dev_archive" "https://github.com/$dev_repo/releases/download/$dev_tag/$dev_bundle"
+python3 - "$dev_archive" "$dev_extract" "$skia/local" <<'PY'
+import pathlib
+import shutil
+import sys
+import zipfile
+
+archive, extract_dir, destination = map(pathlib.Path, sys.argv[1:])
+with zipfile.ZipFile(archive) as bundle:
+    bundle.extractall(extract_dir)
+source = extract_dir / "modules" / "skia"
+if not source.is_dir():
+    raise SystemExit("Skia development bundle does not contain modules/skia")
+destination.mkdir(parents=True, exist_ok=True)
+for entry in source.iterdir():
+    target = destination / entry.name
+    if target.exists():
+        if target.is_dir():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+    shutil.move(str(entry), str(target))
+PY
 
 source_root="$skia/local"
 source_library="$source_root/out/Release/$artifact"

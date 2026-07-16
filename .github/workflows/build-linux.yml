@@ -8,6 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install SDL Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1-mesa-dev libgl1-mesa-dev libwayland-dev libx11-dev libxcursor-dev libxext-dev libxfixes-dev libxi-dev libxkbcommon-dev libxrandr-dev libxss-dev
       - name: Build pinned SDL3
         run: |
           git clone --depth 1 --branch release-3.4.12 https://github.com/libsdl-org/SDL.git .cache/SDL3

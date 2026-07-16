@@ -115,6 +115,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: Git Bash and PowerShell do not provide an interchangeable representation of the Windows workspace path to a native CMake configure step.
   Evidence: the Windows hosted configure reported that the Skia cache lacked `headers/modules/skia/include/core/SkCanvas.h` and the archive after a PowerShell step invoked the Bash fetch adapter with `$PWD`. Running the fetch and artifact assertions entirely with `shell: bash` successfully staged `SkCanvas.h` and `libskia-windows-x64.lib` locally; the following PowerShell configure now uses `$env:GITHUB_WORKSPACE` explicitly.
 
+- Observation: the depot's `skia/fetch.sh --install-dev` invokes native Python to enumerate all platform build manifests; on Git Bash for Windows, its CRLF output leaves a carriage return in each manifest URL.
+  Evidence: hosted Windows run `29541808320` successfully installed `libskia.lib` and then failed with curl exit 3 while downloading `build_config_manifest-android-arm64-v8a.md`, before CMake ran. The project adapter now uses the executable depot fetcher for the selected archive and reads the declared shared development bundle metadata directly, avoiding unrelated manifest downloads. The adapter stages the resulting headers and archive locally for `windows-x64`.
+
+- Observation: a source build of SDL 3.4.12 on `ubuntu-latest` needs Linux window-system development packages even though the CI job does not open a window.
+  Evidence: hosted Linux run `29541804704` stopped in SDL configuration with `SDL could not find X11 or Wayland development libraries on your system`. The workflow now installs the SDL X11, Wayland, EGL, and OpenGL development prerequisites before building the pinned source.
+
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
 ## Decision Log
