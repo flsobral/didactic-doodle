@@ -34,12 +34,12 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
-- [x] (2026-07-16) Obtained clean Android CPU, OpenGL ES, and Vulkan visual smoke evidence on the arm64 AVD. Each named script now waits for the real Activity window before capturing; the inspected images show the requested runtime identity and the above-renderer native overlay. Updated hosted CI still awaits its external runners.
-- [ ] Execute the updated CI on its hosted runners. Commits `db2a1e8`, `430deac`, and `2730a03` were pushed to `main` after correcting the previous runner diagnostics. The Windows correction fetches in Git Bash, verifies the staged `SkCanvas.h` and `libskia-windows-x64.lib`, and supplies PowerShell CMake with `GITHUB_WORKSPACE` paths; its artifact staging was reproduced locally. GitHub Actions API requests for the commit still return HTTP 503, so no hosted result is claimable yet. The local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, Android CPU/OpenGL ES/Vulkan AVD smokes, all desktop smoke scripts, and the Web HTTP/browser smoke are complete; compilation alone does not close hosted CI acceptance.
+- [x] (2026-07-16) Obtained clean Android CPU, OpenGL ES, and Vulkan visual smoke evidence on the arm64 AVD. Each named script now waits for the real Activity window before capturing; the inspected images show the requested runtime identity and the above-renderer native overlay. The final hosted CI matrix subsequently passed.
+- [x] (2026-07-16) Executed the final hosted CI matrix on `main` commit `090a216`: Android (`29542764554`), iOS (`29542765695`), Linux (`29542766831`), macOS (`29542767705`), Web (`29542768496`), Windows (`29542769388`), and copyright (`29542770195`) all completed successfully. The preceding runner diagnostics drove portable depot-header staging, Linux SDL/Skia dependency closure, and a Windows `/MT` closure with the static vcpkg triplet.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 - [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
-- [ ] Finalize the Editorial Report after the remaining host-mode and full-matrix acceptance work; reconcile it with the final validation evidence and `Outcomes & Retrospective` before marking this ExecPlan complete.
+- [x] (2026-07-16) Finalized the Editorial Report and reconciled it with the local device/smoke evidence and the final hosted CI matrix.
 
 ## Surprises & Discoveries
 
@@ -559,19 +559,28 @@ overlay above the renderer, and the native control below it. A tap at the
 overlay coordinates changed its text to `Tapped` in a fresh UI hierarchy,
 proving independent native input. The Android matrix runner now rejects a
 build-only false guard, waits for the app PID, and waits for the real Activity
-title before capturing. Hosted CI is the remaining external acceptance item.
+title before capturing. The final hosted CI matrix subsequently closed the external acceptance item.
+
+2026-07-16: The final hosted CI matrix completed successfully at `090a216`.
+Manual dispatches `29542764554` (Android), `29542765695` (iOS),
+`29542766831` (Linux), `29542767705` (macOS), `29542768496` (Web),
+`29542769388` (Windows), and `29542770195` (copyright) all concluded
+success. The final Linux run verifies the source-built SDL and Skia system
+link closure; the final Windows run verifies the pinned Skia archive with the
+single static vcpkg runtime closure. This closes the plan's hosted acceptance
+item.
 
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Editorial Report
 
-This report is an in-progress factual handoff maintained under `.agent/PLANS.md`. It describes execution evidence available through 2026-07-16; it is not a completion claim and must be finalized after the remaining Progress items and final acceptance runs.
+This is the final factual handoff maintained under `.agent/PLANS.md`. It reconciles local device and smoke evidence with the successful hosted CI matrix at commit `090a216` on 2026-07-16.
 
 ### Editorial Summary
 
 The original engineering problem was a monolithic C-first graphics runtime whose lifecycle, platform hosting, graphics contexts, Canvas API, and renderer behavior were coupled through legacy `Tc*` interfaces. The migration set out to make the same demo scene composable from three independent public libraries: Board for hosting and events, Magic for frame and graphics-context ownership, and Doodle for Canvas and renderers.
 
-The working tree now contains those three package trees, public versioned capability boundaries, a shared demo scene, and recorded runnable paths for headless CPU, macOS SDL3 CPU/OpenGL/Metal/Vulkan, iOS CPU/OpenGL ES/Metal, Android CPU/OpenGL ES/Vulkan, and Web. The result is developer-visible: supported builds choose `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER` explicitly and application code composes a Board frame with a Magic frame and a Doodle Canvas. Fresh mobile-host acceptance, including Android GPU captures, is now recorded; hosted CI remains the only open external acceptance.
+The working tree now contains those three package trees, public versioned capability boundaries, a shared demo scene, and recorded runnable paths for headless CPU, macOS SDL3 CPU/OpenGL/Metal/Vulkan, iOS CPU/OpenGL ES/Metal, Android CPU/OpenGL ES/Vulkan, and Web. The result is developer-visible: supported builds choose `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER` explicitly and application code composes a Board frame with a Magic frame and a Doodle Canvas. Fresh mobile-host acceptance, including Android GPU captures, is recorded, and the final hosted Android, iOS, Linux, macOS, Web, Windows, and copyright workflows passed.
 
 ### Original Plan versus Actual Outcome
 
@@ -579,7 +588,7 @@ The plan intended to replace the retired runtime with exactly three public layer
 
 The executed result changed direction in several material ways. Android hosting began as a NativeActivity path but became an embeddable `org.magicdoodle.board.BoardView`; this better satisfies the reusable-view requirement. Web changed from direct local-file opening to an HTTP-served smoke test and gained a preloaded Roboto font because the browser loader and the pinned Skia font manager required those conditions. SDL3 desktop Vulkan was initially excluded because the r4 macOS archive lacked Ganesh Vulkan symbols and no loader was present; Vulkan SDK 1.4.350.1 and Skia r5 removed those prerequisites, so the macOS path was implemented and validated. Blend2D, NanoVG, and Vello remain deliberately unavailable rather than becoming no-op implementations; provider-owned getter stubs and configuration tests now make that status explicit.
 
-The remaining work is not represented as delivered. Native slots currently support documented above-renderer ordering; below-renderer ordering is unavailable. Local supported-matrix, installation, and observable acceptance evidence is recorded, but the updated hosted CI has not yet run. The Editorial Report is consequently incremental rather than final.
+Native slots currently support documented above-renderer ordering; below-renderer ordering remains intentionally unavailable. This is a documented capability limit, not unfinished acceptance work. Local supported-matrix, installation, observable-device evidence, and the updated hosted CI matrix are all recorded above.
 
 ### What Changed
 
@@ -657,8 +666,7 @@ The final local desktop and Web pass on the same tree was successful: the
 headless integration test passed; SDL3 CPU, OpenGL, Metal, and Vulkan each
 completed their three-frame smoke; the Vulkan validation log was empty; and
 the Web demo was served to Safari over loopback HTTP for eight seconds. The
-remaining evidence gap is updated hosted CI execution, not Android visual
-acceptance or local configuration and compilation.
+subsequent hosted matrix closed the remaining CI evidence gap.
 
 ### Useful Evidence and Examples
 
@@ -668,9 +676,8 @@ For human-visible evidence, inspect `artifacts/final/android-cpu-emulator.png`, 
 
 ### Limitations, Remaining Work, and Open Questions
 
-The plan remains in progress only until the updated CI runs on its hosted
-runners and this report is finalized from that evidence. The current mobile
-overlay implementation does not support below-renderer ordering. GLFW and
+The current mobile overlay implementation does not support below-renderer
+ordering. GLFW and
 winit remain configuration-fail Board stubs; Blend2D, NanoVG, and Vello remain
 configuration-fail Doodle renderer selections backed only by unavailable getter
 stubs. Headless GPU contexts are outside the initial scope.
@@ -690,7 +697,7 @@ For WebAssembly maintainers: “Why a browser graphics demo needs an HTTP server
 
 ### Suggested Narrative
 
-The strongest narrative starts with the monolithic callback that handed a Canvas directly to application lifecycle code and explains why that made platform hosting and renderer ownership inseparable. It then introduces the three constraints: public headers must remain C-compatible and free of foreign types, every backend choice must be explicit, and one demo scene must remain portable. The implementation sequence is Board surface capabilities, Magic frame interop, then Doodle renderer binding; the Android and macOS Vulkan paths plus mobile overlay slots provide concrete examples. The unexpected Web loader, function-table, and font failures demonstrate why end-to-end validation mattered. Close with the recorded headless hash, configuration tests, the macOS validation-layer smoke result, generated Web artifact evidence, and the remaining mobile/full-matrix work.
+The strongest narrative starts with the monolithic callback that handed a Canvas directly to application lifecycle code and explains why that made platform hosting and renderer ownership inseparable. It then introduces the three constraints: public headers must remain C-compatible and free of foreign types, every backend choice must be explicit, and one demo scene must remain portable. The implementation sequence is Board surface capabilities, Magic frame interop, then Doodle renderer binding; the Android and macOS Vulkan paths plus mobile overlay slots provide concrete examples. The unexpected Web loader, function-table, and font failures demonstrate why end-to-end validation mattered. Close with the recorded headless hashes, configuration tests, the macOS validation-layer smoke result, generated Web artifact evidence, and the final hosted matrix.
 
 ### Claims Requiring Human Review
 
