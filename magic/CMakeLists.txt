@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
 cmake_minimum_required(VERSION 3.21)
 project(Magic VERSION 0.1.0 LANGUAGES C)
 include(GNUInstallDirs)
