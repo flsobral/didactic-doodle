@@ -12,14 +12,16 @@ jobs:
         shell: pwsh
         run: vcpkg install sdl3:x64-windows
       - name: Fetch pinned native dependencies
-        shell: pwsh
+        shell: bash
         run: |
-          bash scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7-r5" windows-x64
-          bash deps/totalcross-depot-tools/zlib-ng/fetch.sh --platform windows --arch x64
-          bash deps/totalcross-depot-tools/libpng/fetch.sh --platform windows --arch x64
+          ./scripts/fetch-totalcross-skia.sh "$PWD/.cache/skia-158dc9d7-r5" windows-x64
+          deps/totalcross-depot-tools/zlib-ng/fetch.sh --platform windows --arch x64
+          deps/totalcross-depot-tools/libpng/fetch.sh --platform windows --arch x64
+          test -f "$PWD/.cache/skia-158dc9d7-r5/headers/modules/skia/include/core/SkCanvas.h"
+          test -f "$PWD/.cache/skia-158dc9d7-r5/libskia-windows-x64.lib"
       - name: Configure and build
         shell: pwsh
-        run: cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_PREFIX_PATH="$PWD/deps/totalcross-depot-tools/libpng/local/windows/x64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/windows/x64" -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"; cmake --build build --config Release
+        run: cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$env:GITHUB_WORKSPACE/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_PREFIX_PATH="$env:GITHUB_WORKSPACE/deps/totalcross-depot-tools/libpng/local/windows/x64;$env:GITHUB_WORKSPACE/deps/totalcross-depot-tools/zlib-ng/local/windows/x64" -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"; cmake --build build --config Release
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
