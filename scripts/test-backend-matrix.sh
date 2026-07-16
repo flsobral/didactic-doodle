@@ -141,10 +141,10 @@ android() {
   deadline=$(( $(date +%s) + app_timeout ))
   while [[ $(date +%s) -lt $deadline ]]; do
     "$adb" shell uiautomator dump "$app_window" >/dev/null 2>&1 || true
-    if "$adb" exec-out cat "$app_window" 2>/dev/null | rg -q 'Native controls around a BoardView'; then break; fi
+    if "$adb" exec-out cat "$app_window" 2>/dev/null | grep -Fq 'Native controls around a BoardView'; then break; fi
     sleep 1
   done
-  "$adb" exec-out cat "$app_window" 2>/dev/null | rg -q 'Native controls around a BoardView' || fail "Android demo window did not become ready before validation"
+  "$adb" exec-out cat "$app_window" 2>/dev/null | grep -Fq 'Native controls around a BoardView' || fail "Android demo window did not become ready before validation"
   "$adb" exec-out screencap -p > "$root/artifacts/final/android-$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')-emulator.png"
 }
 
