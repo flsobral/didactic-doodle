@@ -175,6 +175,10 @@ Update this section whenever implementation inspection reveals a fact that chang
   Rationale: The depot owns versioned release fetchers and now supplies executable scripts. The adapter keeps downstream CMake callers stable while CI gets reproducible Skia headers and archives. Where Skia needs a compression dependency, use the depot's `zlib-ng` prefix; libpng is fetched from the same release family. `minizip-ng` remains preferred if an archive dependency is later needed, but it is not part of the current Skia link closure.
   Date/Author: 2026-07-16 / Codex.
 
+- Decision: Permit manual dispatch for every hosted validation workflow in addition to push and pull-request triggers.
+  Rationale: A manual run is a controlled recovery path when a hosted event is delayed or unavailable. It changes neither the build matrix nor its selection inputs, while allowing the exact same validation definitions to be rerun against a pinned `main` revision.
+  Date/Author: 2026-07-16 / Codex.
+
 - Decision: Make Web explicit as `BOARD_BACKEND=WEB` and `MAGIC_BACKEND=WEB`.
   Rationale: Public configuration must describe the actual implementation. The Magic Web provider may initially use WebGL 2 privately and later add WebGPU without changing the Board contract.
   Date/Author: 2026-07-14 / initial architecture plan.

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-macos
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: macos-latest
