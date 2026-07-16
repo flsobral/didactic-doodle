@@ -124,6 +124,9 @@ The new framework has exactly three public layers. **Board** owns application ho
 - Observation: the pinned Windows Skia archive uses the static MSVC runtime and references the Windows OpenGL loader.
   Evidence: hosted Windows run `29542085623` reached link time and reported `MT_StaticRelease` versus `MD_DynamicRelease` mismatches, followed by unresolved `wglGetCurrentContext` and `wglGetProcAddress`. The Windows CI configuration now selects `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`, and the private Skia external target propagates the system `opengl32` dependency to link consumers.
 
+- Observation: the pinned Linux Skia archive has an explicit system-library closure beyond PNG and zlib-ng.
+  Evidence: hosted Linux run `29542143441` linked the project and reported unresolved fontconfig, FreeType, GL, and EGL symbols. The published Linux build manifest confirms GL/EGL plus system PNG/Zlib. Doodle now links fontconfig, FreeType, OpenGL/EGL, threads, and the dynamic loader through the private Skia target; its installed package repeats those discovery rules for downstream consumers.
+
 Update this section whenever implementation inspection reveals a fact that changes file ownership, API shape, backend compatibility, or validation strategy. Include a concise command result or file reference as evidence.
 
 ## Decision Log
