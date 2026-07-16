@@ -34,7 +34,7 @@ The new framework has exactly three public layers. **Board** owns application ho
 - [x] (2026-07-15) Converted the shared demo and every supported platform entry point to the new public APIs around `examples/common/magic_doodle_board_scene.c`; removed the unbuilt duplicate legacy demos.
 - [x] (2026-07-15) Replaced old CMake selections and target names with `BOARD_BACKEND`, `MAGIC_BACKEND`, and `DOODLE_RENDERER`; standalone layer builds and the iOS convenience entry use only the new selections.
 - [x] (2026-07-15) Removed temporary compatibility adapters, all framework-owned `tc_`/`Tc...` names, and obsolete legacy source directories after verifying no build references remained.
-- [ ] Execute the updated CI on its hosted runners and obtain fresh Android OpenGL ES and Vulkan visual smoke evidence for the current reusable-view and overlay implementation. The 2026-07-16 local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, and a clean Android CPU AVD capture are complete; compilation alone does not close this item.
+- [ ] Execute the updated CI on its hosted runners and obtain clean Android OpenGL ES and Vulkan visual smoke evidence from a stable AVD. The 2026-07-16 local full build matrix, package-install chain, consumer, documentation update, all iOS simulator smokes, a clean Android CPU AVD capture, all desktop smoke scripts, and the Web HTTP/browser smoke are complete; compilation alone does not close this item.
 - [x] (2026-07-14) Added named smoke-test scripts for every currently supported matrix combination. `test-headless-cpu-skia.sh` and `test-android-opengl-skia.sh` were executed locally; the latter installed, launched, and captured the visible emulator scene.
 - [x] (2026-07-14) Migrated Board Web + Magic Web + Doodle Skia. The Emscripten 2.0.6 build produced the browser demo and Safari completed an eight-second smoke run over a local HTTP server; `scripts/test-web-skia.sh` records its generated artifacts.
 - [x] (2026-07-15) Converted `ios/CMakeLists.txt` into an iOS-only convenience entry point for the root Board + Magic + Doodle composition; it no longer compiles the legacy `Tc*` demo or graphics contexts directly.
@@ -497,6 +497,18 @@ legible on the emulator. The OpenGL ES APK also rebuilt, but AVD-wide ANRs
 prevented a trustworthy current visual capture. Android Vulkan remains build
 validated only for this revision.
 
+2026-07-16: The remaining local non-Android acceptance commands were rerun on
+the current tree. Headless CPU passed `mdb_headless_skia`; SDL3 CPU, OpenGL,
+and Metal each reported the requested runtime identity and exited after three
+frames; and SDL3 Vulkan reported `Magic: Vulkan 1.1.334` with an empty
+validation log. The Web smoke rebuilt the Emscripten demo, served it over
+loopback HTTP in Safari for eight seconds, and refreshed its artifact report.
+An Android cold boot did not solve the GPU visual gap: OpenGL ES reported its
+runtime identity and continued rendering in logcat, but System UI immediately
+ANRed; Vulkan rebuilt the current APK but the same AVD stalled before a
+trustworthy launch/capture. Those generated, contaminated screenshots were
+discarded rather than recorded as acceptance evidence.
+
 At the end of each milestone, append a short entry here describing what is now observable, what remains incomplete, and any design lesson that should guide later milestones. At final completion, compare the actual standalone build commands, supported backend matrix, demo behavior, and ABI checks against the purpose stated above.
 
 ## Editorial Report
@@ -589,6 +601,14 @@ embedded BoardView, CPU identity, native overlay, and surrounding native host
 controls with explicit contrasting labels. The runner subsequently returned to
 AVD-wide system ANRs; OpenGL ES and Vulkan remain build-validated rather than
 fresh visually accepted on this tree.
+
+The final local desktop and Web pass on the same tree was successful: the
+headless integration test passed; SDL3 CPU, OpenGL, Metal, and Vulkan each
+completed their three-frame smoke; the Vulkan validation log was empty; and
+the Web demo was served to Safari over loopback HTTP for eight seconds. The
+remaining local evidence gap is specifically clean Android OpenGL ES and
+Vulkan screenshots from a stable AVD, not a configuration or compilation
+failure in either path.
 
 ### Useful Evidence and Examples
 
