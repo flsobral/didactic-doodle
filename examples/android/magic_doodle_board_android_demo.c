@@ -6,6 +6,7 @@
 #include <magic/magic_context.h>
 #include "../common/magic_doodle_board_scene.h"
 #include <android/native_window_jni.h>
+#include <android/log.h>
 #include <jni.h>
 #include <stdlib.h>
 
@@ -52,7 +53,7 @@ static void android_demo_destroy(AndroidDemo *demo) {
 JNIEXPORT jlong JNICALL Java_org_magicdoodle_board_BoardView_nativeCreate(JNIEnv *environment, jclass type, jobject host_view, jobject surface, jint width, jint height) {
     AndroidDemo *demo = (AndroidDemo *)calloc(1, sizeof(*demo));
     ANativeWindow *window = NULL;
-    BoardBackendConfig backend_config = {sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_ANDROID, "Magic Doodle Board", (uint32_t)width, (uint32_t)height, 1.0f, 0, BOARD_HOST_MODE_EMBEDDED};
+    BoardBackendConfig backend_config = {sizeof(BoardBackendConfig), BOARD_ABI_VERSION, BOARD_BACKEND_ANDROID, "Magic Doodle Board", (uint32_t)width, (uint32_t)height, 1.0f, 0, BOARD_HOST_MODE_HYBRID_OVERLAY};
 #if MDB_ANDROID_OPENGL
     MagicConfig magic_config = {sizeof(MagicConfig), MAGIC_ABI_VERSION, MAGIC_BACKEND_OPENGL, 1};
 #elif MDB_ANDROID_VULKAN
@@ -103,6 +104,7 @@ JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeAttachOverlay(
     AndroidDemo *demo = (AndroidDemo *)(uintptr_t)handle;
     jobject reference;
     BoardNativeViewSlotConfig config;
+    BoardResult result;
     (void)type;
     if (!demo || !overlay) return;
     board_native_view_slot_destroy(demo->overlay_slot);
@@ -110,7 +112,13 @@ JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeAttachOverlay(
     reference = (*environment)->NewGlobalRef(environment, overlay);
     if (!reference) return;
     config = (BoardNativeViewSlotConfig){sizeof(BoardNativeViewSlotConfig), BOARD_ABI_VERSION, reference, {x, y, width, height}, {0, 0, width + x, height + y}, 1, 0, BOARD_NATIVE_VIEW_ABOVE_RENDERER};
-    if (board_native_view_slot_create(demo->backend, &config, &demo->overlay_slot) != BOARD_OK) (*environment)->DeleteGlobalRef(environment, reference);
+    result = board_native_view_slot_create(demo->backend, &config, &demo->overlay_slot);
+    if (result != BOARD_OK) {
+        __android_log_print(ANDROID_LOG_ERROR, "MagicDoodleBoard", "native overlay slot creation failed: %d", result);
+        (*environment)->DeleteGlobalRef(environment, reference);
+    } else {
+        __android_log_print(ANDROID_LOG_INFO, "MagicDoodleBoard", "native overlay slot attached");
+    }
 }
 
 JNIEXPORT void JNICALL Java_org_magicdoodle_board_BoardView_nativeDestroy(JNIEnv *environment, jclass type, jlong handle) {

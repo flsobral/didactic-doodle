@@ -51,7 +51,7 @@ desktop() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND="$backend" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_EXAMPLES=ON -DMDB_BUILD_TESTS=ON
   cmake --build "$build" --parallel
-  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then return; fi
   if [[ $backend == VULKAN ]]; then
     validation_log="$build/vulkan-validation.log"
     runtime_log="$build/runtime-identity.log"
@@ -70,7 +70,7 @@ headless() {
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   cmake -S "$root" -B "$build" -DBOARD_BACKEND=HEADLESS -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DMDB_BUILD_TESTS=ON -DMDB_BUILD_EXAMPLES=OFF
   cmake --build "$build" --parallel
-  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then return; fi
   ctest --test-dir "$build" --output-on-failure -R '^mdb_headless_skia$'
 }
 
@@ -89,7 +89,7 @@ ios() {
   if [[ ${MDB_BUILD_ONLY:-0} != 1 ]]; then xcrun simctl bootstatus booted -b; fi
   cmake -S "$root" -B "$build" -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 -DBOARD_BACKEND=IOS_NATIVE -DMAGIC_BACKEND="$backend" -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$skia_root" -DDOODLE_IOS_PNG_ROOT="$png_root" -DDOODLE_IOS_ZLIB_ROOT="$zlib_root" -DMDB_BUILD_TESTS=OFF -DMDB_BUILD_EXAMPLES=ON
   cmake --build "$build" --parallel
-  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then return; fi
   xcrun simctl install booted "$build/magic_doodle_board_ios_demo.app"
   xcrun simctl launch booted com.amalgam.magicdoodleboard.demo
   sleep "$mobile_delay"
@@ -101,10 +101,11 @@ android() {
   local android_home=${ANDROID_HOME:-"$HOME/Library/Android/sdk"}
   local adb=${ADB:-"$android_home/platform-tools/adb"}
   local boot_timeout=${MDB_ANDROID_BOOT_TIMEOUT_SECONDS:-60}
+  local app_timeout=${MDB_ANDROID_APP_TIMEOUT_SECONDS:-30}
   local skia_root=${MDB_ANDROID_SKIA_ROOT:-"$root/.cache/skia-android-r4"}
   local png_root=${MDB_ANDROID_PNG_ROOT:-"$root/.cache/libpng-android/libpng/android/arm64-v8a"}
   local zlib_root=${MDB_ANDROID_ZLIB_ROOT:-"$root/.cache/zlib-ng-android/zlib-ng/android/arm64-v8a"}
-  local backend_name artifact_directory artifact_name
+  local backend_name artifact_directory artifact_name app_window
   backend_name=$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')
   require_file "$skia_root/headers/modules/skia/include/core/SkCanvas.h"
   require_directory "$png_root"
@@ -115,9 +116,10 @@ android() {
   mkdir -p "$artifact_directory"
   cp "$root/android/app/build/outputs/apk/debug/app-debug.apk" "$artifact_directory/$artifact_name"
   printf 'Android %s APK: %s\n' "$backend" "$artifact_directory/$artifact_name"
-  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then return; fi
   require_file "$adb"
   [[ $boot_timeout =~ ^[0-9]+$ ]] && ((boot_timeout > 0)) || fail "MDB_ANDROID_BOOT_TIMEOUT_SECONDS must be a positive number of seconds"
+  [[ $app_timeout =~ ^[0-9]+$ ]] && ((app_timeout > 0)) || fail "MDB_ANDROID_APP_TIMEOUT_SECONDS must be a positive number of seconds"
   local deadline=$(( $(date +%s) + boot_timeout ))
   while [[ $(date +%s) -lt $deadline ]]; do
     if [[ $("$adb" get-state 2>/dev/null || true) == device ]] && [[ $("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]]; then break; fi
@@ -126,9 +128,23 @@ android() {
   [[ $("$adb" get-state 2>/dev/null || true) == device ]] && [[ $("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') == 1 ]] || fail "no fully booted Android emulator was detected within ${boot_timeout}s; start an AVD or set ADB"
   "$adb" install -r "$root/android/app/build/outputs/apk/debug/app-debug.apk"
   "$adb" shell am force-stop com.amalgam.magicdoodleboard.demo
+  app_window=/sdcard/magic-doodle-board-window.xml
+  "$adb" shell rm -f "$app_window"
   "$adb" shell am start -n com.amalgam.magicdoodleboard.demo/.MagicDoodleBoardActivity
   sleep "$mobile_delay"
+  deadline=$(( $(date +%s) + app_timeout ))
+  while [[ $(date +%s) -lt $deadline ]]; do
+    if "$adb" shell pidof com.amalgam.magicdoodleboard.demo >/dev/null; then break; fi
+    sleep 1
+  done
   "$adb" shell pidof com.amalgam.magicdoodleboard.demo >/dev/null || fail "Android demo exited before validation"
+  deadline=$(( $(date +%s) + app_timeout ))
+  while [[ $(date +%s) -lt $deadline ]]; do
+    "$adb" shell uiautomator dump "$app_window" >/dev/null 2>&1 || true
+    if "$adb" exec-out cat "$app_window" 2>/dev/null | rg -q 'Native controls around a BoardView'; then break; fi
+    sleep 1
+  done
+  "$adb" exec-out cat "$app_window" 2>/dev/null | rg -q 'Native controls around a BoardView' || fail "Android demo window did not become ready before validation"
   "$adb" exec-out screencap -p > "$root/artifacts/final/android-$(printf '%s' "$backend" | tr '[:upper:]' '[:lower:]')-emulator.png"
 }
 
@@ -151,7 +167,7 @@ web() {
   data="$build/examples/web/magic_doodle_board_web_demo.data"
   font="$skia_root/Roboto-Regular.ttf"
   require_file "$html"; require_file "$js"; require_file "$wasm"; require_file "$data"; require_file "$font"
-  [[ ${MDB_BUILD_ONLY:-0} == 1 ]] && return
+  if [[ ${MDB_BUILD_ONLY:-0} == 1 ]]; then return; fi
   command -v python3 >/dev/null || fail "python3 is required to serve the Web demo"
   command -v curl >/dev/null || fail "curl is required to verify the local Web server"
   if [[ -n $port ]]; then

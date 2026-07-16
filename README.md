@@ -119,7 +119,8 @@ synchronization, and presentation, while Doodle Skia consumes the versioned
 `MagicVulkanInterop` frame data.
 
 The Android app has `minSdk 24`. Its convenience Activity hosts an embeddable
-`BoardView`; Board keeps the private `SurfaceView`/`ANativeWindow`, input
+`BoardView`; Board keeps the private `TextureView`-backed
+`Surface`/`ANativeWindow`, input
 conversion, and `AChoreographer` frame loop private. Magic CPU presents through
 the versioned Board CPU surface interface, while Magic OpenGL ES uses the Board
 EGL capability.
@@ -642,11 +643,12 @@ the platform UI thread. The iOS host currently supports controls above the
 renderer; requesting below-renderer order or requesting a slot from an
 unimplemented host returns `BOARD_ERROR_UNAVAILABLE`.
 
-Android provides `org.magicdoodle.board.BoardView` as an embeddable
-`SurfaceView`. The demo Activity places it between ordinary Android controls;
-its native application handle remains private to the JNI bridge. In hybrid
-mode it also hosts an above-renderer native overlay through the same opaque
-`BoardNativeViewSlot` API as iOS; below-renderer order remains unavailable.
+Android provides `org.magicdoodle.board.BoardView` as an embeddable,
+`TextureView`-backed host. The demo Activity places it between ordinary Android
+controls and supplies a sibling native-overlay container, so an above-renderer
+slot composes above the private rendering surface. Its native application
+handle remains private to the JNI bridge. The same opaque `BoardNativeViewSlot`
+API is used as on iOS; below-renderer order remains unavailable.
 
 ## Target repository structure
 
