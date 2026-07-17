@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-ios
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
 jobs:
   layout:
     runs-on: macos-latest

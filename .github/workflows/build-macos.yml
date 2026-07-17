@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-macos
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
 jobs:
   build:
     runs-on: macos-latest
@@ -37,6 +43,19 @@ jobs:
           cmake -S tests/integration/consumer -B build/consumer -DCMAKE_PREFIX_PATH="$PWD/build/install;$PWD/deps/totalcross-depot-tools/libpng/local/macos/arm64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/macos/arm64" -DDoodle_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5"
           cmake --build build/consumer --parallel
           build/consumer/mdb_consumer
+      - name: Package release artifact
+        run: |
+          version=$(awk '$1 == "project(MagicDoodleBoard" && $2 == "VERSION" { print $3; exit }' CMakeLists.txt)
+          test -n "$version"
+          cmake --install build --prefix "$PWD/stage"
+          mkdir release-assets
+          tar -C stage -czf "release-assets/magic-doodle-board-v${version}-macos-arm64.tar.gz" .
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: release-assets/*
+          if-no-files-found: error
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

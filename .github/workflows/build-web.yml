@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-web
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,6 +28,18 @@ jobs:
           test -f build-web/examples/web/magic_doodle_board_web_demo.js
           test -f build-web/examples/web/magic_doodle_board_web_demo.wasm
           test -f build-web/examples/web/magic_doodle_board_web_demo.data
+      - name: Package release artifact
+        run: |
+          version=$(awk '$1 == "project(MagicDoodleBoard" && $2 == "VERSION" { print $3; exit }' CMakeLists.txt)
+          test -n "$version"
+          mkdir release-assets
+          tar -C build-web/examples/web -czf "release-assets/magic-doodle-board-v${version}-web.tar.gz" .
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-web
+          path: release-assets/*
+          if-no-files-found: error
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

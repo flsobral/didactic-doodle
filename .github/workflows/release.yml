@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Amalgam Solucoes em TI Ltda.
+# SPDX-License-Identifier: LGPL-2.1-only
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.project-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: project-version
+        name: Verify the release tag matches the project version
+        shell: bash
+        run: |
+          version=$(awk '$1 == "project(MagicDoodleBoard" && $2 == "VERSION" { print $3; exit }' CMakeLists.txt)
+          test -n "$version"
+          test "${GITHUB_REF_TYPE}" = tag
+          test "${GITHUB_REF_NAME}" = "v${version}"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  build-android:
+    needs: validate-version
+    uses: ./.github/workflows/build-android.yml
+
+  build-ios:
+    needs: validate-version
+    uses: ./.github/workflows/build-ios.yml
+
+  build-linux:
+    needs: validate-version
+    uses: ./.github/workflows/build-linux.yml
+
+  build-macos:
+    needs: validate-version
+    uses: ./.github/workflows/build-macos.yml
+
+  build-web:
+    needs: validate-version
+    uses: ./.github/workflows/build-web.yml
+
+  build-windows:
+    needs: validate-version
+    uses: ./.github/workflows/build-windows.yml
+
+  publish:
+    needs:
+      - validate-version
+      - build-android
+      - build-ios
+      - build-linux
+      - build-macos
+      - build-web
+      - build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v${{ needs.validate-version.outputs.version }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/*)
+          ((${#assets[@]} > 0))
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --title "Magic Doodle Board $RELEASE_TAG" --generate-notes
+          fi

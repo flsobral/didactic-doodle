@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-windows
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
 jobs:
   build:
     runs-on: windows-latest
@@ -20,6 +26,20 @@ jobs:
       - name: Configure and build
         shell: pwsh
         run: cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$env:GITHUB_WORKSPACE/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"; cmake --build build --config Release
+      - name: Package release artifact
+        shell: pwsh
+        run: |
+          $version = ((Get-Content CMakeLists.txt | Where-Object { $_ -match '^project\(MagicDoodleBoard VERSION ' } | Select-Object -First 1) -split '\s+')[2]
+          if (-not $version) { throw 'Could not determine the project version.' }
+          cmake --install build --config Release --prefix "$env:GITHUB_WORKSPACE/stage"
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Compress-Archive -Path stage/* -DestinationPath "release-assets/magic-doodle-board-v$version-windows-x86_64.zip"
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: release-assets/*
+          if-no-files-found: error
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

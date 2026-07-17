@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-only
 
 name: build-linux
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,6 +34,19 @@ jobs:
           cmake -S . -B build -DBOARD_BACKEND=SDL3 -DMAGIC_BACKEND=CPU -DDOODLE_RENDERER=SKIA -DDOODLE_SKIA_ROOT="$PWD/.cache/skia-158dc9d7-r5" -DMDB_BUILD_EXAMPLES=ON -DCMAKE_PREFIX_PATH="$PWD/.cache/sdl3;$PWD/deps/totalcross-depot-tools/libpng/local/linux/x86_64;$PWD/deps/totalcross-depot-tools/zlib-ng/local/linux/x86_64"
           cmake --build build --config Release
           ctest --test-dir build --output-on-failure
+      - name: Package release artifact
+        run: |
+          version=$(awk '$1 == "project(MagicDoodleBoard" && $2 == "VERSION" { print $3; exit }' CMakeLists.txt)
+          test -n "$version"
+          cmake --install build --prefix "$PWD/stage"
+          mkdir release-assets
+          tar -C stage -czf "release-assets/magic-doodle-board-v${version}-linux-x86_64.tar.gz" .
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: release-assets/*
+          if-no-files-found: error
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
